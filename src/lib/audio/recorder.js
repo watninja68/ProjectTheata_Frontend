@@ -47,7 +47,7 @@ export class AudioRecorder extends EventTarget {
 
             // Load and initialize audio processing worklet
 	
-await this.audioContext.audioWorklet.addModule('/js/audio/worklets/audio-processor.js');
+await this.audioContext.audioWorklet.addModule('/audio-processor.js');
             this.processor = new AudioWorkletNode(this.audioContext, 'audio-recorder-worklet');
             
             // Handle processed audio chunks from worklet
