@@ -1,0 +1,149 @@
+import { useState, useEffect, useCallback } from 'react';
+
+// Define default settings values (apiKey default is now less relevant)
+const defaults = {
+    // apiKey: '', // No longer strictly needed for URL generation
+    deepgramApiKey: '',
+    voiceName: 'Aoede',
+    sampleRate: 27000,
+    systemInstructions: 'You are a helpful assistant',
+    temperature: 1.8,
+    top_p: 0.95,
+    top_k: 65,
+    fps: 1,
+    resizeWidth: 640,
+    quality: 0.3,
+    harassmentThreshold: 3,
+    dangerousContentThreshold: 3,
+    sexuallyExplicitThreshold: 3,
+    civicIntegrityThreshold: 3,
+    // Add other settings keys as needed
+};
+
+// Threshold mapping for safety settings
+const thresholds = {
+    0: "BLOCK_NONE",
+    1: "BLOCK_ONLY_HIGH",
+    2: "BLOCK_MEDIUM_AND_ABOVE",
+    3: "BLOCK_LOW_AND_ABOVE"
+};
+
+// !!! --- IMPORTANT: Hardcode your API Key Here --- !!!
+// Replace "YOUR_API_KEY_HERE" with your actual Gemini API key.
+// Remember: This is NOT secure for production or shared code.
+const HARDCODED_API_KEY = "AIzaSyCDvSi6OVlgdODnPmHmIBcc5UylRH0CvB8";
+// !!! ---------------------------------------------- !!!
+
+
+export const useSettings = () => {
+    // Keep settings state, even if apiKey isn't used for URL anymore,
+    // it might be useful for display or other purposes.
+    const [settings, setSettings] = useState(defaults);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // Load settings from localStorage on initial mount
+    useEffect(() => {
+        const loadedSettings = {};
+        Object.keys(defaults).forEach(key => {
+            const storedValue = localStorage.getItem(key);
+            if (storedValue !== null) {
+                if (key === 'deepgramApiKey' || key === 'voiceName' || key === 'systemInstructions') { // Removed apiKey check here
+                    loadedSettings[key] = storedValue;
+                } else if (key === 'temperature' || key === 'top_p' || key === 'quality') {
+                    loadedSettings[key] = parseFloat(storedValue);
+                } else {
+                    loadedSettings[key] = parseInt(storedValue, 10);
+                }
+            } else {
+                 loadedSettings[key] = defaults[key];
+            }
+        });
+         setSettings(loadedSettings);
+
+        // We don't need to force open settings if the key is hardcoded
+        // if (!loadedSettings.apiKey) {
+        //     setIsSettingsOpen(true);
+        // }
+
+        // Add a console warning if the key isn't set
+        if (!HARDCODED_API_KEY || HARDCODED_API_KEY === "YOUR_API_KEY_HERE") {
+            console.warn("WARNING: Gemini API Key is not hardcoded in src/hooks/useSettings.js. Connection will fail.");
+            // Optionally open settings here if the hardcoded key is missing/default
+            // setIsSettingsOpen(true);
+        }
+
+    }, []);
+
+    // Function to save settings to localStorage and state
+    const saveSettings = useCallback((newSettings) => {
+        Object.entries(newSettings).forEach(([key, value]) => {
+            // Don't save the hardcoded apiKey to localStorage unless you have a reason to
+            // if (key !== 'apiKey') {
+                 localStorage.setItem(key, value);
+            // }
+        });
+        setSettings(newSettings);
+         setIsSettingsOpen(false);
+        // Reload might still be needed for other settings to take effect in agent config
+        window.location.reload();
+    }, []);
+
+    const openSettings = useCallback(() => setIsSettingsOpen(true), []);
+    const closeSettings = useCallback(() => setIsSettingsOpen(false), []);
+
+    // Function to generate the Gemini config object based on current settings
+    const getGeminiConfig = useCallback((toolDeclarations = []) => {
+        // Config generation remains the same, using values from the 'settings' state
+        return {
+            model: 'models/gemini-2.0-flash-exp',
+            generationConfig: { /* ... uses settings.temperature, etc ... */
+                temperature: settings.temperature,
+                top_p: settings.top_p,
+                top_k: settings.top_k,
+                responseModalities: "audio",
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: {
+                            voiceName: settings.voiceName
+                        }
+                    }
+                }
+            },
+            systemInstruction: { /* ... uses settings.systemInstructions ... */
+                parts: [{ text: settings.systemInstructions }]
+            },
+            tools: { functionDeclarations: toolDeclarations },
+            safetySettings: [ /* ... uses settings thresholds ... */
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: thresholds[settings.harassmentThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: thresholds[settings.dangerousContentThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: thresholds[settings.sexuallyExplicitThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: thresholds[settings.harassmentThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" }, // Check original logic if hate != harassment
+                { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: thresholds[settings.civicIntegrityThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" }
+            ]
+        };
+    }, [settings]); // Still depends on settings state for *other* config values
+
+    // Function to get WebSocket URL - NOW USES HARDCODED KEY
+    const getWebsocketUrl = useCallback(() => {
+        // Use the hardcoded key defined at the top of the file
+        if (!HARDCODED_API_KEY || HARDCODED_API_KEY === "YOUR_API_KEY_HERE") {
+            console.error("API Key is not hardcoded correctly in useSettings.js!");
+            alert("ERROR: API Key is not set in the code. Please edit src/hooks/useSettings.js");
+            return null; // Prevent connection attempt
+        }
+        // Construct URL directly with the hardcoded key
+        return `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${HARDCODED_API_KEY}`;
+    }, []); // No dependencies needed for this version
+
+
+    return {
+        settings, // Provide settings state for other uses (like the config)
+        isSettingsOpen,
+        saveSettings,
+        openSettings,
+        closeSettings,
+        getGeminiConfig, // Still useful for agent configuration
+        getWebsocketUrl, // Now returns the hardcoded URL
+        thresholds
+    };
+};
