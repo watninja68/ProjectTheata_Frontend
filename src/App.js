@@ -3,12 +3,15 @@ import './css/styles.css'; // Import global styles
 
 // Only import components that you have actually implemented (assuming AudioVisualizerComponent exists)
 import AudioVisualizerComponent from './components/AudioVisualizerComponent';
+// Import SettingsDialog and Collapsible helper
+import SettingsDialog from './components/SettingsDialog';
+import Collapsible from './components/Collapsible'; // Assuming Collapsible is inside SettingsDialog.js or separate
 
 // Keep hook imports
 import { useSettings } from './hooks/useSettings';
 import { useGeminiAgent } from './hooks/useGeminiAgent';
 
-// Removed imports for: Header, Footer, ChatHistory, Sidebar, SettingsDialog
+// Removed imports for: Header, Footer, ChatHistory, Sidebar, MediaControls, Preview (handled differently now)
 
 function App() {
     // Settings hook logic remains the same
@@ -28,8 +31,8 @@ function App() {
         agent,
         isConnected,
         isInitializing,
-        isMicActive,
-        isMicSuspended,
+        isMicActive, // Reflects agent.audioRecorder.isRecording
+        isMicSuspended, // Reflects agent.audioRecorder.isSuspended
         isCameraActive,
         isScreenShareActive,
         error: agentError,
@@ -47,7 +50,11 @@ function App() {
         onInterruptedRef,
         onTurnCompleteRef,
         onScreenShareStoppedRef,
-        // onUserTranscriptionRef,
+        onUserTranscriptionRef, // Add if using user transcription display
+        onMicStateChangedRef,    // Add ref for mic state changes
+        onCameraStartedRef,    // Add ref for camera start
+        onCameraStoppedRef,    // Add ref for camera stop
+        onScreenShareStartedRef, // Add ref for screen share start
     } = useGeminiAgent(settings, getGeminiConfig, getWebsocketUrl);
 
     // State management for messages and transcripts remains
@@ -55,36 +62,51 @@ function App() {
     const [currentTranscript, setCurrentTranscript] = useState('');
     const [lastUserMessageType, setLastUserMessageType] = useState(null);
     const streamingMessageRef = useRef(null);
+    const chatHistoryRef = useRef(null); // Ref for scrolling chat history
 
-    // Add new state for camera error
+    // Add new state for camera/screen errors and specific mic state
     const [cameraError, setCameraError] = useState(null);
+    const [screenError, setScreenError] = useState(null);
+    // Use derived state from hook for mic status display
+    const displayMicActive = isMicActive && !isMicSuspended;
+
 
     // --- Chat Management Logic (remains the same) ---
-    const addMessage = useCallback((sender, text, isStreaming = false) => {
+    const addMessage = useCallback((sender, text, isStreaming = false, type = 'text') => {
+        // type can be 'text', 'audio_input', 'image_input' etc. for different styling
         setMessages(prev => {
-            const newMessage = { id: Date.now() + Math.random(), sender, text, isStreaming };
+            const newMessage = { id: Date.now() + Math.random(), sender, text, isStreaming, type };
             if (sender === 'model' && isStreaming) {
                 streamingMessageRef.current = newMessage.id;
             }
-            return [...prev, newMessage];
+            // Filter out placeholder messages before adding new
+             const filteredPrev = prev.filter(msg => !(msg.type === 'audio_input_placeholder' && sender === 'model'));
+            return [...filteredPrev, newMessage];
         });
         if (sender === 'model' && isStreaming) {
             setCurrentTranscript(text);
         }
-        setLastUserMessageType(sender === 'user' ? 'text' : null);
+        setLastUserMessageType(sender === 'user' ? type : null); // Store type if user message
     }, []);
 
-    const addUserAudioMessage = useCallback(() => {
-        addMessage('user', 'User sent audio');
+    const addUserAudioPlaceholder = useCallback(() => {
+         // Check if the last message is already the placeholder
+        setMessages(prev => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg?.type === 'audio_input_placeholder') {
+                return prev; // Don't add duplicates
+            }
+            return [...prev, { id: 'audio_placeholder_' + Date.now(), sender: 'user', text: '🎤...', type: 'audio_input_placeholder', isStreaming: false }];
+        });
        setLastUserMessageType('audio');
-    }, [addMessage]);
+    }, []);
 
     const updateStreamingMessage = useCallback((transcriptChunk) => {
-        const newFullTranscript = currentTranscript + transcriptChunk;
-        setCurrentTranscript(newFullTranscript);
+        const newFullTranscript = (currentTranscript + transcriptChunk).trim(); // Trim leading/trailing spaces
+        setCurrentTranscript(newFullTranscript); // Update state for next chunk
         setMessages(prev => prev.map(msg =>
             msg.id === streamingMessageRef.current
-                ? { ...msg, text: newFullTranscript.trim(), isStreaming: true }
+                ? { ...msg, text: newFullTranscript, isStreaming: true }
                 : msg
         ));
     }, [currentTranscript]);
@@ -96,207 +118,364 @@ function App() {
                 : msg
         ));
         streamingMessageRef.current = null;
-        setCurrentTranscript('');
-        setLastUserMessageType(null);
+        setCurrentTranscript(''); // Reset transcript state
+        setLastUserMessageType(null); // Reset last message type
     }, []);
 
+     // Auto-scroll chat history
+     useEffect(() => {
+        if (chatHistoryRef.current) {
+            chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+        }
+     }, [messages]); // Scroll whenever messages update
 
-    // --- Agent Event Callbacks (remains the same) ---
+
+    // --- Agent Event Callbacks (Updated) ---
     useEffect(() => {
+        // --- Transcription & Model Responses ---
         onTranscriptionRef.current = (transcript) => {
+            // console.debug("App: onTranscription", transcript)
             if (!streamingMessageRef.current) {
-                if (!lastUserMessageType) {
-                    addUserAudioMessage();
+                // If mic is active, assume this is response to user speech
+                // Add placeholder only if model starts speaking *without* prior user text/audio indication
+                 if (!lastUserMessageType && displayMicActive) {
+                    // Replace placeholder with actual message
+                    addMessage('model', transcript, true);
+                 } else if (!lastUserMessageType && !displayMicActive) {
+                     // Model started speaking without obvious user input (e.g., initial prompt)
+                     addMessage('model', transcript, true);
+                 } else {
+                      // Model continues after user text/audio
+                      addMessage('model', transcript, true);
                  }
-                addMessage('model', transcript, true);
+
             } else {
                 updateStreamingMessage(' ' + transcript);
             }
         };
         onTextSentRef.current = (text) => {
-            finalizeStreamingMessage();
-            addMessage('user', text);
+            // console.debug("App: onTextSent", text)
+            finalizeStreamingMessage(); // Finalize any previous model streaming
+            addMessage('user', text, false, 'text'); // Add user text message
         };
         onInterruptedRef.current = () => {
+            // console.debug("App: onInterrupted")
             finalizeStreamingMessage();
-             if (!lastUserMessageType) {
-                 addUserAudioMessage();
+             // User interrupted, maybe show placeholder?
+             if (displayMicActive) { // Only show if mic is actually on
+                addUserAudioPlaceholder();
              }
         };
         onTurnCompleteRef.current = () => {
+             // console.debug("App: onTurnComplete")
             finalizeStreamingMessage();
         };
-        onScreenShareStoppedRef.current = () => {
-             console.log("Screen share stopped (event received in App)");
-        };
-    }, [addMessage, updateStreamingMessage, finalizeStreamingMessage, addUserAudioMessage, lastUserMessageType]);
 
-    // --- UI Event Handlers (mostly the same, camera handler updated) ---
+        // --- Media State Changes ---
+         onScreenShareStoppedRef.current = () => {
+             console.log("Screen share stopped (event received in App)");
+             // UI state is handled by the hook, maybe clear errors?
+             setScreenError(null);
+         };
+         onMicStateChangedRef.current = (state) => {
+             // console.debug("App: Mic state changed", state);
+             // UI state is handled by the hook (isMicActive, isMicSuspended)
+             // Show placeholder only when mic becomes active and un-suspended
+             if (state.active && !state.suspended) {
+                 // Check if the last message was from the user already
+                 setMessages(prev => {
+                     const lastMsg = prev[prev.length - 1];
+                     if (lastMsg?.sender !== 'user') {
+                         addUserAudioPlaceholder();
+                     }
+                     return prev;
+                 });
+             } else {
+                 // Mic suspended or stopped, remove placeholder if present
+                 setMessages(prev => prev.filter(msg => msg.type !== 'audio_input_placeholder'));
+             }
+         };
+         // Add handlers for camera/screen start/stop if needed for UI feedback
+         onCameraStartedRef.current = () => console.log("App: Camera Started");
+         onCameraStoppedRef.current = () => console.log("App: Camera Stopped");
+         onScreenShareStartedRef.current = () => console.log("App: Screen Share Started");
+
+         // Optional: Handle user transcription display
+         onUserTranscriptionRef.current = (transcript) => {
+             console.log("User transcript:", transcript);
+             // Example: Update a specific "user speaking" message or display elsewhere
+             setMessages(prev => {
+                 const lastMsg = prev[prev.length - 1];
+                 if (lastMsg?.type === 'audio_input_placeholder') {
+                     // Update the placeholder text
+                     return prev.map(msg => msg.id === lastMsg.id ? { ...msg, text: `🎤... ${transcript}` } : msg);
+                 } else if (lastMsg?.type === 'user_audio') {
+                     // Append to existing audio message (if you create one)
+                 }
+                 // Or just log it for now
+                 return prev;
+             });
+         };
+
+
+    }, [addMessage, updateStreamingMessage, finalizeStreamingMessage, addUserAudioPlaceholder, lastUserMessageType, displayMicActive]); // Add displayMicActive dependency
+
+
+    // --- UI Event Handlers (Updated for Errors) ---
     const handleConnect = () => {
-        if (!isConnected) {
-            connectAgent();
+        if (!isConnected && !isInitializing) { // Prevent multiple clicks
+            // Clear previous errors on connect attempt
+            setCameraError(null);
+            setScreenError(null);
+            connectAgent().catch(err => {
+                // Catch connection errors shown to user
+                console.error("App: Connection failed", err);
+                // Error state is set within the hook, display agentError
+            });
         }
     };
     const handleDisconnect = () => {
         if (isConnected) {
             disconnectAgent();
-            setMessages([]);
+            setMessages([]); // Clear messages on disconnect
+            setCurrentTranscript('');
+            setLastUserMessageType(null);
+            streamingMessageRef.current = null;
         }
     };
     const handleSendMessage = (text) => {
-        if (text.trim() && agent) {
+        if (text.trim() && agent && isConnected) {
+             finalizeStreamingMessage(); // Finalize any model speech first
             sendText(text.trim());
+            // User message added via onTextSentRef callback
         }
     };
     const handleToggleMic = () => {
-        toggleMic();
+        if (agent && isConnected) {
+            toggleMic().catch(err => {
+                 console.error("App: Toggle mic error", err);
+                 alert(`Mic error: ${err.message}`);
+            });
+            // State change (placeholder etc.) handled by onMicStateChangedRef callback
+        }
     };
 
-    // Modify the handleToggleCamera function to include error handling
     const handleToggleCamera = async () => {
+        if (!agent || !isConnected) return;
+        setCameraError(null); // Clear previous camera errors
         try {
-            setCameraError(null); // Clear any previous errors
             if (isCameraActive) {
-                stopCamera();
+                await stopCamera();
+                 // Hide preview container manually if needed, CameraManager might do it
+                 const preview = document.getElementById('cameraPreview');
+                 if (preview) preview.style.display = 'none';
             } else {
                 await startCamera();
+                // Show preview container, CameraManager might do it
+                 const preview = document.getElementById('cameraPreview');
+                 if (preview) preview.style.display = 'block';
             }
         } catch (error) {
-            console.error("Camera toggle error:", error);
+            console.error("App: Camera toggle error:", error);
             setCameraError(error.message);
-            // Provide user feedback about the camera error
-            alert(`Camera error: ${error.message}. Please check your camera permissions and try again.`);
+            alert(`Camera error: ${error.message}. Please check permissions and ensure the camera is not in use by another application.`);
+            // Ensure UI state reflects error (hook should set isCameraActive to false)
+             const preview = document.getElementById('cameraPreview');
+             if (preview) preview.style.display = 'none';
         }
     };
 
-    const cameraStream = agent?.cameraManager?.stream || null; // Keep for potential direct use later
-    const screenStream = agent?.screenManager?.stream || null; // Keep for potential direct use later
+    const handleToggleScreenShare = async () => {
+         if (!agent || !isConnected) return;
+         setScreenError(null); // Clear previous screen errors
+         try {
+            if (isScreenShareActive) {
+                await stopScreenShare();
+                 // Hide preview container manually if needed, ScreenManager might do it
+                 const preview = document.getElementById('screenPreview');
+                 if (preview) preview.style.display = 'none';
+            } else {
+                await startScreenShare();
+                 // Show preview container, ScreenManager might do it
+                 const preview = document.getElementById('screenPreview');
+                 if (preview) preview.style.display = 'block';
+            }
+         } catch (error) {
+             console.error("App: Screen share toggle error:", error);
+             setScreenError(error.message);
+             alert(`Screen share error: ${error.message}. Please ensure you grant permission when prompted.`);
+             // Ensure UI state reflects error (hook should set isScreenShareActive to false)
+              const preview = document.getElementById('screenPreview');
+              if (preview) preview.style.display = 'none';
+         }
+    };
 
+    // Switch Camera (Example, needs CameraManager support)
     const handleSwitchCamera = useCallback(async () => {
-        if (agent?.cameraManager) {
-             try { await agent.cameraManager.switchCamera(); }
-             catch (e) { console.error("Error switching camera:", e); }
+        if (agent?.cameraManager && isCameraActive) {
+             try {
+                 setCameraError(null);
+                 await agent.cameraManager.switchCamera();
+                 console.log("App: Switched camera");
+            }
+             catch (e) {
+                 console.error("App: Error switching camera:", e);
+                 setCameraError(`Switch failed: ${e.message}`);
+                 alert(`Failed to switch camera: ${e.message}`);
+            }
         }
-    }, [agent]);
+    }, [agent, isCameraActive]);
 
-    const handleToggleScreenShare = () => {
-        if (isScreenShareActive) stopScreenShare(); else startScreenShare();
-    };
-
-    // Add a useEffect to automatically create a camera preview container if it doesn't exist
+    // Ensure preview containers exist (moved from App component useEffect to here)
     useEffect(() => {
-        if (!document.getElementById('cameraPreview')) {
-            const previewContainer = document.createElement('div');
-            previewContainer.id = 'cameraPreview';
-            previewContainer.style.position = 'fixed';
-            previewContainer.style.bottom = '10px';
-            previewContainer.style.right = '10px';
-            previewContainer.style.width = '200px';
-            previewContainer.style.height = '150px';
-            previewContainer.style.zIndex = '1000';
-            previewContainer.style.overflow = 'hidden';
-            previewContainer.style.border = '1px solid #444';
-            previewContainer.style.background = '#111'; // Added a background for visibility
-            previewContainer.style.display = 'none'; // Hidden by default
-            document.body.appendChild(previewContainer);
+        const ensurePreviewContainer = (id, styles) => {
+             if (!document.getElementById(id)) {
+                 const previewContainer = document.createElement('div');
+                 previewContainer.id = id;
+                 Object.assign(previewContainer.style, styles);
+                 document.body.appendChild(previewContainer);
+                 // Return cleanup function
+                 return () => {
+                    const el = document.getElementById(id);
+                    if (el) el.remove();
+                 };
+             }
+             return () => {}; // Return no-op cleanup if element exists
+        };
 
-            // Clean up function
-            return () => {
-                const el = document.getElementById('cameraPreview');
-                if (el) {
-                    el.remove();
-                }
-            };
-        }
+        const camStyles = {
+             position: 'fixed', bottom: '80px', right: '10px', // Position above footer
+             width: '200px', height: '150px', zIndex: '1000',
+             overflow: 'hidden', border: '1px solid #444',
+             background: '#111', display: 'none' // Hidden by default
+        };
+        const screenStyles = {
+             position: 'fixed', bottom: '80px', left: '10px', // Position above footer
+             width: '240px', height: '135px', zIndex: '1000',
+             overflow: 'hidden', border: '1px solid #444',
+             background: '#111', display: 'none' // Hidden by default
+        };
+
+        const cleanupCam = ensurePreviewContainer('cameraPreview', camStyles);
+        const cleanupScreen = ensurePreviewContainer('screenPreview', screenStyles);
+
+        // Clean up on unmount
+        return () => {
+            cleanupCam();
+            cleanupScreen();
+        };
     }, []); // Empty dependency array ensures this runs only once on mount
 
 
-    // --- Simplified JSX Return (with updated camera button and error display) ---
+    // --- JSX Return ---
     return (
         <div className="app-container">
-            {/* Placeholder for Header */}
-            <div style={{ padding: '10px', background: '#2a2a2a', borderBottom: '1px solid #444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Header */}
+            <div className="app-header">
                 <h1>Gemini Live Agent (React)</h1>
-                <div>
+                <div className="controls">
                     {!isConnected && <button onClick={handleConnect} disabled={isInitializing}>Connect</button>}
                     {isConnected && <button onClick={handleDisconnect}>Disconnect</button>}
-                    <button onClick={openSettings} style={{ marginLeft: '10px' }}>Settings</button>
+                    <button onClick={openSettings} disabled={isInitializing || isConnected} style={{ marginLeft: '10px' }}>Settings</button>
                 </div>
             </div>
 
+            {/* Main Content Area */}
             <main className="main-content">
+                {/* Chat History Area */}
                 <div className="chat-area">
-                    {/* Placeholder for ChatHistory - Render messages directly */}
-                    <div id="chatHistory" className="chat-history" style={{ height: 'calc(100% - 120px)', overflowY: 'auto', padding: '20px' }}>
+                    <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
                         {messages.map(msg => (
                             <div
                                 key={msg.id}
-                                className={`chat-message ${msg.sender === 'user' ? 'user-message' : 'model-message'} ${msg.isStreaming ? 'streaming' : ''}`}
+                                className={`chat-message ${msg.sender === 'user' ? 'user-message' : 'model-message'} type-${msg.type || 'text'} ${msg.isStreaming ? 'streaming' : ''}`}
                             >
                                 {msg.text}
                             </div>
                         ))}
-                         <div style={{ float:"left", clear: "both" }} ref={(el) => { el?.scrollIntoView({ behavior: "smooth" }); }}> {/* Auto-scroll element */}
-                         </div>
+                        {/* Auto-scroll element is implicitly handled by setting scrollTop */}
                     </div>
 
-                    {/* Render visualizer if agent is ready */}
-                     {agent && <AudioVisualizerComponent agent={agent} />}
+                    {/* Audio Visualizer (only if agent is initialized) */}
+                    {agent && agent.initialized && <AudioVisualizerComponent agent={agent} />}
                 </div>
 
-                {/* Placeholder for Sidebar - Add later */}
-                {/* <div className="sidebar"> ... </div> */}
+                {/* Sidebar Area (Placeholders for Previews) */}
+                 <div className="sidebar">
+                     {/* Previews will be absolutely positioned, but keep sidebar structure */}
+                      {/* Camera Preview placeholder div (managed by CameraManager) */}
+                     {/* <div id="cameraPreview"></div> handled by useEffect */}
+                     {/* Screen Preview placeholder div (managed by ScreenManager) */}
+                     {/* <div id="screenPreview"></div> handled by useEffect */}
+                     {/* You could add other sidebar content here */}
+                     <p>Previews:</p>
+                     {isCameraActive && <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera (Mobile)">Switch Cam</button>}
+                 </div>
+
             </main>
 
-            {/* Placeholder for Footer - Basic controls */}
-            <div className="app-footer" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Footer with Input and Media Controls */}
+            <footer className="app-footer">
                  <input
+                     id="messageInput"
                      type="text"
-                     placeholder="Type message..."
-                     onKeyPress={(e) => { if (e.key === 'Enter' && e.target.value.trim()) { handleSendMessage(e.target.value); e.target.value = ''; } }} // Clear input on send
-                     style={{ flexGrow: 1, padding: '10px' }}
+                     placeholder={displayMicActive ? "Listening..." : "Type message or turn on mic..."}
+                     disabled={!isConnected || displayMicActive} // Disable text input when mic is actively listening
+                     onKeyPress={(e) => { if (e.key === 'Enter' && e.target.value.trim()) { handleSendMessage(e.target.value); e.target.value = ''; } }}
                  />
-                 {/* Updated Send button to correctly reference the input */}
-                 <button onClick={(e) => { const input = e.target.previousElementSibling; if (input && input.value.trim()) { handleSendMessage(input.value); input.value = ''; }}}>Send</button>
-                 <button onClick={handleToggleMic} className={`control-btn ${isMicActive && !isMicSuspended ? 'active' : ''}`}>Mic</button>
-                 {/* Updated Camera button with error state */}
+                 <button onClick={() => { const input = document.getElementById('messageInput'); if (input && input.value.trim()) { handleSendMessage(input.value); input.value = ''; } }} disabled={!isConnected || displayMicActive}>Send</button>
+                 <button
+                    onClick={handleToggleMic}
+                    className={`control-btn mic-btn ${displayMicActive ? 'active' : ''} ${isMicSuspended && isMicActive ? 'suspended' : ''}`}
+                    disabled={!isConnected}
+                    title={displayMicActive ? "Mute Mic (Listening)" : (isMicSuspended && isMicActive ? "Unmute Mic (Suspended)" : "Turn Mic On")}
+                 >
+                     Mic {isMicActive ? (isMicSuspended ? '(Suspended)' : '(On)') : '(Off)'}
+                 </button>
                  <button
                     onClick={handleToggleCamera}
-                    className={`control-btn ${isCameraActive ? 'active' : ''} ${cameraError ? 'error' : ''}`} // Add 'error' class if cameraError exists
-                    title={cameraError ? `Camera error: ${cameraError}` : (isCameraActive ? 'Stop Camera' : 'Start Camera')} // Show error in title
+                    className={`control-btn cam-btn ${isCameraActive ? 'active' : ''} ${cameraError ? 'error' : ''}`}
+                    disabled={!isConnected}
+                    title={cameraError ? `Camera Error: ${cameraError}` : (isCameraActive ? 'Stop Camera' : 'Start Camera')}
                  >
-                     Cam
+                     Cam {isCameraActive ? '(On)' : '(Off)'}
                  </button>
-                 <button onClick={handleToggleScreenShare} className={`control-btn ${isScreenShareActive ? 'active' : ''}`}>Screen</button>
-                 {/* Optional: Add Switch Camera button if needed */}
-                 {/* {isCameraActive && <button onClick={handleSwitchCamera} className="control-btn">Switch Cam</button>} */}
+                  <button
+                    onClick={handleToggleScreenShare}
+                    className={`control-btn screen-btn ${isScreenShareActive ? 'active' : ''} ${screenError ? 'error' : ''}`}
+                    disabled={!isConnected}
+                    title={screenError ? `Screen Share Error: ${screenError}` : (isScreenShareActive ? 'Stop Screen Share' : 'Start Screen Share')}
+                 >
+                     Screen {isScreenShareActive ? '(On)' : '(Off)'}
+                 </button>
+            </footer>
+
+            {/* Status/Error Indicators */}
+            <div className="status-bar">
+                {isInitializing && <span className="status status-initializing">Connecting...</span>}
+                {agentError && <span className="status status-error">Agent Error: {agentError}</span>}
+                {cameraError && <span className="status status-warning">Camera Error: {cameraError}</span>}
+                {screenError && <span className="status status-warning">Screen Error: {screenError}</span>}
+                 {!isInitializing && !agentError && isConnected && <span className="status status-connected">Connected</span>}
+                 {!isInitializing && !isConnected && !agentError && <span className="status status-disconnected">Disconnected</span>}
             </div>
 
 
-            {/* Status indicators (with added camera error) */}
-            {agentError && <div style={{ color: 'red', textAlign: 'center', padding: '5px', background: '#333' }}>Error: {agentError}</div>}
-            {cameraError && <div style={{ color: 'orange', textAlign: 'center', padding: '5px', background: '#333' }}>Camera error: {cameraError}</div>}
-            {isInitializing && <div style={{ textAlign: 'center', padding: '5px', background: '#333' }}>Connecting...</div>}
-
-            {/* Rudimentary settings display/trigger */}
+            {/* Settings Dialog */}
              {isSettingsOpen && (
-                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999 }} onClick={closeSettings}>
-                     <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#333', padding: '20px', border: '1px solid #555', color: '#eee', zIndex: 1000 }} onClick={e => e.stopPropagation()}>
-                         <h2>Settings (Basic - Implement SettingsDialog)</h2>
-                         <p>API Key: {settings.apiKey ? '********' : 'Not Set'}</p>
-                         {/* Add more settings display as needed */}
-                         <pre style={{ background: '#222', padding: '10px', maxHeight: '200px', overflow: 'auto' }}>{JSON.stringify(settings, null, 2)}</pre>
-                         <button onClick={closeSettings}>Close (No Save)</button>
-                         {/* Add inputs and save button when SettingsDialog is implemented */}
-                         {/* Example:
-                         <button onClick={() => {
-                             const newSettings = { ...settings, someValue: 'new' };
-                             saveSettings(newSettings);
-                             closeSettings();
-                         }}>Save Example</button>
-                         */}
-                     </div>
-                 </div>
+                 <SettingsDialog
+                     isOpen={isSettingsOpen}
+                     onClose={closeSettings}
+                     initialSettings={settings}
+                     onSave={(newSettings) => {
+                         saveSettings(newSettings);
+                         // Consider if reload is truly needed or if agent can reconfigure
+                         // alert("Settings saved. Reloading for changes to take effect.");
+                         // window.location.reload();
+                         closeSettings(); // Close dialog after save
+                     }}
+                     thresholds={thresholds} // Pass thresholds map if needed by dialog
+                 />
              )}
         </div>
     );
