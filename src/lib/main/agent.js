@@ -49,11 +49,12 @@ class EventEmitter {
          }
     }
     // Helper to wait for a specific event once
-    waitForEvent(eventName, timeout = 5000) {
+    waitForEvent(eventName, timeout = 100000) {
         return new Promise((resolve, reject) => {
             let timeoutId = null;
             const listener = (data) => {
                 if (timeoutId) clearTimeout(timeoutId);
+                this.off(eventName, listener); // Remove listener immediately
                 resolve(data);
             };
             this.once(eventName, listener); // Assuming EventEmitter has 'once' or implement it
@@ -113,10 +114,10 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
         this.userSampleRate = 16000; // Common rate for user mic input / Deepgram
 
         // Screen & camera settings from passed settings object
-        this.fps = settings.fps || 5;
+        this.fps = settings.fps || 3; // Default lower FPS (e.g., 3) might be more stable
         this.captureInterval = 1000 / this.fps;
-        this.resizeWidth = settings.resizeWidth || 640;
-        this.quality = settings.quality || 0.4;
+        this.resizeWidth = settings.resizeWidth || 1280; // Use screen manager default?
+        this.quality = settings.quality || 0.5; // Slightly lower default quality?
 
         // Initialize camera
         this.cameraManager = new CameraManager({
@@ -130,15 +131,14 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
         this.screenManager = new ScreenManager({
             width: this.resizeWidth,
             quality: this.quality,
-            onStop: () => {
-                // Clean up interval and emit event when screen sharing stops
-                console.info("ScreenManager onStop callback triggered.");
+            onStop: () => { // *** IMPORTANT: This links ScreenManager's dispose to agent's state ***
+                console.info("Agent: ScreenManager onStop callback triggered.");
                 if (this.screenInterval) {
                     clearInterval(this.screenInterval);
                     this.screenInterval = null;
-                    console.info("Screen capture interval cleared.");
+                    console.info("Agent: Screen capture interval cleared via onStop callback.");
                 }
-                // Emit screen share stopped event - Ensure hook/App listens for this exact name
+                // Ensure the agent emits the stop event, even if interval was already cleared
                 this.emit('screenshare_stopped');
             }
         });
@@ -234,7 +234,10 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
              console.info(`${this.name} WebSocket Client disconnected event received.`);
              // This event is emitted BY the client class. Agent listens and can react.
              // We might want to trigger the agent's disconnect cleanup here too.
-             // this.disconnect(); // Be careful of potential loops if disconnect() emits 'disconnect'
+             // Avoid calling disconnect directly if it emits 'disconnect' to prevent loops
+             // Instead, perhaps set flags and let the main disconnect logic handle cleanup.
+             this.connected = false; // Mark as disconnected
+             // Let higher-level logic (hook) decide if full disconnect/cleanup is needed
         });
     }
 
@@ -242,7 +245,7 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
     async handleToolCall(toolCall) {
         if (!this.toolManager) {
              console.error("Received tool call but no tool manager is configured.");
-            // TODO: Send back an error response to the model? Requires client support.
+             // TODO: Send back an error response to the model? Requires client support.
              // Example: await this.client.sendToolResponse({ id: toolCall?.functionCalls?.[0]?.id, error: "Tool manager not available" });
              return;
         }
@@ -283,8 +286,8 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
          if (this.connecting) {
              console.warn(`${this.name}: Connection already in progress.`);
              // Optionally return the existing connection promise
-             // return this.client?.connectionPromise || Promise.reject("Connection in progress, but promise missing");
-             return;
+             return this.connectionPromise || Promise.reject("Connection in progress, but promise missing");
+             // return;
          }
 
         this.connecting = true;
@@ -292,7 +295,8 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             console.info(`${this.name}: Connecting to WebSocket...`);
             this.client = new GeminiWebsocketClient(this.name, this.url, this.config);
             this.setupEventListeners(); // Setup listeners *before* calling connect on client
-            await this.client.connect(); // Wait for WS connection and setup message send
+            this.connectionPromise = this.client.connect(); // Store promise
+            await this.connectionPromise; // Wait for WS connection and setup message send
             this.connected = true;
             console.info(`${this.name}: WebSocket connected successfully.`);
             // Don't call initialize() here automatically, let the hook manage it
@@ -304,6 +308,7 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
              }
              this.client = null;
              this.connected = false;
+             this.connectionPromise = null;
              throw error; // Re-throw for the hook to catch
         } finally {
              this.connecting = false; // Ensure flag is reset regardless of outcome
@@ -311,8 +316,8 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
     }
 
     async disconnect() {
-        if (!this.connected && !this.connecting && !this.client) {
-            console.warn(`${this.name}: Already disconnected or never connected.`);
+        if (!this.connected && !this.connecting && !this.client && !this.initialized) {
+            console.warn(`${this.name}: Already disconnected or never connected/initialized.`);
             return;
         }
         console.info(`${this.name}: Disconnecting...`);
@@ -333,10 +338,15 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             // Stop capture managers gracefully
             // Use try-catch for each potentially failing async operation
             try {
-                await this.stopCameraCapture(); // Calls dispose internally
+                // Check if manager exists before calling stop
+                if (this.cameraManager) {
+                    await this.stopCameraCapture(); // Calls dispose internally
+                }
             } catch (e) { console.warn("Error stopping camera capture during disconnect:", e); }
             try {
-                await this.stopScreenShare(); // Calls dispose internally
+                 if (this.screenManager) {
+                    await this.stopScreenShare(); // Calls dispose internally (via onStop)
+                 }
             } catch (e) { console.warn("Error stopping screen share during disconnect:", e); }
              console.debug(`${this.name}: Capture managers stopped.`);
 
@@ -390,12 +400,21 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             this.audioRecorder = null;
             this.modelTranscriber = null;
             this.userTranscriber = null;
-            // Don't nullify managers completely, they might be needed if re-connecting?
-            // Or ensure they are recreated on connect. Let's nullify for now.
-            // this.cameraManager = null; // Reconsider if re-connection should reuse managers
-            // this.screenManager = null;
+            // Reset managers? Or assume they are disposed?
+            // If disconnect is called without stopping captures, managers might still exist.
+            // Ensure they are disposed.
+             if (this.cameraManager) {
+                 this.cameraManager.dispose();
+                 // this.cameraManager = null; // Optionally nullify
+             }
+              if (this.screenManager) {
+                 this.screenManager.dispose();
+                 // this.screenManager = null; // Optionally nullify
+             }
             this.removeAllListeners(); // Clear agent's own listeners
             console.info(`${this.name}: Disconnect process finished. State reset.`);
+            // Emit a final disconnected state? Depends on how hooks manage state.
+            this.emit('disconnected_cleanup_complete'); // Example custom event
         }
     }
 
@@ -656,7 +675,7 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
 
     async sendImage(base64Image) {
         if (!this.client || !this.connected) {
-            console.warn(`${this.name}: Cannot send image, not connected.`);
+            // console.warn(`${this.name}: Cannot send image, not connected.`); // Less noisy log
             return;
         }
 
@@ -667,25 +686,29 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
         }
 
         // Debug image size (helpful to identify issues) - Log less frequently
-        const imageSize = base64Image.length;
         if (Math.random() < 0.05) { // Log size ~5% of the time
-            const sizeKB = Math.round(imageSize * 3 / 4 / 1024); // Estimate KB size
+            const sizeKB = Math.round(base64Image.length * 3 / 4 / 1024); // Estimate KB size
             console.debug(`${this.name}: Preparing to send image, estimated size: ~${sizeKB} KB`);
         }
 
-
         try {
             const startTime = performance.now();
-            await this.client.sendImage(base64Image);
-            const sendTime = performance.now() - startTime;
+            // *** CHANGE: Non-blocking send ***
+            this.client.sendImage(base64Image).catch(error => {
+                 // Catch potential errors from the async sendImage call itself
+                 console.error(`${this.name}: Error sending image (async):`, error);
+                 this.emit('error', new Error('Error sending image: ' + error.message));
+            });
+            const queueTime = performance.now() - startTime; // Time to queue the send
 
             // Log performance occasionally
             if (Math.random() < 0.02) { // ~2% of frames
-                console.debug(`${this.name}: Image sent in ${sendTime.toFixed(1)}ms`);
+                console.debug(`${this.name}: Image queued for sending in ${queueTime.toFixed(1)}ms`);
             }
         } catch (error) {
-            console.error(`${this.name}: Error sending image:`, error);
-            this.emit('error', new Error('Error sending image: ' + error.message));
+             // Catch potential synchronous errors (less likely but possible)
+            console.error(`${this.name}: Error queueing image send:`, error);
+            this.emit('error', new Error('Error queueing image send: ' + error.message));
              // Consider stopping capture interval if sending consistently fails
         }
     }
@@ -730,12 +753,14 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             });
              console.info(`${this.name}: Audio recording started. State: recording=${this.audioRecorder.isRecording}, suspended=${this.audioRecorder.isSuspended}`);
               // Emit state? e.g., this.emit('mic_state_changed', { active: true, suspended: false });
+              this.emit('mic_state_changed', { active: this.audioRecorder.isRecording, suspended: this.audioRecorder.isSuspended });
          } catch (error) {
              const msg = `${this.name}: Failed to start audio recording: ${error.message}`;
              console.error(msg, error);
              this.emit('error', new Error(msg));
              // Ensure recorder state is reset if start failed
              if (this.audioRecorder) this.audioRecorder.stop();
+              this.emit('mic_state_changed', { active: false, suspended: true });
          }
     }
 
@@ -744,6 +769,7 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             const msg = `${this.name}: Cannot toggle mic, audio recorder not available.`;
             console.error(msg);
             this.emit('error', new Error(msg));
+             this.emit('mic_state_changed', { active: false, suspended: true }); // Emit consistent state on failure
             return;
         }
 
@@ -753,10 +779,7 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             if (!this.audioRecorder.isRecording || !this.audioRecorder.stream) {
                 console.info(`${this.name}: Mic not active, starting recording first.`);
                 await this.startRecording();
-                // startRecording now handles the initial state, assuming it starts un-suspended
-                 if (this.audioRecorder.isRecording) {
-                     this.emit('mic_state_changed', { active: true, suspended: this.audioRecorder.isSuspended });
-                 }
+                // startRecording now handles the initial state and emits mic_state_changed
                 return; // Exit after starting
             }
 
@@ -770,9 +793,8 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
              const msg = `${this.name}: Failed to toggle mic: ${error.message}`;
              console.error(msg, error);
              this.emit('error', new Error(msg));
-              // Optionally try to reset state on error
-              // await this.audioRecorder.stop(); // Or just update emitted state
-              this.emit('mic_state_changed', { active: false, suspended: true });
+              // Emit current (likely failed) state
+              this.emit('mic_state_changed', { active: this.audioRecorder?.isRecording || false, suspended: this.audioRecorder?.isSuspended !== false });
         }
     }
 
@@ -796,25 +818,43 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             // Clear any zombie interval first
             if (this.cameraInterval) clearInterval(this.cameraInterval);
 
+            let consecutiveCaptureErrors = 0;
+            const maxErrors = 10; // Stop after N errors
+
             this.cameraInterval = setInterval(async () => {
                 // Check conditions within interval callback too
                 if (!this.cameraManager?.isInitialized || !this.connected || !this.client) {
                      console.warn(`${this.name}: Stopping camera capture interval - conditions not met (manager init: ${this.cameraManager?.isInitialized}, connected: ${this.connected}).`);
                      if(this.cameraInterval) clearInterval(this.cameraInterval);
                      this.cameraInterval = null;
-                     // Optionally call stopCameraCapture here if needed, but might be handled elsewhere
-                     // await this.stopCameraCapture();
+                     // Trigger stop process
+                     await this.stopCameraCapture(); // Ensure cleanup and event emission
                      return;
                 }
                  try {
                     const imageBase64 = await this.cameraManager.capture();
-                    // sendImage handles the null check internally now
-                    this.sendImage(imageBase64);
+                    if (imageBase64) {
+                         this.sendImage(imageBase64); // Non-blocking send
+                         consecutiveCaptureErrors = 0; // Reset errors on success
+                    } else {
+                         consecutiveCaptureErrors++;
+                         console.debug(`${this.name}: Camera capture returned null/empty data (Errors: ${consecutiveCaptureErrors})`);
+                    }
+
                  } catch (captureError) {
-                     // Log error but allow interval to continue unless it's fatal
+                     consecutiveCaptureErrors++;
                      console.error(`${this.name}: Error capturing/sending camera image:`, captureError);
-                     // TODO: Add logic to stop interval after N consecutive errors?
                  }
+
+                 // Stop if too many errors
+                 if (consecutiveCaptureErrors >= maxErrors) {
+                     console.error(`${this.name}: Stopping camera capture due to ${maxErrors} consecutive errors.`);
+                      if (this.cameraInterval) clearInterval(this.cameraInterval); // Clear interval first
+                      this.cameraInterval = null;
+                      await this.stopCameraCapture(); // Trigger cleanup and event
+                      this.emit('error', new Error(`Camera capture stopped after ${maxErrors} errors.`));
+                 }
+
             }, this.captureInterval);
 
             console.info(`${this.name}: Camera capture started.`);
@@ -832,12 +872,15 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
              // Rethrow or emit error
              const msg = `Failed to start camera capture: ${error.message}`;
              this.emit('error', new Error(msg));
+              this.emit('camera_stopped'); // Ensure UI reflects stopped state on error
              throw new Error(msg); // Throw to prevent hook state change
         }
     }
 
     async stopCameraCapture() {
         console.info(`${this.name}: Stopping camera capture...`);
+        let wasRunning = !!this.cameraInterval; // Check if it was running before clearing
+
         if (this.cameraInterval) {
             clearInterval(this.cameraInterval);
             this.cameraInterval = null;
@@ -846,13 +889,22 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
             // console.debug(`${this.name}: No active camera interval to clear.`);
         }
         if (this.cameraManager) {
-            this.cameraManager.dispose(); // Handles stopping stream and cleanup
-             console.debug(`${this.name}: Camera manager dispose called.`);
+             // Dispose only if initialized to avoid errors during disconnect cleanup
+            if (this.cameraManager.isInitialized) {
+                 this.cameraManager.dispose(); // Handles stopping stream and cleanup
+                 console.debug(`${this.name}: Camera manager dispose called.`);
+            } else {
+                 console.debug(`${this.name}: Camera manager exists but was not initialized, skipping dispose.`);
+            }
         } else {
              console.debug(`${this.name}: No camera manager instance to dispose.`);
         }
-        console.info(`${this.name}: Camera capture stopped.`);
-        this.emit('camera_stopped'); // Emit event for UI update
+
+        // Emit stopped event only if it was running or if manager exists (to ensure state update)
+        if (wasRunning || this.cameraManager) {
+            console.info(`${this.name}: Camera capture stopped.`);
+            this.emit('camera_stopped'); // Emit event for UI update
+        }
     }
 
 async startScreenShare() {
@@ -879,22 +931,26 @@ async startScreenShare() {
         let frameCount = 0;
         let successFrames = 0;
         let consecutiveErrors = 0;
-        const maxConsecutiveErrors = 10; // Stop after 10 failed captures in a row
+        // *** INCREASED ERROR TOLERANCE ***
+        const maxConsecutiveErrors = 30; // Stop after 30 failed captures/sends in a row
 
         this.screenInterval = setInterval(async () => {
             // Check conditions rigorously inside interval
+            // Use optional chaining and check screenManager's initialized state specifically
             if (!this.screenManager?.isInitialized || !this.connected || !this.client) {
-                console.warn(`${this.name}: Stopping screen share interval - conditions not met (manager init: ${this.screenManager?.isInitialized}, connected: ${this.connected}).`);
-                if(this.screenInterval) clearInterval(this.screenInterval);
+                console.warn(`${this.name}: Stopping screen share interval - conditions not met (SM Init: ${this.screenManager?.isInitialized}, Connected: ${this.connected}, Client: ${!!this.client}).`);
+                if(this.screenInterval) clearInterval(this.screenInterval); // Clear interval first
                 this.screenInterval = null;
-                 // Trigger the stop process if conditions fail
+                 // Manually trigger stop process if conditions fail unexpectedly
                  // Check if screenManager exists before calling dispose
                  if (this.screenManager) {
-                    this.screenManager.dispose(); // This should trigger the onStop callback which emits screenshare_stopped
+                    // Calling dispose here will trigger the onStop callback, which clears the interval again (harmless) and emits screenshare_stopped
+                    this.screenManager.dispose();
                  } else {
-                      this.emit('screenshare_stopped'); // Manually emit if manager is gone
+                     // If manager somehow gone, ensure event is emitted
+                      this.emit('screenshare_stopped');
                  }
-                return;
+                return; // Exit interval callback
             }
 
             frameCount++;
@@ -902,45 +958,43 @@ async startScreenShare() {
                 const imageBase64 = await this.screenManager.capture();
 
                 if (imageBase64) {
-                    this.sendImage(imageBase64); // sendImage handles null check, but we know it's not null here
+                    // *** USE NON-BLOCKING SEND ***
+                    this.sendImage(imageBase64); // Fire and forget
                     successFrames++;
                     consecutiveErrors = 0; // Reset error count on success
-
-                    // Log frame stats periodically
-                    if (frameCount % (this.fps * 5) === 0) { // Log every 5 seconds approx
-                        console.debug(`Screen capture stats: ${successFrames}/${frameCount} frames successfully captured & sent.`);
-                    }
                 } else {
                     // Capture returned null/empty - could be transient or stream ended
                      consecutiveErrors++;
-                     if (frameCount % this.fps === 0) { // Log once per second approx if capturing null
-                        console.warn(`${this.name}: Screen capture returned empty data (Frame ${frameCount}, Consecutive Errors: ${consecutiveErrors}).`);
+                     // Log less frequently for null captures
+                     if (frameCount % this.fps === 0) { // Log once per second approx
+                        console.warn(`${this.name}: Screen capture returned empty data (Frame ${frameCount}, Consecutive Errors: ${consecutiveErrors}/${maxConsecutiveErrors}).`);
                      }
                 }
 
                  // Stop if too many consecutive errors
                  if (consecutiveErrors >= maxConsecutiveErrors) {
                      console.error(`${this.name}: Stopping screen share due to ${maxConsecutiveErrors} consecutive capture errors.`);
-                     if (this.screenInterval) clearInterval(this.screenInterval);
+                     if (this.screenInterval) clearInterval(this.screenInterval); // Clear interval first
                      this.screenInterval = null;
-                     if (this.screenManager) this.screenManager.dispose(); // Trigger stop
-                     else this.emit('screenshare_stopped');
+                     // Dispose should trigger the onStop callback which emits the event
+                     if (this.screenManager) this.screenManager.dispose();
+                     else this.emit('screenshare_stopped'); // Fallback emit
                      this.emit('error', new Error(`Screen share stopped after ${maxConsecutiveErrors} capture errors.`));
-                     return;
+                     return; // Exit interval callback
                  }
 
             } catch (intervalError) {
-                 // Catch errors from capture() or sendImage() within the interval
-                console.error(`${this.name}: Error within screen share interval (Frame ${frameCount}):`, intervalError);
+                 // Catch errors from capture() call itself within the interval
+                console.error(`${this.name}: Error within screen share interval capture (Frame ${frameCount}):`, intervalError);
                 consecutiveErrors++;
                  if (consecutiveErrors >= maxConsecutiveErrors) {
                     console.error(`${this.name}: Stopping screen share due to ${maxConsecutiveErrors} consecutive interval errors.`);
-                    if (this.screenInterval) clearInterval(this.screenInterval);
+                    if (this.screenInterval) clearInterval(this.screenInterval); // Clear interval first
                     this.screenInterval = null;
-                    if (this.screenManager) this.screenManager.dispose(); // Trigger stop
-                    else this.emit('screenshare_stopped');
+                     if (this.screenManager) this.screenManager.dispose();
+                     else this.emit('screenshare_stopped'); // Fallback emit
                     this.emit('error', new Error(`Screen share stopped after ${maxConsecutiveErrors} interval errors.`));
-                    return;
+                    return; // Exit interval callback
                  }
             }
         }, this.captureInterval);
@@ -960,33 +1014,43 @@ async startScreenShare() {
         // Emit error and throw to prevent UI state change
         const msg = `Failed to start screen sharing: ${error.message}`;
         this.emit('error', new Error(msg));
+        this.emit('screenshare_stopped'); // Ensure UI reflects stopped state on error
         throw new Error(msg);
     }
 }
 
     async stopScreenShare() {
         console.info(`${this.name}: Attempting to stop screen sharing...`);
+         let wasRunning = !!this.screenInterval; // Check if interval existed
+
         if (this.screenInterval) {
             clearInterval(this.screenInterval);
             this.screenInterval = null;
-             console.debug(`${this.name}: Screen interval cleared.`);
+             console.debug(`${this.name}: Screen interval cleared manually.`);
         } else {
-            // console.debug(`${this.name}: No active screen interval to clear.`);
+             console.debug(`${this.name}: No active screen interval found to clear manually.`);
         }
 
         // ScreenManager's dispose should be called automatically when the user stops sharing
         // via the browser UI, triggering the 'onStop' callback configured in the constructor.
-        // Manually calling dispose here ensures cleanup if stopped programmatically.
+        // Manually calling dispose here ensures cleanup if stopped programmatically OR if the onStop didn't fire correctly.
         if (this.screenManager && this.screenManager.isInitialized) {
              console.debug(`${this.name}: Manually calling screen manager dispose...`);
-             this.screenManager.dispose(); // This will trigger the onStop callback if not already called
+             // Calling dispose will trigger the onStop callback if it hasn't already been called.
+             // The onStop callback will emit 'screenshare_stopped'.
+             this.screenManager.dispose();
         } else {
             console.debug(`${this.name}: No initialized screen manager instance to dispose manually.`);
-             // If dispose wasn't called (e.g., manager failed init), ensure event is emitted
-             this.emit('screenshare_stopped');
+             // If dispose wasn't called (e.g., manager failed init or wasn't running),
+             // ensure the event is emitted if it was previously considered running.
+             if (wasRunning) {
+                 console.warn(`${this.name}: Manually emitting screenshare_stopped as interval existed but manager was not disposed.`);
+                 this.emit('screenshare_stopped');
+             }
         }
         // Note: 'screenshare_stopped' event is primarily emitted by the onStop callback
         // in the ScreenManager constructor to accurately reflect when the *stream* ends.
-        console.info(`${this.name}: Screen sharing stop requested.`);
+        // The logic here ensures it gets emitted even if stopped programmatically or if manager state is inconsistent.
+        console.info(`${this.name}: Screen sharing stop request processed.`);
     }
 }

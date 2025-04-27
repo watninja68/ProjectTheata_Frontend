@@ -24,6 +24,11 @@ export class ScreenManager {
         this.onStopCalled = false; // Flag to prevent multiple calls to onStop
         this.metadataTimeoutId = null; // Store timeout ID for cleanup
         this.readyStateIntervalId = null; // Store interval ID for cleanup
+
+        // Bound handlers to maintain 'this' context
+        this._boundHandleStreamEnd = this._handleStreamEnd.bind(this);
+        this._boundLogVideoEvent = this._logVideoEvent.bind(this);
+        this._boundResolveMetadataLogic = null; // Will be set during init
     }
 
     /**
@@ -48,13 +53,14 @@ export class ScreenManager {
      * Handles cleanup and notifications when the stream ends (user clicks "Stop sharing").
      * @private
      */
-    _handleStreamEnd() {
-        console.info('Screen sharing stream track ended/inactive.');
+    _handleStreamEnd(event) {
+        console.info(`ScreenManager: Stream track event indicating end: ${event?.type || 'unknown'}.`);
         // Use the flag to ensure dispose and onStop logic runs only once
         if (!this.onStopCalled) {
+             console.info("ScreenManager: Calling dispose() due to stream track end/inactive event.");
             this.dispose(); // Clean up resources
         } else {
-            console.debug("Stream track ended, but dispose already called.");
+            console.debug("ScreenManager: Stream track ended/inactive, but dispose already handled.");
         }
     }
 
@@ -70,19 +76,17 @@ export class ScreenManager {
         }
         // Remove specific listeners added during waiting
          if (this.videoElement) {
-             this.videoElement.removeEventListener('loadedmetadata', this._resolveMetadataPromise);
-             this.videoElement.removeEventListener('playing', this._logVideoEvent);
-             this.videoElement.removeEventListener('stalled', this._logVideoEvent);
-             this.videoElement.removeEventListener('error', this._logVideoEvent);
+             if (this._boundResolveMetadataLogic) { // Check if bound function exists
+                this.videoElement.removeEventListener('loadedmetadata', this._boundResolveMetadataLogic);
+             }
+             this.videoElement.removeEventListener('playing', this._boundLogVideoEvent);
+             this.videoElement.removeEventListener('stalled', this._boundLogVideoEvent);
+             this.videoElement.removeEventListener('error', this._boundLogVideoEvent);
          }
     }
-    // Bound handlers to maintain 'this' context if needed later, though simple logs might not need it
-    _logVideoEvent = (event) => {
+
+    _logVideoEvent(event) {
         console.debug(`ScreenManager: Video event during metadata wait: ${event.type}`, event);
-    }
-    _resolveMetadataPromise = () => {
-        // This function will be assigned to the promise's resolve callback
-        // It needs access to 'this' or passed arguments if used directly as listener
     }
 
 
@@ -122,6 +126,7 @@ export class ScreenManager {
 
                 const videoTracks = this.stream.getVideoTracks();
                 if (videoTracks.length === 0) {
+                     this.stream?.getTracks().forEach(t => t.stop()); // Stop stream if no video track
                      throw new Error("Acquired stream contains no video tracks.");
                 }
                 console.info(`ScreenManager: Found ${videoTracks.length} video track(s). Label: "${videoTracks[0].label}", State: ${videoTracks[0].readyState}`);
@@ -136,7 +141,7 @@ export class ScreenManager {
                 this.videoElement.style.height = 'auto';
                 this.videoElement.style.display = 'block';
                 this.videoElement.style.maxWidth = '100%';
-                 console.info("ScreenManager: Video element created and stream assigned.");
+                console.info("ScreenManager: Video element created and stream assigned.");
 
 
                 // --- Preview Container Setup ---
@@ -168,21 +173,30 @@ export class ScreenManager {
                 // --- Canvas Setup (after video metadata is loaded) ---
                 console.info("ScreenManager: Waiting for video metadata...");
                 await new Promise((resolve, reject) => {
-                    // Assign resolve/reject to instance for cleanup access if needed, but can be local too
-                    const metadataResolve = resolve;
-                    const metadataReject = reject;
+                    let metadataResolved = false; // Flag to prevent double resolution
 
-                    // Function to handle successful metadata load
-                    const onMetadataLoaded = () => {
-                        console.info("ScreenManager: 'loadedmetadata' event fired.");
+                    // Store reference to reject for use in interval/timeout
+                    const promiseReject = reject;
+
+                    // *** Define the core logic for handling metadata resolution ***
+                    const resolveMetadataLogic = async () => {
+                        if (metadataResolved) return; // Already handled
+                        metadataResolved = true;
+                        console.info("ScreenManager: Proceeding with metadata resolution logic.");
                         this._clearMetadataWaiters(); // Clear interval, timeout, listeners
+
+                        if (!this.videoElement) { // Re-check element existence
+                            console.error("ScreenManager: Video element missing when trying to resolve metadata.");
+                            promiseReject(new Error("Video element lost before metadata resolution logic."));
+                            return;
+                        }
 
                         const videoWidth = this.videoElement.videoWidth;
                         const videoHeight = this.videoElement.videoHeight;
 
                         if (videoWidth === 0 || videoHeight === 0) {
-                            console.error("ScreenManager: Metadata loaded but dimensions are zero.");
-                            metadataReject(new Error("Video dimensions reported as zero after metadata load."));
+                            console.error("ScreenManager: Video dimensions are zero during metadata resolution.");
+                            promiseReject(new Error("Video dimensions reported as zero."));
                             return;
                         }
 
@@ -193,50 +207,76 @@ export class ScreenManager {
                         this.canvas = document.createElement('canvas');
                         this.canvas.width = canvasWidth;
                         this.canvas.height = canvasHeight;
-                        this.ctx = this.canvas.getContext('2d', { alpha: false });
+                        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Performance: disable alpha if not needed
 
                         console.info(`ScreenManager: Canvas initialized - Capture: ${videoWidth}x${videoHeight}, Resized: ${canvasWidth}x${canvasHeight}`);
-                        metadataResolve();
+
+                        // Optional short delay might still be useful, but less critical now
+                        // console.debug("ScreenManager: Adding short delay after metadata resolution...");
+                        // await new Promise(res => setTimeout(res, 100));
+                        // console.debug("ScreenManager: Delay complete.");
+
+                        resolve(); // Resolve the main promise passed to the outer scope
                     };
 
-                    // Store resolver for removal
-                    this._resolveMetadataPromise = onMetadataLoaded;
+                    // Store bound function for listener management
+                    this._boundResolveMetadataLogic = resolveMetadataLogic;
 
                     // Add the primary listener
-                    this.videoElement.addEventListener('loadedmetadata', this._resolveMetadataPromise);
+                    this.videoElement.addEventListener('loadedmetadata', this._boundResolveMetadataLogic);
 
                     // Add extra listeners for debugging
-                    this.videoElement.addEventListener('playing', this._logVideoEvent);
-                    this.videoElement.addEventListener('stalled', this._logVideoEvent);
-                    this.videoElement.addEventListener('error', this._logVideoEvent);
+                    this.videoElement.addEventListener('playing', this._boundLogVideoEvent);
+                    this.videoElement.addEventListener('stalled', this._boundLogVideoEvent);
+                    this.videoElement.addEventListener('error', this._boundLogVideoEvent);
 
 
-                    // Start interval to check readyState
+                    // Start interval to check readyState as a fallback
                     this.readyStateIntervalId = setInterval(() => {
+                        if (metadataResolved) { // Stop interval if already resolved by event or previous check
+                             clearInterval(this.readyStateIntervalId);
+                             this.readyStateIntervalId = null;
+                             return;
+                        }
                         if (this.videoElement) { // Check if element still exists
-                             console.debug(`ScreenManager: Waiting for metadata... Current readyState: ${this.videoElement.readyState}`);
+                             // Log less frequently to reduce noise once things are likely working
+                            // if (frameCount++ % 5 === 0) { // Example: Log every ~2.5 seconds
+                                 console.debug(`ScreenManager: Waiting for metadata... Current readyState: ${this.videoElement.readyState}, paused: ${this.videoElement.paused}, ended: ${this.videoElement.ended}`);
+                            // }
+
+                             // *** ADDED FALLBACK CHECK ***
+                             // Check if readyState indicates metadata should be available (HAVE_METADATA = 1)
+                             if (this.videoElement.readyState >= this.videoElement.HAVE_METADATA) {
+                                 console.info(`ScreenManager: readyState (${this.videoElement.readyState}) >= HAVE_METADATA, attempting to resolve metadata via interval check.`);
+                                 resolveMetadataLogic(); // Try to resolve using the same core logic
+                             }
                         } else {
                              console.warn("ScreenManager: Video element disappeared while waiting for metadata.");
                              this._clearMetadataWaiters();
-                             metadataReject(new Error("Video element removed during metadata wait."));
+                             if (!metadataResolved) { // Ensure reject is called only once
+                                  metadataResolved = true;
+                                  promiseReject(new Error("Video element removed during metadata wait."));
+                             }
                         }
-                    }, 1000); // Log readyState every second
+                    }, 500); // Check every 500ms
 
                     // Set timeout
-                    const waitTimeout = 10000; // Increased timeout to 10 seconds
+                    const waitTimeout = 10000; // 10 seconds timeout
                     this.metadataTimeoutId = setTimeout(() => {
+                        if (metadataResolved) return; // Already handled
+                        metadataResolved = true;
                         console.error(`ScreenManager: Timeout (${waitTimeout}ms) waiting for screen video metadata.`);
                         this._clearMetadataWaiters(); // Clean up listeners/interval
-                        metadataReject(new Error(`Timeout waiting for screen video metadata.`));
+                        promiseReject(new Error(`Timeout waiting for screen video metadata.`));
                     }, waitTimeout);
-                });
+                }); // End of Promise executor
 
                  // --- Stop Detection ---
                 console.info("ScreenManager: Setting up track end listeners.");
                 const track = videoTracks[0];
-                 // Ensure listeners are removed if dispose is called before track ends
-                track.onended = () => this._handleStreamEnd();
-                track.oninactive = () => this._handleStreamEnd(); // Some browsers might use inactive
+                // Assign bound handlers to ensure 'this' context and allow removal
+                track.onended = this._boundHandleStreamEnd;
+                track.oninactive = this._boundHandleStreamEnd; // Some browsers might use inactive
 
                 this.isInitialized = true;
                 console.info(`ScreenManager: Initialized successfully on attempt ${initAttempts}.`);
@@ -276,14 +316,21 @@ export class ScreenManager {
      * @returns {Promise<string | null>} Base64 encoded JPEG image (without prefix), or null on failure.
      */
     async capture() {
+        // Check essential components first
         if (!this.isInitialized || !this.videoElement || !this.canvas || !this.ctx) {
-            // console.warn('ScreenManager: Capture prerequisites not met (initialized, video, canvas, ctx).');
+            // Log less frequently to avoid spam if consistently failing
+            if (Math.random() < 0.1) {
+                 console.warn(`ScreenManager: Capture prerequisites not met (Init: ${this.isInitialized}, Vid: ${!!this.videoElement}, Cnv: ${!!this.canvas}, Ctx: ${!!this.ctx}).`);
+            }
             return null;
         }
 
-        // Check video readiness state
-        if (this.videoElement.readyState < this.videoElement.HAVE_CURRENT_DATA) {
-             // console.debug(`ScreenManager: Video not ready for capture. State: ${this.videoElement.readyState}`);
+        // Check video readiness state more thoroughly
+        if (this.videoElement.readyState < this.videoElement.HAVE_CURRENT_DATA || this.videoElement.paused || this.videoElement.ended) {
+            // Log less frequently
+             if (Math.random() < 0.1) {
+                 console.debug(`ScreenManager: Video not ready for capture. State: ${this.videoElement.readyState}, Paused: ${this.videoElement.paused}, Ended: ${this.videoElement.ended}`);
+             }
             return null; // Not ready yet
         }
 
@@ -292,12 +339,14 @@ export class ScreenManager {
             const videoHeight = this.videoElement.videoHeight;
 
             if (videoWidth === 0 || videoHeight === 0) {
-                // console.warn("ScreenManager: Video dimensions are zero during capture.");
+                 // Log less frequently
+                 if (Math.random() < 0.1) {
+                     console.warn("ScreenManager: Video dimensions are zero during capture.");
+                 }
                 return null;
             }
 
             // Draw current video frame to canvas, resizing
-             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear first
             this.ctx.drawImage(
                 this.videoElement,
                 0, 0, videoWidth, videoHeight,
@@ -319,8 +368,9 @@ export class ScreenManager {
             return base64Data;
 
         } catch (error) {
-            console.error("ScreenManager: Error during capture processing:", error);
-            return null;
+            // Log specific drawing or encoding errors
+            console.error("ScreenManager: Error during image drawing/encoding:", error);
+            return null; // Return null on error to allow interval to continue (up to error threshold)
         }
     }
 
@@ -330,8 +380,9 @@ export class ScreenManager {
      */
     dispose() {
         console.info('ScreenManager: Disposing resources...');
+        // Prevent multiple dispose calls triggered by both manual stop and track end events
         if (this.onStopCalled) {
-            console.warn("ScreenManager: Dispose called multiple times.");
+            console.warn("ScreenManager: Dispose called but already handled.");
             return;
         }
         this.onStopCalled = true; // Mark as called early
@@ -340,10 +391,15 @@ export class ScreenManager {
 
         if (this.stream) {
             this.stream.getTracks().forEach(track => {
-                 track.onended = null; // Remove listeners first
+                 // Remove listeners *before* stopping to prevent them firing during cleanup
+                 track.onended = null;
                  track.oninactive = null;
-                 track.stop();
-                 console.info(`ScreenManager: Screen track stopped: ${track.label || track.kind}`);
+                 if (track.readyState === 'live') {
+                    track.stop();
+                    console.info(`ScreenManager: Screen track stopped: ${track.label || track.kind}`);
+                 } else {
+                      console.debug(`ScreenManager: Screen track already stopped/ended: ${track.label || track.kind}`);
+                 }
             });
             this.stream = null;
         } else {
@@ -353,11 +409,13 @@ export class ScreenManager {
         if (this.videoElement) {
             this.videoElement.pause();
             this.videoElement.srcObject = null;
-            this.videoElement.onloadedmetadata = null; // Remove primary listener just in case
-            // Remove other debug listeners if they were added outside the promise scope
-             this.videoElement.removeEventListener('playing', this._logVideoEvent);
-             this.videoElement.removeEventListener('stalled', this._logVideoEvent);
-             this.videoElement.removeEventListener('error', this._logVideoEvent);
+            // Remove listeners explicitly
+             if (this._boundResolveMetadataLogic) { // Use the correct bound function name
+                this.videoElement.removeEventListener('loadedmetadata', this._boundResolveMetadataLogic);
+             }
+             this.videoElement.removeEventListener('playing', this._boundLogVideoEvent);
+             this.videoElement.removeEventListener('stalled', this._boundLogVideoEvent);
+             this.videoElement.removeEventListener('error', this._boundLogVideoEvent);
 
             // Remove from DOM
             if (this.videoElement.parentElement) {
@@ -370,17 +428,20 @@ export class ScreenManager {
         }
 
         if (this.previewContainer) {
+             // Check if it's still in the DOM before manipulating
              if (document.body.contains(this.previewContainer)) {
                  this.hidePreview();
-                 this.previewContainer.innerHTML = '';
+                 this.previewContainer.innerHTML = ''; // Clear content
+                  console.info("ScreenManager: Preview container cleared and hidden.");
+             } else {
+                  console.debug("ScreenManager: Preview container already removed from DOM.");
              }
              this.previewContainer = null; // Release reference
-             console.info("ScreenManager: Preview container cleared and hidden.");
         }
 
         this.canvas = null;
         this.ctx = null;
-        this.isInitialized = false;
+        this.isInitialized = false; // Crucial: Mark as uninitialized
         this.aspectRatio = null;
 
          // Call the onStop callback provided in the configuration AFTER cleanup
@@ -391,6 +452,8 @@ export class ScreenManager {
              } catch (callbackError) {
                  console.error("ScreenManager: Error executing onStop callback:", callbackError);
              }
+         } else {
+              console.debug("ScreenManager: No onStop callback configured.");
          }
          console.info("ScreenManager: Dispose finished.");
     }
