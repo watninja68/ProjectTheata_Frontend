@@ -164,35 +164,75 @@ export class ScreenManager {
      * Capture and process an image from the screen share.
      * @returns {Promise<string>} Base64 encoded JPEG image (without prefix)
      */
-    async capture() {
-        if (!this.isInitialized || !this.ctx || !this.videoElement) {
-            throw new Error('Screen capture not initialized. Call initialize() first.');
+async capture() {
+    // More forgiving check - if we're not fully initialized but have the video element,
+    // we can still try to capture
+    if (!this.videoElement) {
+        console.warn('Screen capture not initialized. No video element available.');
+        return null;
+    }
+    
+    // If canvas/context isn't initialized yet but video is ready, initialize canvas now
+    if (!this.canvas || !this.ctx) {
+        console.info('Late initializing canvas for screen capture');
+        // Create canvas if needed
+        if (!this.canvas) {
+            const videoWidth = this.videoElement.videoWidth || 1280;
+            const videoHeight = this.videoElement.videoHeight || 720;
+            this.aspectRatio = videoHeight / videoWidth;
+            
+            const canvasWidth = this.config.width;
+            const canvasHeight = Math.round(this.config.width * this.aspectRatio);
+            
+            this.canvas = document.createElement('canvas');
+            this.canvas.width = canvasWidth;
+            this.canvas.height = canvasHeight;
         }
-        if (this.videoElement.readyState < this.videoElement.HAVE_CURRENT_DATA) {
-            // Optional: Wait a tiny bit if video data isn't ready? Or just skip frame.
-            // console.warn("Screen capture video data not ready, skipping frame.");
-            return null; // Or throw? Returning null might be safer for interval use.
-        }
-
-
-        try {
-            // Draw current video frame to canvas, resizing
-            this.ctx.drawImage(
-                this.videoElement,
-                0, 0,
-                this.canvas.width,
-                this.canvas.height
-            );
-
-            // Convert to base64 JPEG with specified quality
-            const dataUrl = this.canvas.toDataURL('image/jpeg', this.config.quality);
-            return dataUrl.split(',')[1]; // Return only the base64 part
-        } catch (error) {
-             console.error("Error during screen capture processing:", error);
-             // Decide how to handle: throw, return null, etc.
-             throw new Error("Failed to capture screen frame: " + error.message);
+        
+        // Create context if needed
+        if (!this.ctx) {
+            this.ctx = this.canvas.getContext('2d', { alpha: false });
         }
     }
+    
+    // Enhanced check for video readiness - more detailed warnings
+    if (this.videoElement.readyState < this.videoElement.HAVE_CURRENT_DATA) {
+        console.warn(`Screen video not ready yet. ReadyState: ${this.videoElement.readyState}`);
+        return null;
+    }
+
+    try {
+        // Get current video dimensions
+        const videoWidth = this.videoElement.videoWidth;
+        const videoHeight = this.videoElement.videoHeight;
+        
+        if (videoWidth === 0 || videoHeight === 0) {
+            console.warn("Video dimensions are zero. Stream may not be active.");
+            return null;
+        }
+        
+        // Clear the canvas before drawing (prevents ghosting)
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw current video frame to canvas, resizing
+        this.ctx.drawImage(
+            this.videoElement,
+            0, 0,
+            this.canvas.width,
+            this.canvas.height
+        );
+
+        // Convert to base64 JPEG with specified quality
+        const dataUrl = this.canvas.toDataURL('image/jpeg', this.config.quality);
+        const base64Data = dataUrl.split(',')[1]; // Return only the base64 part
+        
+        return base64Data;
+    } catch (error) {
+        console.error("Error during screen capture processing:", error);
+        // Return null instead of throwing to keep interval running
+        return null;
+    }
+}
 
     /**
      * Stop screen capture stream and cleanup resources.

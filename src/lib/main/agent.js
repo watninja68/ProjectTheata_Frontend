@@ -523,20 +523,55 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
          }
      }
 
-    async sendImage(base64Image) {
-        if (!this.client || !this.connected) {
-            console.error(`${this.name}: Cannot send image, not connected.`);
-            return;
-        }
-         try {
-            await this.client.sendImage(base64Image);
-            // console.debug(`${this.name}: Image sent.`);
-             // Maybe emit an 'image_sent' event if needed
-         } catch (error) {
-            console.error(`${this.name}: Error sending image:`, error);
-            this.emit('error', new Error('Error sending image: ' + error.message));
-         }
+async sendImage(base64Image) {
+    if (!this.client || !this.connected) {
+        console.error(`${this.name}: Cannot send image, not connected.`);
+        return;
     }
+    
+    // Skip empty images
+    if (!base64Image) {
+        console.warn(`${this.name}: Attempted to send empty image data, skipping.`);
+        return;
+    }
+    
+    // Debug image size (helpful to identify issues)
+    const imageSize = base64Image.length;
+    // Categorize image size to avoid flooding logs
+    let sizeCategory;
+    if (imageSize < 1000) sizeCategory = "tiny (<1KB)";
+    else if (imageSize < 10000) sizeCategory = "very small (~1-10KB)";
+    else if (imageSize < 50000) sizeCategory = "small (~10-50KB)";
+    else if (imageSize < 100000) sizeCategory = "medium (~50-100KB)";
+    else if (imageSize < 500000) sizeCategory = "large (~100-500KB)";
+    else sizeCategory = "very large (>500KB)";
+    
+    // Log once in a while to avoid flooding
+    if (Math.random() < 0.1) { // ~10% of frames
+        console.info(`${this.name}: Sending image, size: ${sizeCategory}`);
+    }
+    
+    // Log origin of image (camera vs screen) based on aspect ratio hint
+    // This is a heuristic - screens are typically wider than cameras
+    // We'd need to pass a source type parameter for more reliability
+    const imageSourceHint = base64Image.length > 0 ? 
+        (base64Image.length > 100000 ? "likely screen" : "likely camera") : 
+        "unknown";
+    
+    try {
+        const startTime = performance.now();
+        await this.client.sendImage(base64Image);
+        const sendTime = performance.now() - startTime;
+        
+        // Log performance occasionally
+        if (Math.random() < 0.05) { // ~5% of frames
+            console.info(`${this.name}: Image sent (${imageSourceHint}) in ${sendTime.toFixed(1)}ms`);
+        }
+    } catch (error) {
+        console.error(`${this.name}: Error sending image (${imageSourceHint}):`, error);
+        this.emit('error', new Error('Error sending image: ' + error.message));
+    }
+}
 
     // --- Media Controls ---
     async startRecording() {
@@ -667,50 +702,94 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
         this.emit('camera_stopped'); // Emit event if needed
     }
 
-    async startScreenShare() {
-        if (!this.connected) {
-            throw new Error(`${this.name}: Must be connected to start screen sharing`);
-        }
-         if (this.screenInterval) {
-             console.warn(`${this.name}: Screen share already running.`);
-             return;
-         }
-
-        try {
-             console.info(`${this.name}: Initializing screen share...`);
-            await this.screenManager.initialize(); // Prompts user, sets up stream/video
-
-            console.info(`${this.name}: Starting screen share interval (FPS: ${this.fps})...`);
-            if (this.screenInterval) clearInterval(this.screenInterval); // Clear zombie interval
-
-            this.screenInterval = setInterval(async () => {
-                 if (!this.screenManager || !this.screenManager.isInitialized || !this.connected) {
-                     console.warn(`${this.name}: Stopping screen share interval - conditions not met.`);
-                     if(this.screenInterval) clearInterval(this.screenInterval);
-                     this.screenInterval = null;
-                     // ScreenManager's onStop should have already emitted 'screenshare_stopped' if stream ended
-                     return;
-                 }
-                 try {
-                     const imageBase64 = await this.screenManager.capture();
-                     this.sendImage(imageBase64);
-                 } catch (captureError) {
-                     console.error(`${this.name}: Error capturing/sending screen image:`, captureError);
-                 }
-            }, this.captureInterval);
-
-            console.info(`${this.name}: Screen sharing started.`);
-             this.emit('screenshare_started');
-
-        } catch (error) {
-             console.error(`${this.name}: Failed to start screen sharing:`, error);
-             if (this.screenInterval) clearInterval(this.screenInterval);
-             this.screenInterval = null;
-             await this.stopScreenShare(); // Ensure dispose is called
-             this.emit('error', new Error('Failed to start screen sharing: ' + error.message));
-             throw new Error('Failed to start screen sharing: ' + error.message); // Often "Permission denied" if user cancels
-        }
+async startScreenShare() {
+    if (!this.connected) {
+        throw new Error(`${this.name}: Must be connected to start screen sharing`);
     }
+    if (this.screenInterval) {
+        console.warn(`${this.name}: Screen share already running.`);
+        return;
+    }
+
+    try {
+        console.info(`${this.name}: Initializing screen share...`);
+        
+        // Add retry logic for initialization
+        let initAttempts = 0;
+        const maxAttempts = 2;
+        
+        while (initAttempts < maxAttempts) {
+            try {
+                await this.screenManager.initialize();
+                console.info('Screen manager initialized successfully');
+                break; // Break the loop if successful
+            } catch (initError) {
+                initAttempts++;
+                console.warn(`Screen initialization attempt ${initAttempts} failed:`, initError);
+                
+                // Clean up between attempts
+                if (this.screenManager) {
+                    this.screenManager.dispose();
+                }
+                
+                if (initAttempts >= maxAttempts) {
+                    throw initError; // Re-throw if we've exhausted attempts
+                }
+                
+                // Wait a bit before trying again
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        console.info(`${this.name}: Starting screen share interval (FPS: ${this.fps})...`);
+        if (this.screenInterval) clearInterval(this.screenInterval);
+
+        let frameCount = 0;
+        let successFrames = 0;
+        
+        this.screenInterval = setInterval(async () => {
+            if (!this.screenManager || !this.connected) {
+                console.warn(`${this.name}: Stopping screen share interval - conditions not met.`);
+                if(this.screenInterval) clearInterval(this.screenInterval);
+                this.screenInterval = null;
+                return;
+            }
+            
+            frameCount++;
+            try {
+                const imageBase64 = await this.screenManager.capture();
+                if (!imageBase64) {
+                    if (frameCount % 10 === 0) {
+                        console.warn("No image data captured on frame", frameCount);
+                    }
+                    return;
+                }
+                
+                await this.sendImage(imageBase64);
+                successFrames++;
+                
+                // Log frame stats periodically
+                if (frameCount % 30 === 0) {
+                    console.info(`Screen capture stats: ${successFrames}/${frameCount} frames successfully captured and sent`);
+                }
+                
+            } catch (captureError) {
+                console.error(`${this.name}: Error capturing/sending screen image:`, captureError);
+            }
+        }, this.captureInterval);
+
+        console.info(`${this.name}: Screen sharing started.`);
+        this.emit('screenshare_started');
+
+    } catch (error) {
+        console.error(`${this.name}: Failed to start screen sharing:`, error);
+        if (this.screenInterval) clearInterval(this.screenInterval);
+        this.screenInterval = null;
+        await this.stopScreenShare();
+        this.emit('error', new Error('Failed to start screen sharing: ' + error.message));
+        throw error;
+    }
+}
 
     async stopScreenShare() {
         console.info(`${this.name}: Stopping screen sharing...`);
