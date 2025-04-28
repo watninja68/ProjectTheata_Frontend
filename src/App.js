@@ -372,7 +372,7 @@ function App() {
         <div className="app-container">
             {/* Header */}
             <div className="app-header">
-                <h1>Gemini Live Agent (React)</h1>
+                <h1>Frontend</h1>
                 <div className="controls">
                     {!isConnected && <button onClick={handleConnect} disabled={isInitializing}>Connect</button>}
                     {isConnected && <button onClick={handleDisconnect}>Disconnect</button>}
