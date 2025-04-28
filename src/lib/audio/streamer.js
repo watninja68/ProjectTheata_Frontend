@@ -17,20 +17,21 @@ export class AudioStreamer {
             throw new Error('Invalid AudioContext provided', { context });
         }
         this.context = context;
-        this.audioQueue = [];                           // Queue of audio chunks waiting to be played
-        this.isPlaying = false;                         // Playback state
-        this._sampleRate = MODEL_SAMPLE_RATE;           // Use configured sample rate
-        this.bufferSize = Math.floor(this._sampleRate * 0.32);  // Buffer size (320ms based on sample rate)
-        this.processingBuffer = new Float32Array(0);    // Accumulator for incomplete chunks
-        this.scheduledTime = 0;                         // Next scheduled audio playback time
-        this.gainNode = this.context.createGain();      // Volume control node
-        this.isStreamComplete = false;                  // Stream completion flag
-        this.checkInterval = null;                      // Interval for checking buffer state
-        this.initialBufferTime = 0.05;                  // Initial buffering delay (50ms)
-        this.isInitialized = false;                     // Initialization state
-        this.endOfQueueAudioSource = null;              // Last audio source in queue
-        this.scheduledSources = new Set();              // Track active audio sources
-        this.lastScheduleTimeLog = 0;                   // Timestamp for throttling logs
+        this.audioQueue = [];
+        this.isPlaying = false;
+        this._sampleRate = MODEL_SAMPLE_RATE;
+        this.bufferSize = Math.floor(this._sampleRate * 0.32); // 320ms buffer
+        this.processingBuffer = new Float32Array(0);
+        this.scheduledTime = 0;
+        this.gainNode = this.context.createGain();
+        this.isStreamComplete = false;
+        this.checkInterval = null;
+        this.initialBufferTime = 0.1; // Slightly increased initial buffer (100ms)
+        this.isInitialized = false;
+        this.endOfQueueAudioSource = null;
+        this.scheduledSources = new Set();
+        this.lastScheduleTimeLog = 0;
+        this.lastContextCheckTime = 0; // Throttle context state checks
 
         // Connect gain node to audio output
         this.gainNode.connect(this.context.destination);
@@ -38,191 +39,221 @@ export class AudioStreamer {
 
         // Bind methods
         this.streamAudio = this.streamAudio.bind(this);
-        this.scheduleNextBuffer = this.scheduleNextBuffer.bind(this); // Ensure binding for setTimeout/Interval
+        this.scheduleNextBuffer = this.scheduleNextBuffer.bind(this);
 
-        // Add context state change listener for debugging
+        // Context state change listener (remains useful for debugging)
         this.context.onstatechange = () => {
             console.log(`AudioStreamer: Context state changed to: ${this.context.state}`);
-            // If suspended while we think we are playing, try to reschedule immediately
             if (this.context.state === 'suspended' && this.isPlaying) {
-                console.warn("AudioStreamer: Context suspended unexpectedly. Attempting immediate reschedule check.");
-                // Clear existing timeout/interval before trying to reschedule
-                if (this.checkInterval) {
-                    clearInterval(this.checkInterval);
-                    this.checkInterval = null;
-                }
-                // Use setTimeout to avoid immediate recursion if resume fails instantly
-                setTimeout(this.scheduleNextBuffer, 50);
+                console.warn("AudioStreamer: Context suspended unexpectedly. Scheduling check.");
+                this._clearCheckInterval(); // Clear existing checks
+                setTimeout(this.scheduleNextBuffer, 50); // Schedule a check soon
+            } else if (this.context.state === 'running' && !this.isPlaying && this.audioQueue.length > 0) {
+                 console.log("AudioStreamer: Context became running with queued audio. Triggering scheduling.");
+                 this._startPlaybackScheduling(); // Try to start playing if context resumed and queue has items
             }
         };
     }
 
     /**
-     * Gets the current sample rate used for audio playback
-     * @returns {number} Current sample rate in Hz
+     * Ensures the AudioContext is running. Attempts to resume if suspended.
+     * @returns {Promise<boolean>} True if the context is running, false otherwise.
+     * @private
      */
-    get sampleRate() {
-        return this._sampleRate;
+    async _ensureContextRunning() {
+        const now = performance.now();
+        // Throttle checks to avoid spamming resume attempts
+        if (now - this.lastContextCheckTime < 200) {
+            return this.context.state === 'running';
+        }
+        this.lastContextCheckTime = now;
+
+        if (this.context.state === 'running') {
+            return true;
+        }
+
+        if (this.context.state === 'suspended') {
+            console.warn("AudioStreamer: Context is suspended. Attempting resume...");
+            try {
+                await this.context.resume();
+                console.info("AudioStreamer: Context resumed successfully.");
+                return true; // Resumed successfully
+            } catch (resumeError) {
+                console.error("AudioStreamer: Failed to resume context:", resumeError);
+                return false; // Resume failed
+            }
+        }
+
+        console.error(`AudioStreamer: Context is in an unexpected state: ${this.context.state}`);
+        return false; // Context is closed or in an error state
     }
 
-    /**
-     * Sets a new sample rate and adjusts buffer size accordingly
-     * @param {number} value - New sample rate in Hz
+     /**
+     * Clears the check interval if it exists.
+     * @private
      */
+    _clearCheckInterval() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+        }
+    }
+
+     /**
+     * Starts the playback scheduling loop.
+     * @private
+     */
+     _startPlaybackScheduling() {
+        if (!this.isPlaying && this.audioQueue.length > 0) {
+            console.info("AudioStreamer: Starting playback scheduling.");
+            this.isPlaying = true;
+            // Reset scheduled time relative to current time + buffer ONLY if context is running
+            if (this.context.state === 'running') {
+                this.scheduledTime = this.context.currentTime + this.initialBufferTime;
+            } else {
+                // If context not running, set based on performance time as placeholder
+                this.scheduledTime = performance.now() / 1000 + this.initialBufferTime;
+                 console.warn("AudioStreamer: Context not running, setting initial scheduledTime based on performance.now()");
+            }
+            this._clearCheckInterval();
+            this.scheduleNextBuffer(); // Start the scheduling loop
+        }
+    }
+
+
+    get sampleRate() { return this._sampleRate; }
     set sampleRate(value) {
         if (!Number.isFinite(value) || value <= 1 || value > 48000) {
-            console.warn('Attempt to set invalid sample rate:' + value + '. Must be between 1 and 48000Hz. Using saved sample rate instead:' + this._sampleRate);
-            return;
+            console.warn('Attempt to set invalid sample rate:' + value); return;
         }
         this._sampleRate = value;
-        this.bufferSize = Math.floor(value * 0.32);  // 320ms buffer
-        console.info('Sample rate updated', { newRate: value, newBufferSize: this.bufferSize });
+        this.bufferSize = Math.floor(value * 0.32);
+        console.info('Sample rate updated', { newRate: value });
     }
 
-    /**
-     * Processes incoming PCM16 audio chunks for playback
-     * @param {Int16Array|Uint8Array} chunk - Raw PCM16 audio data
-     */
-    streamAudio(chunk) {
+    async streamAudio(chunk) {
+        // 1. Check if initialized (basic sanity check)
         if (!this.isInitialized) {
-            console.warn('AudioStreamer: Not initialized. Call initialize() first.');
-            return;
-        }
-        // Check context state before processing
-        if (this.context.state !== 'running') {
-             console.warn(`AudioStreamer: Context not running (${this.context.state}) in streamAudio. Attempting resume.`);
-             this.context.resume().catch(e => console.error("AudioStreamer: Error resuming context in streamAudio:", e));
-             // We might still process and queue, hoping resume succeeds before scheduling
+            console.warn('AudioStreamer: streamAudio called but not initialized. Attempting lazy init.');
+            // Attempt a lazy initialization if context seems okay
+             if (this.context && this.context.state !== 'closed') {
+                 try {
+                     await this.initialize();
+                 } catch (initError) {
+                     console.error("AudioStreamer: Lazy initialization failed:", initError);
+                     return; // Don't process if init fails
+                 }
+             } else {
+                 console.error("AudioStreamer: Cannot lazy-initialize, context missing or closed.");
+                 return;
+             }
         }
 
+        // 2. Validate chunk
         if (!chunk || !(chunk instanceof Int16Array || chunk instanceof Uint8Array)) {
             console.warn('AudioStreamer: Invalid audio chunk provided', { chunkType: chunk ? chunk.constructor.name : 'null' });
             return;
         }
 
+        // 3. Ensure context is running before processing further
+        if (!(await this._ensureContextRunning())) {
+            console.warn(`AudioStreamer: Context not running in streamAudio, skipping chunk processing.`);
+            // Keep chunk in processingBuffer maybe? Or discard? Discarding for now.
+            return;
+        }
+
+        // 4. Process the chunk
         try {
-            // Convert Int16 samples to Float32 format
             const float32Array = new Float32Array(chunk.length / 2);
             const dataView = new DataView(chunk.buffer);
-
             for (let i = 0; i < chunk.length / 2; i++) {
-                const int16 = dataView.getInt16(i * 2, true);
-                float32Array[i] = int16 / 32768;  // Scale to [-1.0, 1.0] range
+                float32Array[i] = dataView.getInt16(i * 2, true) / 32768;
             }
 
-            // Limit processing buffer size to prevent memory issues
-            if (this.processingBuffer.length > this.bufferSize * 8) { // Increased max buffer slightly
-                console.warn('AudioStreamer: Processing buffer overflow, resetting', {
-                    bufferSize: this.processingBuffer.length,
-                    maxSize: this.bufferSize * 8
-                });
+            if (this.processingBuffer.length > this.bufferSize * 10) { // Increased max buffer slightly more
+                console.warn('AudioStreamer: Processing buffer overflow, resetting');
                 this.processingBuffer = new Float32Array(0);
             }
 
-            // Accumulate samples in processing buffer
             const newBuffer = new Float32Array(this.processingBuffer.length + float32Array.length);
             newBuffer.set(this.processingBuffer);
             newBuffer.set(float32Array, this.processingBuffer.length);
             this.processingBuffer = newBuffer;
 
-            // Debugging logs (throttled)
-            const now = performance.now();
-            if (now - this.lastScheduleTimeLog > 500) { // Log roughly every 500ms
-                // console.debug(`AudioStreamer: Received chunk ${chunk.length/2} samples. Processing buffer: ${this.processingBuffer.length}, Queue: ${this.audioQueue.length}`);
-                this.lastScheduleTimeLog = now;
-            }
-
-
-            // Split processing buffer into playable chunks
+            // Split into playable chunks
             while (this.processingBuffer.length >= this.bufferSize) {
-                const buffer = this.processingBuffer.slice(0, this.bufferSize);
-                this.audioQueue.push(buffer);
+                this.audioQueue.push(this.processingBuffer.slice(0, this.bufferSize));
                 this.processingBuffer = this.processingBuffer.slice(this.bufferSize);
             }
 
-            // Start playback scheduling if not already running
+            // Start scheduling if not already running and queue has items
             if (!this.isPlaying && this.audioQueue.length > 0) {
-                console.info("AudioStreamer: Starting playback scheduling.");
-                this.isPlaying = true;
-                // Reset scheduled time relative to current time + buffer
-                this.scheduledTime = this.context.currentTime + this.initialBufferTime;
-                // Clear any previous interval just in case
-                if (this.checkInterval) {
-                    clearInterval(this.checkInterval);
-                    this.checkInterval = null;
-                }
-                this.scheduleNextBuffer(); // Start the scheduling loop
+                this._startPlaybackScheduling();
             } else if (this.isPlaying && this.checkInterval) {
-                 // If already playing but was potentially waiting in interval, clear interval and schedule immediately
-                 // console.debug("AudioStreamer: New audio arrived while waiting, scheduling immediately.");
-                 clearInterval(this.checkInterval);
-                 this.checkInterval = null;
+                 // New audio arrived while waiting in interval, clear interval and schedule immediately
+                 this._clearCheckInterval();
                  this.scheduleNextBuffer();
             }
 
         } catch (error) {
             console.error('AudioStreamer: Error processing audio chunk:', error);
-             // Rethrow or emit? Let's log and continue for now to avoid stopping agent
-             // throw new Error('Error processing audio chunk:' + error);
         }
     }
 
-    /**
-     * Creates an AudioBuffer from Float32 audio data
-     * @param {Float32Array} audioData - Audio samples to convert
-     * @returns {AudioBuffer} Web Audio API buffer for playback
-     */
     createAudioBuffer(audioData) {
+        // Don't check context state here, assume it's checked before calling
         try {
+            // Ensure context is available and not closed
+            if (!this.context || this.context.state === 'closed') {
+                 console.error("AudioStreamer: Cannot create buffer, context missing or closed.");
+                 return null;
+            }
             const audioBuffer = this.context.createBuffer(1, audioData.length, this.sampleRate);
             audioBuffer.getChannelData(0).set(audioData);
             return audioBuffer;
         } catch (error) {
             console.error("AudioStreamer: Error creating audio buffer:", error);
-            // Attempt to handle potential context issues
-            if (this.context.state !== 'running') {
-                 console.warn(`AudioStreamer: Context state is ${this.context.state} during buffer creation. Attempting resume.`);
-                 this.context.resume().catch(e => console.error("AudioStreamer: Error resuming context during buffer creation:", e));
-            }
-            return null; // Indicate failure
+             // Check state again on error, might have closed during creation
+             if (this.context && this.context.state !== 'running') {
+                 console.warn(`AudioStreamer: Context state is ${this.context.state} during buffer creation.`);
+             }
+            return null;
         }
     }
 
-    /**
-     * Schedules audio buffers for playback with precise timing
-     * Implements a look-ahead scheduler to ensure smooth playback
-     * Uses setTimeout for efficient CPU usage while maintaining timing accuracy
-     */
     async scheduleNextBuffer() {
-        // Clear any pending timeout/interval as we are now actively scheduling
-        if (this.checkInterval) {
-            clearInterval(this.checkInterval);
-            this.checkInterval = null;
-        }
+        this._clearCheckInterval(); // Clear interval as we are actively scheduling
 
         if (!this.isPlaying) {
             console.debug("AudioStreamer: scheduleNextBuffer called but isPlaying is false. Stopping.");
             return;
         }
 
-        // --- Added: Check context state at the start of scheduling ---
-        if (this.context.state !== 'running') {
-            console.warn(`AudioStreamer: Context not running (${this.context.state}) at start of scheduleNextBuffer. Attempting resume...`);
-            try {
-                await this.context.resume();
-                console.info("AudioStreamer: Context resumed successfully in scheduleNextBuffer.");
-            } catch (resumeError) {
-                console.error("AudioStreamer: Failed to resume context in scheduleNextBuffer:", resumeError);
-                // Don't reschedule immediately if resume fails, wait for state change or next chunk
-                this.isPlaying = false; // Stop playback attempts if context unusable
-                 console.error("AudioStreamer: Setting isPlaying to false due to context resume failure.");
-                return;
+        // Ensure context is running before scheduling anything
+        if (!(await this._ensureContextRunning())) {
+            console.warn(`AudioStreamer: Context not running at start of scheduleNextBuffer. Waiting...`);
+            // If context couldn't be resumed, start the check interval to try again later
+            if (!this.checkInterval) {
+                this.checkInterval = setInterval(this.scheduleNextBuffer, 200); // Check every 200ms
             }
+            return;
         }
-        // --- End of Added Check ---
 
-        const SCHEDULE_AHEAD_TIME = 0.2;  // Look-ahead window in seconds (keep relatively short)
-        const MIN_AHEAD_TIME = 0.02;      // Minimum time ahead to schedule (20ms) to prevent scheduling in the past
+        // Ensure streamer is initialized (might have been reset if context restarted)
+        if (!this.isInitialized) {
+             console.warn("AudioStreamer: Not initialized in scheduleNextBuffer. Attempting re-init.");
+             try {
+                 await this.initialize();
+             } catch (initError) {
+                 console.error("AudioStreamer: Failed to re-initialize:", initError);
+                 this.isPlaying = false; // Stop if init fails
+                 return;
+             }
+        }
+
+
+        const SCHEDULE_AHEAD_TIME = 0.2;
+        const MIN_AHEAD_TIME = 0.05; // Increased minimum lookahead
 
         try {
             // Schedule buffers within look-ahead window
@@ -232,99 +263,92 @@ export class AudioStreamer {
 
                 if (!audioBuffer) {
                     console.error("AudioStreamer: Failed to create audio buffer, skipping chunk.");
-                    continue; // Skip this chunk if buffer creation failed
+                    continue;
                 }
 
                 const source = this.context.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(this.gainNode); // Ensure connection is made
 
-                // Track this source
+                // Track scheduled source
                 this.scheduledSources.add(source);
                 source.onended = () => {
                     this.scheduledSources.delete(source);
-                     // Additional check: If this was the last source AND the queue is still empty, update endOfQueueAudioSource
-                     if (this.endOfQueueAudioSource === source && this.audioQueue.length === 0) {
-                         this.endOfQueueAudioSource = null;
-                     }
+                    // Safe disconnect on ended
+                     try { source.disconnect(); } catch (e) {}
+                    if (this.endOfQueueAudioSource === source && this.audioQueue.length === 0) {
+                        this.endOfQueueAudioSource = null;
+                    }
                 };
 
                 // Handle completion tracking for last buffer
                 if (this.audioQueue.length === 0) {
-                    // Remove previous onended listener if a new "last" source is scheduled quickly
                     if (this.endOfQueueAudioSource && this.scheduledSources.has(this.endOfQueueAudioSource)) {
-                        this.endOfQueueAudioSource.onended = () => { this.scheduledSources.delete(this.endOfQueueAudioSource); }; // Basic cleanup
+                         // Basic cleanup for previous last source
+                         this.endOfQueueAudioSource.onended = () => {
+                             this.scheduledSources.delete(this.endOfQueueAudioSource);
+                              try { this.endOfQueueAudioSource.disconnect(); } catch(e) {}
+                         };
                     }
                     this.endOfQueueAudioSource = source;
-                    // The onended attached above already handles deletion from scheduledSources
                 }
 
-                source.buffer = audioBuffer;
-                source.connect(this.gainNode);
 
-                // Ensure accurate playback timing, always scheduling slightly ahead
-                // If scheduledTime is too far in the past, reset it closer to currentTime
-                if (this.scheduledTime < this.context.currentTime) {
-                    console.warn(`AudioStreamer: Scheduled time (${this.scheduledTime.toFixed(3)}) is behind current time (${this.context.currentTime.toFixed(3)}). Resetting.`);
-                    this.scheduledTime = this.context.currentTime;
-                }
-
-                // Calculate start time, ensuring it's not in the past and has a small buffer
-                const startTime = Math.max(this.scheduledTime, this.context.currentTime + MIN_AHEAD_TIME);
-                source.start(startTime);
-
-                // Update the next scheduled time
-                this.scheduledTime = startTime + audioBuffer.duration;
-
-                // Debugging logs (throttled)
-                const now = performance.now();
-                 if (now - this.lastScheduleTimeLog > 500) { // Log roughly every 500ms
-                    // console.debug(`AudioStreamer: Scheduled chunk. Start: ${startTime.toFixed(3)}, Duration: ${audioBuffer.duration.toFixed(3)}, Next Sched: ${this.scheduledTime.toFixed(3)}, Current: ${this.context.currentTime.toFixed(3)}, Queue: ${this.audioQueue.length}`);
-                    this.lastScheduleTimeLog = now;
+                // --- Timing Calculation ---
+                // Ensure scheduledTime is not in the past relative to the AudioContext's clock
+                 if (this.scheduledTime < this.context.currentTime) {
+                     console.warn(`AudioStreamer: Scheduled time (${this.scheduledTime.toFixed(3)}) was behind current time (${this.context.currentTime.toFixed(3)}). Adjusting.`);
+                     // Reset based on current time plus a minimum buffer
+                     this.scheduledTime = this.context.currentTime + MIN_AHEAD_TIME;
                  }
-            }
+
+                 // Calculate start time, ensuring it's slightly ahead of the current time
+                 const startTime = Math.max(this.scheduledTime, this.context.currentTime + MIN_AHEAD_TIME);
+
+                try {
+                     source.start(startTime);
+                     // Update the next scheduled time based on when this one *actually* starts + duration
+                     this.scheduledTime = startTime + audioBuffer.duration;
+                 } catch (startError) {
+                     console.error(`AudioStreamer: Error starting source node at ${startTime.toFixed(3)} (current: ${this.context.currentTime.toFixed(3)}):`, startError);
+                     // If start fails, don't advance scheduledTime based on this buffer
+                     this.scheduledSources.delete(source); // Remove from tracking
+                     continue; // Try the next buffer if available
+                 }
+
+                // Log scheduling details occasionally
+                const nowPerf = performance.now();
+                if (nowPerf - this.lastScheduleTimeLog > 1000) {
+                     console.debug(`AudioStreamer: Scheduled chunk. Start: ${startTime.toFixed(3)}, Next: ${this.scheduledTime.toFixed(3)}, Current: ${this.context.currentTime.toFixed(3)}, Queue: ${this.audioQueue.length}`);
+                    this.lastScheduleTimeLog = nowPerf;
+                }
+            } // End while loop
 
             // Handle buffer underrun or stream completion
             if (this.audioQueue.length === 0) {
-                 // Check if processing buffer *also* has insufficient data
-                 if (this.processingBuffer.length < this.bufferSize) {
-                    // console.debug(`AudioStreamer: Audio queue empty and processing buffer small (${this.processingBuffer.length}). Waiting for more data...`);
+                if (this.processingBuffer.length < this.bufferSize) {
                     if (this.isStreamComplete) {
                         console.info("AudioStreamer: Stream complete and queue empty. Stopping playback.");
                         this.isPlaying = false;
-                        // No need for interval if stream is complete
                     } else if (!this.checkInterval) {
-                         // Start checking periodically for new audio data if stream not complete
-                         // Use a shorter interval to react faster
-                         console.debug("AudioStreamer: Starting check interval (100ms) for new data.");
-                         this.checkInterval = setInterval(() => {
-                             // Check if new data has arrived or context state changed
-                             if (this.audioQueue.length > 0 || this.processingBuffer.length >= this.bufferSize || this.context.state !== 'running') {
-                                 // console.debug("AudioStreamer: Check interval detected new data or state change. Rescheduling.");
-                                 clearInterval(this.checkInterval);
-                                 this.checkInterval = null;
-                                 this.scheduleNextBuffer(); // Try scheduling again
-                             } else {
-                                  // console.debug("AudioStreamer: Check interval - still waiting...");
-                             }
-                         }, 100); // Check every 100ms
+                         console.debug("AudioStreamer: Queue empty, processing buffer small. Starting check interval (150ms).");
+                         this.checkInterval = setInterval(this.scheduleNextBuffer, 150); // Check slightly less often
                     }
-                 } else {
-                      // Processing buffer has enough data, continue processing/scheduling immediately
-                      // console.debug("AudioStreamer: Queue empty, but processing buffer has data. Scheduling next.");
-                      setTimeout(this.scheduleNextBuffer, 0); // Yield thread briefly
-                 }
+                } else {
+                    // Processing buffer has enough data, continue processing/scheduling
+                    setTimeout(this.scheduleNextBuffer, 10); // Yield thread briefly
+                }
             } else {
-                // Still items in queue, schedule next check based on audio timing
-                const timeUntilNextSchedule = (this.scheduledTime - this.context.currentTime - SCHEDULE_AHEAD_TIME) * 1000;
-                const timeoutDelay = Math.max(10, timeUntilNextSchedule); // Ensure minimum delay (10ms)
-                // console.debug(`AudioStreamer: Rescheduling next buffer check in ${timeoutDelay.toFixed(0)} ms`);
-                setTimeout(this.scheduleNextBuffer, timeoutDelay);
+                // Still items in queue, schedule next check based on when the current lookahead window ends
+                 const timeUntilNextScheduleNeeded = Math.max(0, this.scheduledTime - this.context.currentTime - SCHEDULE_AHEAD_TIME);
+                 const timeoutDelay = Math.max(50, timeUntilNextScheduleNeeded * 1000); // Minimum 50ms delay
+                 // console.debug(`AudioStreamer: Rescheduling next buffer check in ${timeoutDelay.toFixed(0)} ms`);
+                 setTimeout(this.scheduleNextBuffer, timeoutDelay);
             }
         } catch (error) {
             console.error('AudioStreamer: Error scheduling next buffer:', error);
-            this.isPlaying = false; // Stop playback on scheduling error
-             console.error("AudioStreamer: Setting isPlaying to false due to scheduling error.");
-             // Optionally re-throw or emit
-             // throw new Error('Error scheduling next buffer:' + error);
+            this.isPlaying = false;
+            console.error("AudioStreamer: Setting isPlaying to false due to scheduling error.");
         }
     }
 
@@ -335,69 +359,64 @@ export class AudioStreamer {
      */
     stop() {
         console.info('AudioStreamer: Stopping audio playback...');
-        this.isPlaying = false; // Set flag immediately to prevent rescheduling
+        this.isPlaying = false;
         this.isStreamComplete = true; // Assume stream is complete when stop is called explicitly
+        this._clearCheckInterval();
 
-        // Clear buffer check interval if active
-        if (this.checkInterval) {
-            clearInterval(this.checkInterval);
-            this.checkInterval = null;
-            console.debug("AudioStreamer: Check interval cleared during stop.");
-        }
-
-        // Use try-catch for stopping sources as context might be closing
+        // Use try-catch for stopping sources
         try {
-            // Stop all active/scheduled audio sources gracefully
             for (const source of this.scheduledSources) {
-                // Check if source and buffer exist before trying to access properties
-                if (source && source.buffer) {
-                     // Calculate remaining time and stop with a very short fade out
-                     const remainingDuration = Math.max(0, source.buffer.duration - (this.context.currentTime - this.scheduledTime + source.buffer.duration));
-                     const stopTime = this.context.currentTime + 0.05; // Stop 50ms from now
+                try {
+                    // Check if stop method exists and node hasn't already finished
+                    if (source && typeof source.stop === 'function') {
+                         // Check buffer before accessing duration
+                         const duration = source.buffer ? source.buffer.duration : 0;
+                         // Check context state before accessing currentTime
+                         const currentTime = this.context.state === 'running' ? this.context.currentTime : performance.now() / 1000;
 
-                     // Check if stopTime is valid (source might not have started)
-                     // Note: Accessing playbackState might throw if context is closed
-                    try {
-                        if (source.playbackState === source.PLAYING_STATE || source.playbackState === source.SCHEDULED_STATE) {
-                            source.stop(stopTime);
-                        }
-                    } catch (e) {
-                         console.warn("AudioStreamer: Error checking playbackState/stopping source (context might be closed):", e.message);
+                         // Calculate a safe stop time slightly in the future
+                         const stopTime = currentTime + 0.05;
+
+                         source.stop(stopTime);
                     }
+                     // Always disconnect
+                     if (source) source.disconnect();
+                } catch (e) {
+                     // Ignore errors often caused by stopping already stopped/finished nodes or closed context
+                     // console.warn("AudioStreamer: Error stopping/disconnecting source (ignorable):", e.message);
+                     // Still try to disconnect if stop failed
+                     try { if (source) source.disconnect(); } catch (e2) {}
                 }
-                // Disconnect source regardless of playback state errors
-                 try {
-                    if (source) source.disconnect();
-                 } catch (e) {
-                     console.warn("AudioStreamer: Error disconnecting source:", e.message);
-                 }
             }
-             console.debug(`AudioStreamer: Stopped ${this.scheduledSources.size} scheduled sources.`);
+             console.debug(`AudioStreamer: Processed stop/disconnect for ${this.scheduledSources.size} scheduled sources.`);
         } catch(e) {
-            console.error("AudioStreamer: Error stopping scheduled sources:", e);
+            console.error("AudioStreamer: Error iterating scheduled sources during stop:", e);
         } finally {
-             this.scheduledSources.clear(); // Clear the set
+             this.scheduledSources.clear();
         }
 
 
         // Clear queues and reset time
         this.audioQueue = [];
         this.processingBuffer = new Float32Array(0);
-        this.scheduledTime = 0; // Reset scheduled time
+        this.scheduledTime = 0;
         this.endOfQueueAudioSource = null;
 
-
-        // Fade out gain node to avoid clicks (use try-catch)
+        // Fade out gain node (use try-catch)
         try {
             if (this.gainNode && this.context.state === 'running') {
-                this.gainNode.gain.cancelScheduledValues(this.context.currentTime);
-                this.gainNode.gain.linearRampToValueAtTime(0, this.context.currentTime + 0.05); // Faster fade
-                // Restore gain after fade for next playback
-                this.gainNode.gain.linearRampToValueAtTime(1, this.context.currentTime + 0.1);
-                 console.debug("AudioStreamer: Gain node faded out.");
+                const now = this.context.currentTime;
+                this.gainNode.gain.cancelScheduledValues(now);
+                // Ramp down quickly, then restore for next use
+                this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now); // Start from current value
+                this.gainNode.gain.linearRampToValueAtTime(0, now + 0.05);
+                this.gainNode.gain.linearRampToValueAtTime(1, now + 0.1); // Restore gain slightly later
+                 console.debug("AudioStreamer: Gain node faded out and scheduled restore.");
+            } else {
+                 console.debug("AudioStreamer: Skipping gain node fade (not running or node missing).");
             }
         } catch (error) {
-            console.warn('AudioStreamer: Error during fade-out (context might be closed):' + error.message);
+            console.warn('AudioStreamer: Error during gain node fade-out:', error.message);
         }
         console.info("AudioStreamer: Playback stopped.");
     }
@@ -405,46 +424,54 @@ export class AudioStreamer {
     /**
      * Initializes the audio streamer
      * Ensures audio context is active before starting playback
-     * @returns {AudioStreamer} This instance for method chaining
+     * @returns {Promise<AudioStreamer>} This instance for method chaining
      */
     async initialize() {
-        try {
-            // Attempt to resume context if suspended
-            if (this.context.state !== 'running') {
-                console.info(`AudioStreamer: Context state is ${this.context.state}. Attempting resume during initialization...`);
-                await this.context.resume();
-                console.info(`AudioStreamer: Context resumed. New state: ${this.context.state}`);
-            }
-            // Check state again after potential resume attempt
-            if (this.context.state !== 'running') {
-                 throw new Error(`AudioContext could not be resumed. Current state: ${this.context.state}`);
-            }
-
-            // Reset state variables for initialization/re-initialization
-            this.isStreamComplete = false;
-            this.audioQueue = [];
-            this.processingBuffer = new Float32Array(0);
-            this.scheduledTime = this.context.currentTime + this.initialBufferTime; // Start scheduling slightly ahead
-            this.gainNode.gain.cancelScheduledValues(this.context.currentTime); // Cancel any ramps
-            this.gainNode.gain.setValueAtTime(1, this.context.currentTime); // Set gain immediately
-            this.isPlaying = false; // Not playing until first chunk scheduled
-            this.isInitialized = true;
-
-            // Clear any lingering interval/sources
-             if (this.checkInterval) clearInterval(this.checkInterval);
-             this.checkInterval = null;
-             this.scheduledSources.forEach(source => { try { source.disconnect(); } catch(e){} });
-             this.scheduledSources.clear();
-
-
-            console.info('AudioStreamer: Initialization complete.');
-            return this; // Return instance for chaining
-
-        } catch (error) {
-            console.error('AudioStreamer: Failed to initialize:', error);
-            this.isInitialized = false; // Ensure state reflects failure
-            throw new Error('Failed to initialize AudioStreamer: ' + error.message); // Re-throw
+        console.log("AudioStreamer: Initializing...");
+        // 1. Ensure context is running
+        if (!(await this._ensureContextRunning())) {
+             // If context couldn't start/resume, initialization fails.
+             this.isInitialized = false;
+             throw new Error(`AudioContext could not be started or resumed. Current state: ${this.context.state}`);
         }
+
+        // 2. Reset state variables
+        this.isStreamComplete = false;
+        this.audioQueue = [];
+        this.processingBuffer = new Float32Array(0);
+        // Reset scheduled time relative to current time ONLY if context is running
+        this.scheduledTime = this.context.state === 'running'
+            ? this.context.currentTime + this.initialBufferTime
+            : performance.now() / 1000 + this.initialBufferTime;
+        this.isPlaying = false; // Not playing until first chunk scheduled
+        this._clearCheckInterval();
+
+        // 3. Reset Gain Node
+        try {
+             if (this.gainNode && this.context.state === 'running') {
+                 const now = this.context.currentTime;
+                 this.gainNode.gain.cancelScheduledValues(now);
+                 this.gainNode.gain.setValueAtTime(1, now); // Set gain to 1 immediately
+             }
+        } catch (e) {
+             console.warn("AudioStreamer: Error resetting gain node:", e.message);
+        }
+
+        // 4. Clear any lingering scheduled sources
+         try {
+            this.scheduledSources.forEach(source => {
+                 try { source.disconnect(); } catch(e){}
+            });
+         } finally {
+             this.scheduledSources.clear();
+         }
+         this.endOfQueueAudioSource = null;
+
+
+        // 5. Mark as initialized
+        this.isInitialized = true;
+        console.info('AudioStreamer: Initialization complete.');
+        return this; // Return instance for chaining
     }
 
      // Cleanup method to remove context listener
@@ -453,13 +480,17 @@ export class AudioStreamer {
         this.stop(); // Ensure playback is stopped
         if(this.context) {
              this.context.onstatechange = null; // Remove listener
-             // We don't close the context here, as it might be shared or managed externally
+             // Context closure is handled by Agent
         }
+        this.removeAllListeners(); // Clear EventEmitter listeners
+        this._clearCheckInterval();
+
          // Nullify references
          this.context = null;
          this.gainNode = null;
          this.audioQueue = null;
          this.processingBuffer = null;
          this.scheduledSources = null;
+         this.isInitialized = false;
     }
 }

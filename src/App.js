@@ -2,17 +2,21 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './css/styles.css'; // Import global styles (Now contains the new theme)
 
+// Import Icons from react-icons
+import {
+    FaLink, FaUnlink,FaStroopwafel, FaCog, FaPaperPlane, FaMicrophone, FaMicrophoneSlash,
+    FaVideo, FaVideoSlash, FaDesktop, FaStopCircle, FaSyncAlt, FaExclamationTriangle,
+    FaSpinner, FaCheckCircle, FaTimesCircle
+} from 'react-icons/fa'; // Using Font Awesome icons
+
 // Only import components that you have actually implemented
 import AudioVisualizerComponent from './components/AudioVisualizerComponent';
 import SettingsDialog from './components/SettingsDialog';
-// Preview component might be useful if its logic becomes complex
-// import Preview from './components/Preview';
 
 // Keep hook imports
 import { useSettings } from './hooks/useSettings';
 import { useGeminiAgent } from './hooks/useGeminiAgent';
 
-// Removed imports for integrated components
 
 function App() {
     // Settings hook logic remains the same
@@ -45,6 +49,7 @@ function App() {
         stopCamera,
         startScreenShare,
         stopScreenShare,
+        // Callback refs
         onTranscriptionRef,
         onTextSentRef,
         onInterruptedRef,
@@ -62,12 +67,11 @@ function App() {
     const [currentTranscript, setCurrentTranscript] = useState('');
     const [lastUserMessageType, setLastUserMessageType] = useState(null);
     const streamingMessageRef = useRef(null);
-    const chatHistoryRef = useRef(null); // Ref for scrolling chat history
+    const chatHistoryRef = useRef(null);
 
-    // Add new state for camera/screen errors and specific mic state
+    // State for camera/screen errors
     const [cameraError, setCameraError] = useState(null);
     const [screenError, setScreenError] = useState(null);
-    // Use derived state from hook for mic status display
     const displayMicActive = isMicActive && !isMicSuspended;
 
 
@@ -93,7 +97,7 @@ function App() {
             if (lastMsg?.type === 'audio_input_placeholder') {
                 return prev;
             }
-            return [...prev, { id: 'placeholder-' + Date.now(), sender: 'user', text: '🎤 Listening...', type: 'audio_input_placeholder', isStreaming: false }];
+            return [...prev, { id: 'placeholder-' + Date.now(), sender: 'user', text: 'Listening...', type: 'audio_input_placeholder', isStreaming: false }];
         });
        setLastUserMessageType('audio');
     }, []);
@@ -156,9 +160,6 @@ function App() {
          onScreenShareStoppedRef.current = () => {
              console.log("Screen share stopped (event received in App)");
              setScreenError(null);
-             // Hide preview manually if ScreenManager's cleanup didn't
-             const preview = document.getElementById('screenPreview');
-             if (preview) preview.style.display = 'none';
          };
          onMicStateChangedRef.current = (state) => {
              if (state.active && !state.suspended) {
@@ -173,49 +174,34 @@ function App() {
                  setMessages(prev => prev.filter(msg => msg.type !== 'audio_input_placeholder'));
              }
          };
-         onCameraStartedRef.current = () => {
-            console.log("App: Camera Started");
-            const preview = document.getElementById('cameraPreview');
-            if(preview) preview.style.display = 'block';
-         };
-         onCameraStoppedRef.current = () => {
-            console.log("App: Camera Stopped");
-            const preview = document.getElementById('cameraPreview');
-            if(preview) preview.style.display = 'none';
-            setCameraError(null); // Clear errors when stopped
-         };
-         onScreenShareStartedRef.current = () => {
-            console.log("App: Screen Share Started");
-            const preview = document.getElementById('screenPreview');
-            if(preview) preview.style.display = 'block';
-         };
+         onCameraStartedRef.current = () => { console.log("App: Camera Started"); setCameraError(null); }; // Clear error on success
+         onCameraStoppedRef.current = () => { console.log("App: Camera Stopped"); /* Error cleared manually or on start */ };
+         onScreenShareStartedRef.current = () => { console.log("App: Screen Share Started"); setScreenError(null); }; // Clear error on success
 
          // Optional: Handle user transcription display
          onUserTranscriptionRef.current = (transcript) => {
              setMessages(prev => {
                  const lastMsg = prev[prev.length - 1];
                  if (lastMsg?.type === 'audio_input_placeholder') {
-                     return prev.map(msg => msg.id === lastMsg.id ? { ...msg, text: `🎤 ${transcript}` } : msg);
-                 } else if (displayMicActive && !prev.some(msg => msg.type === 'audio_input_placeholder')) {
-                     return [...prev, { id: 'placeholder-' + Date.now(), sender: 'user', text: `🎤 ${transcript}`, type: 'audio_input_placeholder', isStreaming: false }];
+                     return prev.map(msg => msg.id === lastMsg.id ? { ...msg, text: ` ${transcript}` } : msg); // Just update text
+                 } else if (lastMsg?.type === 'user_audio') {
+                     // Append logic if needed
+                 } else if (!prev.some(msg => msg.type === 'audio_input_placeholder') && displayMicActive) {
+                    return [...prev, { id: 'placeholder-' + Date.now(), sender: 'user', text: ` ${transcript}`, type: 'audio_input_placeholder', isStreaming: false }];
                  }
                  return prev;
              });
          };
 
+    }, [addMessage, updateStreamingMessage, finalizeStreamingMessage, addUserAudioPlaceholder, lastUserMessageType, displayMicActive]);
 
-    }, [addMessage, updateStreamingMessage, finalizeStreamingMessage, addUserAudioPlaceholder, lastUserMessageType, displayMicActive]); // Add displayMicActive dependency
 
-
-    // --- UI Event Handlers (Updated for Errors) ---
+    // --- UI Event Handlers ---
     const handleConnect = () => {
         if (!isConnected && !isInitializing) {
             setCameraError(null);
             setScreenError(null);
-            connectAgent().catch(err => {
-                console.error("App: Connection failed", err);
-                // Error state is set within the hook, displayed via agentError in status bar
-            });
+            connectAgent().catch(err => { console.error("App: Connection failed", err); });
         }
     };
     const handleDisconnect = () => {
@@ -225,21 +211,13 @@ function App() {
             setCurrentTranscript('');
             setLastUserMessageType(null);
             streamingMessageRef.current = null;
-            // Ensure previews are hidden on disconnect
-             const camPreview = document.getElementById('cameraPreview');
-             const screenPreview = document.getElementById('screenPreview');
-             if (camPreview) camPreview.style.display = 'none';
-             if (screenPreview) screenPreview.style.display = 'none';
         }
     };
     const handleSendMessage = (text) => {
-        if (text.trim() && agent && isConnected) {
+        const trimmedText = text.trim();
+        if (trimmedText && agent && isConnected) {
              finalizeStreamingMessage();
-             sendText(text.trim());
-             // User message added via onTextSentRef callback
-             // Clear input after sending
-             const input = document.getElementById('messageInput');
-             if (input) input.value = '';
+            sendText(trimmedText);
         }
     };
     const handleToggleMic = () => {
@@ -254,19 +232,19 @@ function App() {
     const handleToggleCamera = async () => {
         if (!agent || !isConnected) return;
         setCameraError(null);
-        // Previews are managed by CameraManager's initialize/dispose and show/hide methods now
+        const preview = document.getElementById('cameraPreview');
         try {
             if (isCameraActive) {
                 await stopCamera();
+                 if (preview) preview.style.display = 'none';
             } else {
                 await startCamera();
+                 if (preview) preview.style.display = 'block';
             }
         } catch (error) {
             console.error("App: Camera toggle error:", error);
             setCameraError(error.message);
-            alert(`Camera error: ${error.message}. Please check permissions and ensure the camera is not in use by another application.`);
-            // Ensure preview is hidden on error
-            const preview = document.getElementById('cameraPreview');
+            alert(`Camera error: ${error.message}. Please check permissions and ensure the camera is not in use.`);
             if (preview) preview.style.display = 'none';
         }
     };
@@ -274,24 +252,23 @@ function App() {
     const handleToggleScreenShare = async () => {
          if (!agent || !isConnected) return;
          setScreenError(null);
-         // Previews are managed by ScreenManager's initialize/dispose and show/hide methods now
+         const preview = document.getElementById('screenPreview');
          try {
             if (isScreenShareActive) {
                 await stopScreenShare();
+                 if (preview) preview.style.display = 'none';
             } else {
                 await startScreenShare();
+                 if (preview) preview.style.display = 'block';
             }
          } catch (error) {
              console.error("App: Screen share toggle error:", error);
              setScreenError(error.message);
-             alert(`Screen share error: ${error.message}. Please ensure you grant permission when prompted.`);
-             // Ensure preview is hidden on error
-            const preview = document.getElementById('screenPreview');
-            if (preview) preview.style.display = 'none';
+             alert(`Screen share error: ${error.message}. Please grant permission.`);
+              if (preview) preview.style.display = 'none';
          }
     };
 
-    // Switch Camera
     const handleSwitchCamera = useCallback(async () => {
         if (agent?.cameraManager && isCameraActive) {
              try {
@@ -307,38 +284,58 @@ function App() {
         }
     }, [agent, isCameraActive]);
 
-     // Ensure Preview Containers Exist (Optional Check - CSS handles display)
-     useEffect(() => {
-         if (!document.getElementById('cameraPreview')) {
-             const div = document.createElement('div');
-             div.id = 'cameraPreview';
-             // Find sidebar to append to, or body as fallback
-             const sidebar = document.querySelector('.sidebar');
-             if (sidebar) sidebar.appendChild(div);
-             else document.body.appendChild(div); // Fallback, might not be styled ideally
+     const handleInputKeyPress = (e) => {
+         if (e.key === 'Enter' && e.target.value.trim()) {
+             handleSendMessage(e.target.value);
+             e.target.value = '';
          }
-          if (!document.getElementById('screenPreview')) {
-             const div = document.createElement('div');
-             div.id = 'screenPreview';
-             const sidebar = document.querySelector('.sidebar');
-             if (sidebar) sidebar.appendChild(div);
-             else document.body.appendChild(div);
+     };
+
+      const handleSendButtonClick = () => {
+         const input = document.getElementById('messageInput');
+         if (input && input.value.trim()) {
+             handleSendMessage(input.value);
+             input.value = '';
          }
-     }, []);
+     };
 
 
-    // --- JSX Return (Updated with New Structure and Classes) ---
+    // Function to render the current connection status with icons
+    const renderStatus = () => {
+        if (agentError) return <span className="status status-error" title={agentError}><FaTimesCircle /> Error</span>;
+        if (isInitializing) return <span className="status status-initializing"><FaSpinner className="fa-spin" /> Connecting...</span>; // Use spinner icon
+        if (isConnected) return <span className="status status-connected"><FaCheckCircle /> Connected</span>;
+        return <span className="status status-disconnected"><FaTimesCircle /> Disconnected</span>; // Or FaUnlinkAlt
+    };
+
+    // --- JSX Return (Updated with Icons and Classes) ---
     return (
         <div className="app-container">
             {/* Header */}
-            <header className="app-header">
-                <h1>Project Theata</h1>
-                <div className="controls">
-                    {!isConnected && <button onClick={handleConnect} disabled={isInitializing}>🔗 Connect</button>}
-                    {isConnected && <button onClick={handleDisconnect}>🔌 Disconnect</button>}
-                    <button onClick={openSettings} disabled={isInitializing || isConnected} title="Settings">⚙️</button>
+            <div className="app-header">
+                <div className="header-left">
+                    <FaStroopwafel/>
+                    <h1>Project Theta</h1>
                 </div>
-            </header>
+                <div className="header-center">
+                     <div className="header-status">
+                         {renderStatus()}
+                          {cameraError && <span className="status status-warning" title={cameraError}><FaVideoSlash /> Cam Err</span>}
+                          {screenError && <span className="status status-warning" title={screenError}><FaDesktop /> Screen Err</span>}
+                     </div>
+                </div>
+                <div className="header-right controls">
+                    {!isConnected && <button onClick={handleConnect} disabled={isInitializing} title="Connect">
+                         <FaLink /> <span className="button-text">Connect</span>
+                    </button>}
+                    {isConnected && <button onClick={handleDisconnect} title="Disconnect">
+                         <FaUnlink /> <span className="button-text">Disconnect</span>
+                    </button>}
+                    <button onClick={openSettings} disabled={isInitializing || isConnected} title="Settings">
+                         <FaCog />
+                    </button>
+                </div>
+            </div>
 
             {/* Main Content Area */}
             <main className="main-content">
@@ -355,25 +352,22 @@ function App() {
                         ))}
                     </div>
 
-                    {/* Audio Visualizer (only if agent is initialized and connected) */}
-                    {agent && agent.initialized && isConnected && agent.audioStreamer && <AudioVisualizerComponent agent={agent} />}
+                    {/* Audio Visualizer */}
+                    {agent && agent.initialized && isConnected && <AudioVisualizerComponent agent={agent} />}
                 </div>
 
                 {/* Sidebar Area (For Previews) */}
-                 <aside className="sidebar">
+                 <div className="sidebar">
                      <p>Media Previews</p>
-                     {/* Preview divs are positioned by CSS now, Camera/Screen managers add video element */}
-                     <div id="cameraPreview" className="preview">
-                         {/* Video element added by CameraManager */}
-                         {/* Switch button added by CameraManager or here */}
-                         {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) && (
-                             <button onClick={handleSwitchCamera} className="camera-switch-btn" title="Switch Camera">⟲</button>
-                         )}
-                     </div>
-                     <div id="screenPreview" className="preview">
-                         {/* Video element added by ScreenManager */}
-                     </div>
-                 </aside>
+                     <div id="cameraPreview"></div>
+                     <div id="screenPreview"></div>
+
+                     {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) &&
+                        <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera">
+                            <FaSyncAlt />
+                        </button>
+                     }
+                 </div>
             </main>
 
             {/* Footer with Input and Media Controls */}
@@ -381,24 +375,23 @@ function App() {
                  <input
                      id="messageInput"
                      type="text"
-                     placeholder={displayMicActive ? "🎤 Listening... Type to interrupt." : "Type your message here..."}
-                     disabled={!isConnected} // Allow typing even when mic is active to interrupt
-                     onKeyPress={(e) => { if (e.key === 'Enter') handleSendMessage(e.target.value); }}
-                     // Consider adding onChange handler if you need live input value
+                     placeholder={displayMicActive ? "Listening..." : "Type message or turn on mic..."}
+                     disabled={!isConnected || displayMicActive}
+                     onKeyPress={handleInputKeyPress}
                  />
-                 <button onClick={() => handleSendMessage(document.getElementById('messageInput').value)} disabled={!isConnected} title="Send Message">
-                    <span>Send</span> <span role="img" aria-label="send icon">➤</span>
+                 <button onClick={handleSendButtonClick} disabled={!isConnected || displayMicActive} title="Send Message">
+                     <FaPaperPlane /> <span className="button-text">Send</span>
                  </button>
-                 {/* Media Controls */}
                  <button
                     onClick={handleToggleMic}
                     className={`control-btn mic-btn ${displayMicActive ? 'active' : ''} ${isMicSuspended && isMicActive ? 'suspended' : ''}`}
                     disabled={!isConnected}
                     title={displayMicActive ? "Mute Mic (Listening)" : (isMicSuspended && isMicActive ? "Resume Mic (Suspended)" : "Unmute Mic")}
                  >
-                    <span role="img" aria-label="microphone icon">🎤</span>
-                    {/* Text hidden on mobile via CSS */}
-                    <span>{isMicActive ? (isMicSuspended ? 'Suspended' : 'On') : 'Off'}</span>
+                    {displayMicActive ? <FaMicrophone /> : <FaMicrophoneSlash />}
+                    <span className="button-text">
+                         {isMicActive ? (isMicSuspended ? ' (Susp.)' : ' (On)') : ' (Off)'}
+                    </span>
                  </button>
                  <button
                     onClick={handleToggleCamera}
@@ -406,8 +399,10 @@ function App() {
                     disabled={!isConnected}
                     title={cameraError ? `Camera Error: ${cameraError}` : (isCameraActive ? 'Stop Camera' : 'Start Camera')}
                  >
-                    <span role="img" aria-label="camera icon">📷</span>
-                    <span>{isCameraActive ? 'On' : 'Off'}</span>
+                    {isCameraActive ? <FaVideo /> : <FaVideoSlash />}
+                     <span className="button-text">
+                         {isCameraActive ? ' (On)' : ' (Off)'}
+                     </span>
                  </button>
                   <button
                     onClick={handleToggleScreenShare}
@@ -415,21 +410,12 @@ function App() {
                     disabled={!isConnected}
                     title={screenError ? `Screen Share Error: ${screenError}` : (isScreenShareActive ? 'Stop Screen Share' : 'Start Screen Share')}
                  >
-                     <span role="img" aria-label="screen share icon">🖥️</span>
-                     <span>{isScreenShareActive ? 'On' : 'Off'}</span>
+                     {isScreenShareActive ? <FaDesktop /> : <FaStopCircle /> /* Placeholder icon */}
+                     <span className="button-text">
+                          {isScreenShareActive ? ' (On)' : ' (Off)'}
+                     </span>
                  </button>
             </footer>
-
-            {/* Status/Error Indicators */}
-            <div className="status-bar">
-                {isInitializing && <span className="status status-initializing">Connecting...</span>}
-                {agentError && <span className="status status-error">⚠️ Agent Error: {agentError}</span>}
-                {cameraError && <span className="status status-warning">📷 Camera Error</span>} {/* Keep brief */}
-                {screenError && <span className="status status-warning">🖥️ Screen Error</span>} {/* Keep brief */}
-                 {!isInitializing && !agentError && isConnected && <span className="status status-connected">🟢 Connected</span>}
-                 {!isInitializing && !isConnected && !agentError && <span className="status status-disconnected">⚪ Disconnected</span>}
-            </div>
-
 
             {/* Settings Dialog */}
              {isSettingsOpen && (
@@ -439,7 +425,7 @@ function App() {
                      initialSettings={settings}
                      onSave={(newSettings) => {
                          saveSettings(newSettings);
-                         // Reload is handled by useSettings hook
+                         closeSettings();
                      }}
                      thresholds={thresholds}
                  />

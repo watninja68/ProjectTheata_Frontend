@@ -1,16 +1,14 @@
 // src/lib/main/agent.js
 import { GeminiWebsocketClient } from '../ws/client.js';
 import { AudioRecorder } from '../audio/recorder.js';
-import { AudioStreamer } from '../audio/streamer.js';
-// Removed: import { AudioVisualizer } from '../audio/visualizer.js'; // Agent no longer directly manages this
+import { AudioStreamer } from '../audio/streamer.js'; // Import updated streamer
 
-import { DeepgramTranscriber } from '../transcribe/deepgram.js'; // Keep if using Deepgram
+import { DeepgramTranscriber } from '../transcribe/deepgram.js';
 import { CameraManager } from '../camera/camera.js';
 import { ScreenManager } from '../screen/screen.js';
-import { base64ToArrayBuffer } from '../utils/utils.js'; // Import if needed for Deepgram
+import { base64ToArrayBuffer } from '../utils/utils.js';
 
-
-// Helper for event emitter functionality (can be simple Map based)
+// Simple EventEmitter (or use library like 'eventemitter3')
 class EventEmitter {
     constructor() {
         this._listeners = new Map();
@@ -79,15 +77,15 @@ class EventEmitter {
 }
 
 
-export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
+export class GeminiAgent extends EventEmitter {
     constructor({
         name = 'GeminiAgent',
         url,
         config,
         deepgramApiKey = null,
-        transcribeModelsSpeech = true, // Set default based on your needs
-        transcribeUsersSpeech = false,  // Set default based on your needs
-        modelSampleRate = 24000, // Match your config's expected rate
+        transcribeModelsSpeech = true,
+        transcribeUsersSpeech = false,
+        modelSampleRate = 24000,
         toolManager = null,
         settings // Pass the whole settings object
     } = {}) {
@@ -105,7 +103,6 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
         this.audioContext = null;
         this.audioRecorder = null;
         this.audioStreamer = null;
-        // REMOVED: this.visualizer = null; // Agent no longer manages visualizer instance
 
         // For transcribers
         this.transcribeModelsSpeech = transcribeModelsSpeech;
@@ -148,13 +145,9 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
         // Tool Manager
         this.toolManager = toolManager;
         // Ensure config.tools exists before assigning
-        if (config.tools) {
-           config.tools.functionDeclarations = toolManager?.getToolDeclarations() || [];
-        } else {
-             // Handle case where config object might not have a tools property initially
-             console.warn("Config object provided to GeminiAgent constructor is missing 'tools' property. Initializing.");
-             config.tools = { functionDeclarations: toolManager?.getToolDeclarations() || [] };
-        }
+        config.tools = config.tools || {}; // Initialize if missing
+        config.tools.functionDeclarations = toolManager?.getToolDeclarations() || [];
+
         this.config = config;
 
         this.name = name;
@@ -170,64 +163,46 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
     setupEventListeners() {
         if (!this.client) return;
 
-        // --- MODIFIED 'audio' EVENT HANDLER ---
+        // --- REFINED 'audio' EVENT HANDLER ---
         this.client.on('audio', async (data) => {
-            // 1. Check if streamer exists
-            if (!this.audioStreamer) {
-                console.warn("Agent: Audio received but audioStreamer is null.");
-                return;
-            }
-
-            // 2. Check AudioContext state and attempt resume if suspended
-            if (this.audioStreamer.context.state !== 'running') {
-                console.warn(`Agent: Audio received but context is ${this.audioStreamer.context.state}. Attempting resume...`);
-                try {
-                    await this.audioStreamer.context.resume();
-                    console.info("Agent: AudioContext resumed successfully.");
-                    // If context was closed and reopened elsewhere, streamer might need re-init
-                    if (!this.audioStreamer.isInitialized) {
-                        console.warn("Agent: Context resumed, but streamer not initialized. Re-initializing streamer...");
-                        await this.audioStreamer.initialize();
+            // 1. Check if streamer exists and is initialized
+            if (!this.audioStreamer || !this.audioStreamer.isInitialized) {
+                // Log less frequently to avoid spam if streamer is consistently missing
+                if (Math.random() < 0.1) {
+                    console.warn(`Agent: Audio received but streamer missing or not initialized (Initialized: ${this.audioStreamer?.isInitialized}). Skipping.`);
+                }
+                // Optionally try to re-initialize if streamer exists but isn't initialized
+                if (this.audioStreamer && !this.audioStreamer.isInitialized && this.audioContext && this.audioContext.state !== 'closed') {
+                    console.warn("Agent: Attempting lazy re-initialization of streamer.");
+                    try {
+                         await this.audioStreamer.initialize();
+                         // If init succeeds, try processing *this* chunk immediately
+                          if (this.audioStreamer.isInitialized) {
+                             await this.audioStreamer.streamAudio(new Uint8Array(data));
+                         }
+                    } catch(initErr) {
+                        console.error("Agent: Lazy streamer re-initialization failed:", initErr);
                     }
-                } catch (resumeError) {
-                    console.error("Agent: Failed to resume AudioContext:", resumeError);
-                    this.emit('error', new Error('Failed to resume audio context during playback attempt.'));
-                    return; // Don't try to stream if resume failed
                 }
+                return; // Skip processing if streamer is fundamentally not ready
             }
 
-            // 3. Check if streamer is initialized (might have failed or context restarted)
-            if (!this.audioStreamer.isInitialized) {
-                console.warn("Agent: Audio received but streamer not initialized. Attempting re-initialization.");
-                try {
-                    await this.audioStreamer.initialize(); // Try to initialize again
-                    console.info("Agent: AudioStreamer re-initialized successfully.");
-                } catch (initError) {
-                    console.error("Agent: Failed to re-initialize AudioStreamer:", initError);
-                    this.emit('error', new Error('Failed to initialize audio streamer during playback attempt.'));
-                    return; // Don't stream if init failed
-                }
-            }
+            // 2. Let the streamer handle context checks and streaming
+            try {
+                 // The updated streamer now handles context checks internally
+                 await this.audioStreamer.streamAudio(new Uint8Array(data));
 
-            // 4. Proceed with streaming only if context is running and streamer is initialized
-            if (this.audioStreamer.isInitialized && this.audioStreamer.context.state === 'running') {
-                try {
-                    this.audioStreamer.streamAudio(new Uint8Array(data));
-
-                    // Send to Deepgram if configured
-                    if (this.modelTranscriber && this.modelTranscriber.isConnected) {
-                        // Deepgram expects raw PCM data (ArrayBuffer or Uint8Array)
-                        this.modelTranscriber.sendAudio(data);
-                    }
-                } catch (error) {
-                    console.error('Agent: Error during audio streaming/processing:', error);
-                    this.emit('error', new Error('Audio processing/streaming error: ' + error.message));
+                // Send to Deepgram if configured (remains same)
+                if (this.modelTranscriber && this.modelTranscriber.isConnected) {
+                    // Deepgram expects raw PCM data (ArrayBuffer or Uint8Array)
+                    this.modelTranscriber.sendAudio(data);
                 }
-            } else {
-                console.warn(`Agent: Skipping audio streaming. Initialized: ${this.audioStreamer.isInitialized}, Context State: ${this.audioStreamer.context.state}`);
+            } catch (error) {
+                console.error('Agent: Error during audio streaming call:', error);
+                this.emit('error', new Error('Audio processing/streaming error: ' + error.message));
             }
         });
-        // --- END OF MODIFIED 'audio' HANDLER ---
+        // --- END OF REFINED 'audio' HANDLER ---
 
 
         // Handle model interruptions by stopping audio playback
@@ -382,10 +357,12 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
                 this.audioRecorder.stop(); // Stops tracks and closes context if owned
                  console.debug(`${this.name}: Audio recorder stopped.`);
             }
+            // --- Ensure streamer disposal ---
             if (this.audioStreamer) {
-                this.audioStreamer.stop(); // Stops playback and fades out
-                 console.debug(`${this.name}: Audio streamer stopped.`);
+                this.audioStreamer.dispose(); // Call dispose explicitly
+                console.debug(`${this.name}: Audio streamer disposed.`);
             }
+            // --- End streamer disposal ---
 
             // Cleanup transcribers
             if (this.modelTranscriber) {
@@ -447,47 +424,62 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
 
     // --- Initialization (Audio, Transcribers) ---
     async initialize() {
-         if (this.initialized) {
-            console.warn(`${this.name}: Already initialized.`);
-            return;
-         }
-         if (!this.connected || !this.client) {
-             throw new Error(`${this.name}: Cannot initialize, not connected.`);
-         }
+        if (this.initialized) {
+           console.warn(`${this.name}: Already initialized.`);
+           return;
+        }
+        if (!this.connected || !this.client) {
+            throw new Error(`${this.name}: Cannot initialize, not connected.`);
+        }
 
         console.info(`${this.name}: Initializing core components...`);
         try {
-            // Initialize audio components
-            // Reuse existing context if available and not closed, otherwise create new
-            if (!this.audioContext || this.audioContext.state === 'closed') {
-                this.audioContext = new AudioContext();
-                console.info(`${this.name}: New AudioContext created.`);
-            } else if (this.audioContext.state === 'suspended') {
-                 await this.audioContext.resume();
-                 console.info(`${this.name}: Resumed existing AudioContext.`);
-            }
+           // --- AudioContext Creation/Management ---
+           if (!this.audioContext || this.audioContext.state === 'closed') {
+               // Create context ONLY IF interaction has likely occurred.
+               // Browsers often require a user gesture (click, etc.) before allowing AudioContext creation.
+               // Relying on a previous interaction (like the connect button) is safer.
+               try {
+                   this.audioContext = new AudioContext();
+                   console.info(`${this.name}: New AudioContext created.`);
+                   // Add state change listener immediately after creation
+                   this.audioContext.onstatechange = () => {
+                       console.log(`Agent: AudioContext state changed to: ${this.audioContext.state}`);
+                       this.emit('audio_context_state_changed', this.audioContext.state);
+                       // Attempt resume if suspended and streamer exists/is playing
+                       if (this.audioContext?.state === 'suspended' && this.audioStreamer?.isPlaying) {
+                           console.warn("Agent: AudioContext suspended unexpectedly, attempting resume from state change handler...");
+                           this.audioContext.resume().catch(e => console.error("Error resuming context on state change:", e));
+                       }
+                   };
+               } catch (contextError) {
+                   console.error(`${this.name}: Failed to create AudioContext:`, contextError);
+                   throw new Error(`Failed to create AudioContext. User interaction might be required first. Error: ${contextError.message}`);
+               }
+           } else if (this.audioContext.state === 'suspended') {
+                console.warn(`${this.name}: AudioContext is suspended during initialization. Attempting resume...`);
+                try {
+                    await this.audioContext.resume();
+                    console.info(`${this.name}: Resumed existing AudioContext.`);
+                } catch (resumeError) {
+                     console.error(`${this.name}: Failed to resume AudioContext during initialization:`, resumeError);
+                     // Throw error because audio playback will likely fail
+                     throw new Error(`Failed to resume existing AudioContext. Error: ${resumeError.message}`);
+                }
+           }
+           // --- End AudioContext ---
 
-            // --- ADDED: AudioContext State Change Listener ---
-            this.audioContext.onstatechange = () => {
-                console.log(`Agent: AudioContext state changed to: ${this.audioContext.state}`);
-                this.emit('audio_context_state_changed', this.audioContext.state); // Emit event for UI/hook if needed
-                 // Optionally try to resume if suspended unexpectedly by external factors (like starting camera/screen)
-                 if (this.audioContext.state === 'suspended' && this.audioStreamer?.isPlaying) { // Only resume if streamer thinks it should be playing
-                    console.warn("Agent: AudioContext suspended unexpectedly while playing, attempting resume...");
-                    this.audioContext.resume().catch(e => console.error("Error resuming context on state change:", e));
-                 }
-            };
-            // --- END OF ADDITION ---
+           // Initialize Streamer (pass the potentially resumed context)
+           this.audioStreamer = new AudioStreamer(this.audioContext);
+           await this.audioStreamer.initialize(); // Streamer's initialize now handles context checks
+           console.info(`${this.name}: AudioStreamer initialized.`);
 
-            this.audioStreamer = new AudioStreamer(this.audioContext);
-            await this.audioStreamer.initialize(); // Ensure streamer is ready
-            console.info(`${this.name}: AudioStreamer initialized.`);
+           // Initialize Recorder
+           this.audioRecorder = new AudioRecorder();
+           console.info(`${this.name}: AudioRecorder created.`);
 
-            this.audioRecorder = new AudioRecorder(); // Recorder is ready to start
-             console.info(`${this.name}: AudioRecorder created.`);
-
-            // Initialize transcriber(s) if API key is provided
-            if (this.deepgramApiKey) {
+           // Initialize Transcribers (no changes needed here)
+           if (this.deepgramApiKey) {
                 console.info(`${this.name}: Deepgram API key found, initializing transcribers...`);
                 if (this.transcribeModelsSpeech) {
                     this.modelTranscriber = new DeepgramTranscriber(this.deepgramApiKey, this.modelSampleRate);
@@ -501,38 +493,35 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
                 console.warn(`${this.name}: No Deepgram API key provided, transcription disabled.`);
             }
 
-            this.initialized = true;
-            console.info(`${this.name}: Initialized successfully.`);
+           this.initialized = true;
+           console.info(`${this.name}: Initialized successfully.`);
 
-            // Send initial message to prompt model response after setup
-            if (this.client && this.connected) {
-                 console.info(`${this.name}: Sending initial '.' prompt to model.`);
-                 await this.client.sendText('.'); // Trigger the model to start speaking first
-            }
+           // Send initial prompt (no changes needed here)
+           if (this.client && this.connected) {
+                console.info(`${this.name}: Sending initial '.' prompt to model.`);
+                await this.client.sendText('.'); // Trigger the model to start speaking first
+           }
 
         } catch (error) {
-            console.error(`${this.name}: Initialization error:`, error);
-            // Attempt cleanup of partially initialized resources
-            try {
-                 if (this.audioStreamer) this.audioStreamer.stop();
-                 if (this.modelTranscriber) this.modelTranscriber.disconnect();
-                 if (this.userTranscriber) this.userTranscriber.disconnect();
-                 if (this.audioContext) {
-                     this.audioContext.onstatechange = null; // Remove listener
-                     if(this.audioContext.state !== 'closed') await this.audioContext.close();
-                 }
-            } catch (cleanupError) {
-                 console.warn("Error during initialization failure cleanup:", cleanupError);
-            }
-            // Nullify resources
-            this.audioContext = null;
-            this.audioStreamer = null;
-            this.audioRecorder = null;
-            this.modelTranscriber = null;
-            this.userTranscriber = null;
-            this.initialized = false; // Mark as not initialized
-            // Rethrow the specific error for the hook/caller
-            throw new Error(`Agent initialization failed: ${error.message}`);
+           console.error(`${this.name}: Initialization error:`, error);
+           // Cleanup partially initialized resources
+           try {
+                if (this.audioStreamer) this.audioStreamer.dispose();
+                if (this.modelTranscriber) this.modelTranscriber.disconnect();
+                if (this.userTranscriber) this.userTranscriber.disconnect();
+                if (this.audioContext) {
+                    this.audioContext.onstatechange = null;
+                    if(this.audioContext.state !== 'closed') await this.audioContext.close();
+                }
+           } catch (cleanupError) { console.warn("Error during initialization failure cleanup:", cleanupError); }
+           // Nullify resources
+           this.audioContext = null;
+           this.audioStreamer = null;
+           this.audioRecorder = null;
+           this.modelTranscriber = null;
+           this.userTranscriber = null;
+           this.initialized = false;
+           throw new Error(`Agent initialization failed: ${error.message}`);
         }
     }
 

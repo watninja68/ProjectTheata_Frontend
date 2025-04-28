@@ -6,32 +6,58 @@ const AudioVisualizerComponent = ({ agent }) => {
     const visualizerRef = useRef(null);
 
     useEffect(() => {
-         // Initialize only when agent and its audio components are ready
         if (agent?.audioContext && agent?.audioStreamer?.gainNode && canvasRef.current) {
-            const visualizer = new AudioVisualizer(agent.audioContext, canvasRef.current.id); // Pass ID
+            const visualizer = new AudioVisualizer(
+                agent.audioContext,
+                canvasRef.current.id,
+                // Updated colors to match theme
+                {
+                    gradientColors: ['#a450e0', '#8a2be2', '#ff00ff'], // Example: Lighter purple -> Main Accent -> Magenta
+                    lineWidth: 3, // Adjust thickness if desired
+                    padding: 10, // Adjust padding
+                    smoothingFactor: 0.5 // Adjust smoothing
+                }
+            );
             visualizerRef.current = visualizer;
 
-             // Connect the streamer's gain node (or another node if preferred)
-            agent.audioStreamer.gainNode.connect(visualizer.analyser);
+            // Check if gainNode is already connected to prevent duplicates if component re-renders
+            // Note: This simple check might not be fully robust in complex scenarios.
+            // A more robust way might involve tracking connections externally.
+             try {
+                agent.audioStreamer.gainNode.connect(visualizer.analyser);
+                visualizer.start();
+             } catch (error) {
+                 // Handle potential connection errors (e.g., already connected)
+                 console.warn("Error connecting visualizer, may already be connected:", error);
+                 // If it might be connected, try starting anyway
+                 if (!visualizer.isAnimating) {
+                    visualizer.start();
+                 }
+             }
 
-            visualizer.start();
 
-             // Cleanup
             return () => {
-                visualizer.cleanup();
-                visualizerRef.current = null;
-                 // Disconnect node? Check AudioVisualizer cleanup
-                 // agent.audioStreamer?.gainNode.disconnect(visualizer.analyser); // Be careful disconnecting shared nodes
+                 console.log("Cleaning up visualizer...");
+                 visualizer.cleanup();
+                 visualizerRef.current = null;
+                 try {
+                     // Only disconnect if the node is still valid and connected
+                     if (agent?.audioStreamer?.gainNode && agent?.audioContext?.state !== 'closed') {
+                        agent.audioStreamer.gainNode.disconnect(visualizer.analyser);
+                        console.log("Disconnected visualizer analyser node.");
+                     }
+                 } catch (disconnectError) {
+                     // Ignore errors often caused by context closing before disconnect
+                     console.warn("Ignoring visualizer disconnect error (likely context closed):", disconnectError);
+                 }
             };
          } else {
-             // If agent/components aren't ready, ensure visualizer is stopped
             if (visualizerRef.current) {
                 visualizerRef.current.stop();
             }
          }
     }, [agent]); // Rerun effect if agent instance changes
 
-     // Give the canvas the ID the visualizer expects
     return <canvas id="visualizer" ref={canvasRef} className="visualizer"></canvas>;
 };
 
