@@ -6,56 +6,65 @@ const AudioVisualizerComponent = ({ agent }) => {
     const visualizerRef = useRef(null);
 
     useEffect(() => {
-        if (agent?.audioContext && agent?.audioStreamer?.gainNode && canvasRef.current) {
+        // --- Check for the NEW analyserTapNode ---
+        if (agent?.audioContext && agent?.audioStreamer?.analyserTapNode && canvasRef.current) {
+            const targetNode = agent.audioStreamer.analyserTapNode; // Use the tap node
+            console.log("AudioVisualizerComponent: Setting up visualizer on analyserTapNode.");
+
             const visualizer = new AudioVisualizer(
                 agent.audioContext,
                 canvasRef.current.id,
-                // Updated colors to match theme
                 {
-                    gradientColors: ['#a450e0', '#8a2be2', '#ff00ff'], // Example: Lighter purple -> Main Accent -> Magenta
-                    lineWidth: 3, // Adjust thickness if desired
-                    padding: 10, // Adjust padding
-                    smoothingFactor: 0.5 // Adjust smoothing
+                    gradientColors: ['#a450e0', '#8a2be2', '#ff00ff'],
+                    lineWidth: 3,
+                    padding: 10,
+                    smoothingFactor: 0.5
                 }
             );
             visualizerRef.current = visualizer;
 
-            // Check if gainNode is already connected to prevent duplicates if component re-renders
-            // Note: This simple check might not be fully robust in complex scenarios.
-            // A more robust way might involve tracking connections externally.
-             try {
-                agent.audioStreamer.gainNode.connect(visualizer.analyser);
+            try {
+                // --- Connect to the NEW analyserTapNode ---
+                targetNode.connect(visualizer.analyser);
                 visualizer.start();
-             } catch (error) {
-                 // Handle potential connection errors (e.g., already connected)
-                 console.warn("Error connecting visualizer, may already be connected:", error);
-                 // If it might be connected, try starting anyway
-                 if (!visualizer.isAnimating) {
-                    visualizer.start();
-                 }
-             }
-
+                console.log("AudioVisualizerComponent: Connected analyser to analyserTapNode and started.");
+            } catch (error) {
+                console.warn("Error connecting/starting visualizer:", error);
+                if (!visualizer.isAnimating) { visualizer.start(); } // Try starting anyway
+            }
 
             return () => {
-                 console.log("Cleaning up visualizer...");
-                 visualizer.cleanup();
-                 visualizerRef.current = null;
-                 try {
-                     // Only disconnect if the node is still valid and connected
-                     if (agent?.audioStreamer?.gainNode && agent?.audioContext?.state !== 'closed') {
-                        agent.audioStreamer.gainNode.disconnect(visualizer.analyser);
-                        console.log("Disconnected visualizer analyser node.");
+                console.log("AudioVisualizerComponent: Cleaning up visualizer...");
+                const currentVisualizer = visualizerRef.current; // Capture ref value
+                const currentTargetNode = agent?.audioStreamer?.analyserTapNode; // Capture node ref
+
+                if (currentVisualizer) {
+                    currentVisualizer.cleanup(); // Stops animation and disconnects analyser internally
+                    visualizerRef.current = null;
+                }
+
+                // --- Attempt to disconnect the analyser from the tap node ---
+                // The visualizer's cleanup should already do this, but being explicit doesn't hurt.
+                try {
+                     if (currentTargetNode && currentVisualizer?.analyser && agent?.audioContext?.state !== 'closed') {
+                        currentTargetNode.disconnect(currentVisualizer.analyser);
+                        console.log("AudioVisualizerComponent: Disconnected analyser from analyserTapNode (explicit).");
                      }
-                 } catch (disconnectError) {
-                     // Ignore errors often caused by context closing before disconnect
-                     console.warn("Ignoring visualizer disconnect error (likely context closed):", disconnectError);
-                 }
+                } catch (disconnectError) {
+                     console.warn("Ignoring visualizer disconnect error (cleanup):", disconnectError);
+                }
+                // --- End explicit disconnect ---
             };
-         } else {
+        } else {
+            // Cleanup if dependencies change and target node is no longer available
             if (visualizerRef.current) {
+                console.log("AudioVisualizerComponent: Dependencies changed, stopping visualizer.");
                 visualizerRef.current.stop();
             }
-         }
+            // Log why it didn't initialize
+            // console.debug("AudioVisualizerComponent: Skipping setup (Agent, Context, or TapNode missing)",
+            //    { hasAgent: !!agent, hasContext: !!agent?.audioContext, hasTapNode: !!agent?.audioStreamer?.analyserTapNode });
+        }
     }, [agent]); // Rerun effect if agent instance changes
 
     return <canvas id="visualizer" ref={canvasRef} className="visualizer"></canvas>;
