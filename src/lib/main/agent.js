@@ -1,3 +1,4 @@
+// src/lib/main/agent.js
 import { GeminiWebsocketClient } from '../ws/client.js';
 import { AudioRecorder } from '../audio/recorder.js';
 import { AudioStreamer } from '../audio/streamer.js';
@@ -169,39 +170,65 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
     setupEventListeners() {
         if (!this.client) return;
 
-        // Handle incoming audio data from the model
+        // --- MODIFIED 'audio' EVENT HANDLER ---
         this.client.on('audio', async (data) => {
-            // Ensure streamer exists and is initialized
+            // 1. Check if streamer exists
             if (!this.audioStreamer) {
-                 console.warn("Audio received but audioStreamer is not initialized.");
-                 return;
+                console.warn("Agent: Audio received but audioStreamer is null.");
+                return;
             }
-            try {
-                if (!this.audioStreamer.isInitialized && this.audioStreamer.context.state === 'running') {
-                    // Attempt initialization only if context is running
-                    await this.audioStreamer.initialize();
-                    console.info("AudioStreamer late-initialized.");
+
+            // 2. Check AudioContext state and attempt resume if suspended
+            if (this.audioStreamer.context.state !== 'running') {
+                console.warn(`Agent: Audio received but context is ${this.audioStreamer.context.state}. Attempting resume...`);
+                try {
+                    await this.audioStreamer.context.resume();
+                    console.info("Agent: AudioContext resumed successfully.");
+                    // If context was closed and reopened elsewhere, streamer might need re-init
+                    if (!this.audioStreamer.isInitialized) {
+                        console.warn("Agent: Context resumed, but streamer not initialized. Re-initializing streamer...");
+                        await this.audioStreamer.initialize();
+                    }
+                } catch (resumeError) {
+                    console.error("Agent: Failed to resume AudioContext:", resumeError);
+                    this.emit('error', new Error('Failed to resume audio context during playback attempt.'));
+                    return; // Don't try to stream if resume failed
                 }
-                 // Stream only if initialized
-                if (this.audioStreamer.isInitialized) {
+            }
+
+            // 3. Check if streamer is initialized (might have failed or context restarted)
+            if (!this.audioStreamer.isInitialized) {
+                console.warn("Agent: Audio received but streamer not initialized. Attempting re-initialization.");
+                try {
+                    await this.audioStreamer.initialize(); // Try to initialize again
+                    console.info("Agent: AudioStreamer re-initialized successfully.");
+                } catch (initError) {
+                    console.error("Agent: Failed to re-initialize AudioStreamer:", initError);
+                    this.emit('error', new Error('Failed to initialize audio streamer during playback attempt.'));
+                    return; // Don't stream if init failed
+                }
+            }
+
+            // 4. Proceed with streaming only if context is running and streamer is initialized
+            if (this.audioStreamer.isInitialized && this.audioStreamer.context.state === 'running') {
+                try {
                     this.audioStreamer.streamAudio(new Uint8Array(data));
 
-                    // Send to Deepgram if configured and connected
+                    // Send to Deepgram if configured
                     if (this.modelTranscriber && this.modelTranscriber.isConnected) {
                         // Deepgram expects raw PCM data (ArrayBuffer or Uint8Array)
                         this.modelTranscriber.sendAudio(data);
                     }
-                } else {
-                     console.warn("Audio received but streamer still not initialized/ready.");
+                } catch (error) {
+                    console.error('Agent: Error during audio streaming/processing:', error);
+                    this.emit('error', new Error('Audio processing/streaming error: ' + error.message));
                 }
-
-            } catch (error) {
-                 // Using console.error avoids stopping execution like throw
-                console.error('Audio processing/streaming error:', error);
-                 // Optionally emit an error event
-                 this.emit('error', new Error('Audio processing error:' + error.message));
+            } else {
+                console.warn(`Agent: Skipping audio streaming. Initialized: ${this.audioStreamer.isInitialized}, Context State: ${this.audioStreamer.context.state}`);
             }
         });
+        // --- END OF MODIFIED 'audio' HANDLER ---
+
 
         // Handle model interruptions by stopping audio playback
         this.client.on('interrupted', () => {
@@ -440,6 +467,18 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
                  console.info(`${this.name}: Resumed existing AudioContext.`);
             }
 
+            // --- ADDED: AudioContext State Change Listener ---
+            this.audioContext.onstatechange = () => {
+                console.log(`Agent: AudioContext state changed to: ${this.audioContext.state}`);
+                this.emit('audio_context_state_changed', this.audioContext.state); // Emit event for UI/hook if needed
+                 // Optionally try to resume if suspended unexpectedly by external factors (like starting camera/screen)
+                 if (this.audioContext.state === 'suspended' && this.audioStreamer?.isPlaying) { // Only resume if streamer thinks it should be playing
+                    console.warn("Agent: AudioContext suspended unexpectedly while playing, attempting resume...");
+                    this.audioContext.resume().catch(e => console.error("Error resuming context on state change:", e));
+                 }
+            };
+            // --- END OF ADDITION ---
+
             this.audioStreamer = new AudioStreamer(this.audioContext);
             await this.audioStreamer.initialize(); // Ensure streamer is ready
             console.info(`${this.name}: AudioStreamer initialized.`);
@@ -478,7 +517,10 @@ export class GeminiAgent extends EventEmitter { // Inherit from EventEmitter
                  if (this.audioStreamer) this.audioStreamer.stop();
                  if (this.modelTranscriber) this.modelTranscriber.disconnect();
                  if (this.userTranscriber) this.userTranscriber.disconnect();
-                 if (this.audioContext && this.audioContext.state !== 'closed') await this.audioContext.close();
+                 if (this.audioContext) {
+                     this.audioContext.onstatechange = null; // Remove listener
+                     if(this.audioContext.state !== 'closed') await this.audioContext.close();
+                 }
             } catch (cleanupError) {
                  console.warn("Error during initialization failure cleanup:", cleanupError);
             }
