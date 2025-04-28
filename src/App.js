@@ -1,11 +1,12 @@
+// src/App.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './css/styles.css'; // Import global styles
+import './css/styles.css'; // Import global styles (Now contains the new theme)
 
 // Only import components that you have actually implemented (assuming AudioVisualizerComponent exists)
 import AudioVisualizerComponent from './components/AudioVisualizerComponent';
 // Import SettingsDialog and Collapsible helper
 import SettingsDialog from './components/SettingsDialog';
-import Collapsible from './components/Collapsible'; // Assuming Collapsible is inside SettingsDialog.js or separate
+// Collapsible is now defined within SettingsDialog.js
 
 // Keep hook imports
 import { useSettings } from './hooks/useSettings';
@@ -96,13 +97,14 @@ function App() {
             if (lastMsg?.type === 'audio_input_placeholder') {
                 return prev; // Don't add duplicates
             }
-            return [...prev, { id: 'audio_placeholder_' + Date.now(), sender: 'user', text: '🎤...', type: 'audio_input_placeholder', isStreaming: false }];
+            // Add a temporary ID for key prop
+            return [...prev, { id: 'placeholder-' + Date.now(), sender: 'user', text: '🎤 Listening...', type: 'audio_input_placeholder', isStreaming: false }];
         });
        setLastUserMessageType('audio');
     }, []);
 
     const updateStreamingMessage = useCallback((transcriptChunk) => {
-        const newFullTranscript = (currentTranscript + transcriptChunk).trim(); // Trim leading/trailing spaces
+        const newFullTranscript = (currentTranscript + transcriptChunk).trimStart(); // Trim leading spaces only
         setCurrentTranscript(newFullTranscript); // Update state for next chunk
         setMessages(prev => prev.map(msg =>
             msg.id === streamingMessageRef.current
@@ -110,6 +112,7 @@ function App() {
                 : msg
         ));
     }, [currentTranscript]);
+
 
     const finalizeStreamingMessage = useCallback(() => {
         setMessages(prev => prev.map(msg =>
@@ -119,13 +122,15 @@ function App() {
         ));
         streamingMessageRef.current = null;
         setCurrentTranscript(''); // Reset transcript state
-        setLastUserMessageType(null); // Reset last message type
+        // Don't reset lastUserMessageType here, keep it until next message
     }, []);
 
      // Auto-scroll chat history
      useEffect(() => {
         if (chatHistoryRef.current) {
-            chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+            // Optional: Add smooth scrolling
+            // chatHistoryRef.current.scrollTo({ top: chatHistoryRef.current.scrollHeight, behavior: 'smooth' });
+             chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
         }
      }, [messages]); // Scroll whenever messages update
 
@@ -136,21 +141,11 @@ function App() {
         onTranscriptionRef.current = (transcript) => {
             // console.debug("App: onTranscription", transcript)
             if (!streamingMessageRef.current) {
-                // If mic is active, assume this is response to user speech
-                // Add placeholder only if model starts speaking *without* prior user text/audio indication
-                 if (!lastUserMessageType && displayMicActive) {
-                    // Replace placeholder with actual message
-                    addMessage('model', transcript, true);
-                 } else if (!lastUserMessageType && !displayMicActive) {
-                     // Model started speaking without obvious user input (e.g., initial prompt)
-                     addMessage('model', transcript, true);
-                 } else {
-                      // Model continues after user text/audio
-                      addMessage('model', transcript, true);
-                 }
-
+                 // Starting a new message from the model
+                 addMessage('model', transcript, true);
             } else {
-                updateStreamingMessage(' ' + transcript);
+                 // Append to existing streaming message
+                 updateStreamingMessage(' ' + transcript);
             }
         };
         onTextSentRef.current = (text) => {
@@ -169,6 +164,7 @@ function App() {
         onTurnCompleteRef.current = () => {
              // console.debug("App: onTurnComplete")
             finalizeStreamingMessage();
+            setLastUserMessageType(null); // Reset type only when turn is fully complete
         };
 
         // --- Media State Changes ---
@@ -185,7 +181,7 @@ function App() {
                  // Check if the last message was from the user already
                  setMessages(prev => {
                      const lastMsg = prev[prev.length - 1];
-                     if (lastMsg?.sender !== 'user') {
+                     if (lastMsg?.sender !== 'user' || lastMsg?.type === 'text') { // Add placeholder if last wasn't user or was user text
                          addUserAudioPlaceholder();
                      }
                      return prev;
@@ -202,18 +198,24 @@ function App() {
 
          // Optional: Handle user transcription display
          onUserTranscriptionRef.current = (transcript) => {
-             console.log("User transcript:", transcript);
+             // console.log("User transcript:", transcript);
              // Example: Update a specific "user speaking" message or display elsewhere
              setMessages(prev => {
                  const lastMsg = prev[prev.length - 1];
                  if (lastMsg?.type === 'audio_input_placeholder') {
                      // Update the placeholder text
-                     return prev.map(msg => msg.id === lastMsg.id ? { ...msg, text: `🎤... ${transcript}` } : msg);
+                     return prev.map(msg => msg.id === lastMsg.id ? { ...msg, text: `🎤 ${transcript}` } : msg);
                  } else if (lastMsg?.type === 'user_audio') {
                      // Append to existing audio message (if you create one)
+                 } else {
+                     // Or, if placeholder was removed but mic still on, add a new one
+                     const placeholderExists = prev.some(msg => msg.type === 'audio_input_placeholder');
+                     if (!placeholderExists && displayMicActive) {
+                        // Create a new placeholder message containing the transcript
+                        return [...prev, { id: 'placeholder-' + Date.now(), sender: 'user', text: `🎤 ${transcript}`, type: 'audio_input_placeholder', isStreaming: false }];
+                     }
                  }
-                 // Or just log it for now
-                 return prev;
+                 return prev; // No change if conditions aren't met
              });
          };
 
@@ -263,16 +265,15 @@ function App() {
     const handleToggleCamera = async () => {
         if (!agent || !isConnected) return;
         setCameraError(null); // Clear previous camera errors
+         const preview = document.getElementById('cameraPreview'); // Get element ref
         try {
             if (isCameraActive) {
                 await stopCamera();
                  // Hide preview container manually if needed, CameraManager might do it
-                 const preview = document.getElementById('cameraPreview');
                  if (preview) preview.style.display = 'none';
             } else {
                 await startCamera();
                 // Show preview container, CameraManager might do it
-                 const preview = document.getElementById('cameraPreview');
                  if (preview) preview.style.display = 'block';
             }
         } catch (error) {
@@ -280,7 +281,6 @@ function App() {
             setCameraError(error.message);
             alert(`Camera error: ${error.message}. Please check permissions and ensure the camera is not in use by another application.`);
             // Ensure UI state reflects error (hook should set isCameraActive to false)
-             const preview = document.getElementById('cameraPreview');
              if (preview) preview.style.display = 'none';
         }
     };
@@ -288,16 +288,15 @@ function App() {
     const handleToggleScreenShare = async () => {
          if (!agent || !isConnected) return;
          setScreenError(null); // Clear previous screen errors
+          const preview = document.getElementById('screenPreview'); // Get element ref
          try {
             if (isScreenShareActive) {
                 await stopScreenShare();
                  // Hide preview container manually if needed, ScreenManager might do it
-                 const preview = document.getElementById('screenPreview');
                  if (preview) preview.style.display = 'none';
             } else {
                 await startScreenShare();
                  // Show preview container, ScreenManager might do it
-                 const preview = document.getElementById('screenPreview');
                  if (preview) preview.style.display = 'block';
             }
          } catch (error) {
@@ -305,7 +304,6 @@ function App() {
              setScreenError(error.message);
              alert(`Screen share error: ${error.message}. Please ensure you grant permission when prompted.`);
              // Ensure UI state reflects error (hook should set isScreenShareActive to false)
-              const preview = document.getElementById('screenPreview');
               if (preview) preview.style.display = 'none';
          }
     };
@@ -326,57 +324,19 @@ function App() {
         }
     }, [agent, isCameraActive]);
 
-    // Ensure preview containers exist (moved from App component useEffect to here)
-    useEffect(() => {
-        const ensurePreviewContainer = (id, styles) => {
-             if (!document.getElementById(id)) {
-                 const previewContainer = document.createElement('div');
-                 previewContainer.id = id;
-                 Object.assign(previewContainer.style, styles);
-                 document.body.appendChild(previewContainer);
-                 // Return cleanup function
-                 return () => {
-                    const el = document.getElementById(id);
-                    if (el) el.remove();
-                 };
-             }
-             return () => {}; // Return no-op cleanup if element exists
-        };
+    // --- Ensure Preview Containers Exist (No change needed here) ---
+    // useEffect(() => { ... }); // Keep the existing useEffect that creates preview divs if they don't exist
 
-        const camStyles = {
-             position: 'fixed', bottom: '80px', right: '10px', // Position above footer
-             width: '200px', height: '150px', zIndex: '1000',
-             overflow: 'hidden', border: '1px solid #444',
-             background: '#111', display: 'none' // Hidden by default
-        };
-        const screenStyles = {
-             position: 'fixed', bottom: '80px', left: '10px', // Position above footer
-             width: '240px', height: '135px', zIndex: '1000',
-             overflow: 'hidden', border: '1px solid #444',
-             background: '#111', display: 'none' // Hidden by default
-        };
-
-        const cleanupCam = ensurePreviewContainer('cameraPreview', camStyles);
-        const cleanupScreen = ensurePreviewContainer('screenPreview', screenStyles);
-
-        // Clean up on unmount
-        return () => {
-            cleanupCam();
-            cleanupScreen();
-        };
-    }, []); // Empty dependency array ensures this runs only once on mount
-
-
-    // --- JSX Return ---
+    // --- JSX Return (Updated with Icons and Classes) ---
     return (
         <div className="app-container">
             {/* Header */}
             <div className="app-header">
-                <h1>Frontend</h1>
+                <h1>Project Theata</h1> {/* Updated Title */}
                 <div className="controls">
-                    {!isConnected && <button onClick={handleConnect} disabled={isInitializing}>Connect</button>}
-                    {isConnected && <button onClick={handleDisconnect}>Disconnect</button>}
-                    <button onClick={openSettings} disabled={isInitializing || isConnected} style={{ marginLeft: '10px' }}>Settings</button>
+                    {!isConnected && <button onClick={handleConnect} disabled={isInitializing}>🔗 Connect</button>}
+                    {isConnected && <button onClick={handleDisconnect}>🔌 Disconnect</button>}
+                    <button onClick={openSettings} disabled={isInitializing || isConnected} title="Settings">⚙️</button> {/* Icon Only */}
                 </div>
             </div>
 
@@ -387,7 +347,7 @@ function App() {
                     <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
                         {messages.map(msg => (
                             <div
-                                key={msg.id}
+                                key={msg.id} /* Use unique ID */
                                 className={`chat-message ${msg.sender === 'user' ? 'user-message' : 'model-message'} type-${msg.type || 'text'} ${msg.isStreaming ? 'streaming' : ''}`}
                             >
                                 {msg.text}
@@ -396,22 +356,22 @@ function App() {
                         {/* Auto-scroll element is implicitly handled by setting scrollTop */}
                     </div>
 
-                    {/* Audio Visualizer (only if agent is initialized) */}
-                    {agent && agent.initialized && <AudioVisualizerComponent agent={agent} />}
+                    {/* Audio Visualizer (only if agent is initialized and connected) */}
+                    {agent && agent.initialized && isConnected && <AudioVisualizerComponent agent={agent} />}
                 </div>
 
-                {/* Sidebar Area (Placeholders for Previews) */}
+                {/* Sidebar Area (For Previews) */}
                  <div className="sidebar">
-                     {/* Previews will be absolutely positioned, but keep sidebar structure */}
-                      {/* Camera Preview placeholder div (managed by CameraManager) */}
-                     {/* <div id="cameraPreview"></div> handled by useEffect */}
-                     {/* Screen Preview placeholder div (managed by ScreenManager) */}
-                     {/* <div id="screenPreview"></div> handled by useEffect */}
-                     {/* You could add other sidebar content here */}
-                     <p>Previews:</p>
-                     {isCameraActive && <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera (Mobile)">Switch Cam</button>}
-                 </div>
+                     <p>Media Previews</p>
+                      {/* Preview divs are positioned by CSS now */}
+                     <div id="cameraPreview"></div> {/* Managed by CameraManager/App.js */}
+                     <div id="screenPreview"></div> {/* Managed by ScreenManager/App.js */}
 
+                     {/* Switch camera button can be here or inside preview */}
+                     {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) &&
+                        <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera">⟲</button>
+                     }
+                 </div>
             </main>
 
             {/* Footer with Input and Media Controls */}
@@ -423,14 +383,17 @@ function App() {
                      disabled={!isConnected || displayMicActive} // Disable text input when mic is actively listening
                      onKeyPress={(e) => { if (e.key === 'Enter' && e.target.value.trim()) { handleSendMessage(e.target.value); e.target.value = ''; } }}
                  />
-                 <button onClick={() => { const input = document.getElementById('messageInput'); if (input && input.value.trim()) { handleSendMessage(input.value); input.value = ''; } }} disabled={!isConnected || displayMicActive}>Send</button>
+                 <button onClick={() => { const input = document.getElementById('messageInput'); if (input && input.value.trim()) { handleSendMessage(input.value); input.value = ''; } }} disabled={!isConnected || displayMicActive} title="Send Message">
+                    <span>Send</span> <span role="img" aria-label="send icon">➤</span> {/* Use span for icon */}
+                 </button>
                  <button
                     onClick={handleToggleMic}
                     className={`control-btn mic-btn ${displayMicActive ? 'active' : ''} ${isMicSuspended && isMicActive ? 'suspended' : ''}`}
                     disabled={!isConnected}
-                    title={displayMicActive ? "Mute Mic (Listening)" : (isMicSuspended && isMicActive ? "Unmute Mic (Suspended)" : "Turn Mic On")}
+                    title={displayMicActive ? "Mute Mic (Listening)" : (isMicSuspended && isMicActive ? "Resume Mic (Suspended)" : "Unmute Mic")}
                  >
-                     Mic {isMicActive ? (isMicSuspended ? '(Suspended)' : '(On)') : '(Off)'}
+                    <span role="img" aria-label="microphone icon">🎤</span>
+                    {isMicActive ? (isMicSuspended ? ' (Suspended)' : ' (On)') : ' (Off)'}
                  </button>
                  <button
                     onClick={handleToggleCamera}
@@ -438,7 +401,8 @@ function App() {
                     disabled={!isConnected}
                     title={cameraError ? `Camera Error: ${cameraError}` : (isCameraActive ? 'Stop Camera' : 'Start Camera')}
                  >
-                     Cam {isCameraActive ? '(On)' : '(Off)'}
+                    <span role="img" aria-label="camera icon">📷</span>
+                    {isCameraActive ? ' (On)' : ' (Off)'}
                  </button>
                   <button
                     onClick={handleToggleScreenShare}
@@ -446,22 +410,23 @@ function App() {
                     disabled={!isConnected}
                     title={screenError ? `Screen Share Error: ${screenError}` : (isScreenShareActive ? 'Stop Screen Share' : 'Start Screen Share')}
                  >
-                     Screen {isScreenShareActive ? '(On)' : '(Off)'}
+                     <span role="img" aria-label="screen share icon">🖥️</span>
+                     {isScreenShareActive ? ' (On)' : ' (Off)'}
                  </button>
             </footer>
 
             {/* Status/Error Indicators */}
             <div className="status-bar">
                 {isInitializing && <span className="status status-initializing">Connecting...</span>}
-                {agentError && <span className="status status-error">Agent Error: {agentError}</span>}
-                {cameraError && <span className="status status-warning">Camera Error: {cameraError}</span>}
-                {screenError && <span className="status status-warning">Screen Error: {screenError}</span>}
-                 {!isInitializing && !agentError && isConnected && <span className="status status-connected">Connected</span>}
-                 {!isInitializing && !isConnected && !agentError && <span className="status status-disconnected">Disconnected</span>}
+                {agentError && <span className="status status-error">⚠️ Agent Error: {agentError}</span>}
+                {cameraError && <span className="status status-warning">📷 Camera Error: {cameraError}</span>}
+                {screenError && <span className="status status-warning">🖥️ Screen Error: {screenError}</span>}
+                 {!isInitializing && !agentError && isConnected && <span className="status status-connected">🟢 Connected</span>}
+                 {!isInitializing && !isConnected && !agentError && <span className="status status-disconnected">⚪ Disconnected</span>}
             </div>
 
 
-            {/* Settings Dialog */}
+            {/* Settings Dialog (No structural changes needed, styled via CSS) */}
              {isSettingsOpen && (
                  <SettingsDialog
                      isOpen={isSettingsOpen}
@@ -471,7 +436,7 @@ function App() {
                          saveSettings(newSettings);
                          // Consider if reload is truly needed or if agent can reconfigure
                          // alert("Settings saved. Reloading for changes to take effect.");
-                         // window.location.reload();
+                         // window.location.reload(); // Reload might still be needed for some settings
                          closeSettings(); // Close dialog after save
                      }}
                      thresholds={thresholds} // Pass thresholds map if needed by dialog

@@ -1,0 +1,611 @@
+/* src/css/styles.css */
+
+/* --- Theme Variables --- */
+:root {
+    --bg-primary: #1a0a2e; /* Deep dark purple */
+    --bg-secondary: #2a1a3e; /* Slightly lighter purple */
+    --bg-tertiary: #3c2c4a; /* Even lighter purple / dark greyish */
+    --bg-user-message: #4a3a5a; /* User message bubble */
+    --accent-primary: #8a2be2; /* Bright purple */
+    --accent-secondary: #a450e0; /* Lighter accent */
+    --text-primary: #e0e0e0; /* Light grey for main text */
+    --text-secondary: #b0b0b0; /* Medium grey */
+    --text-dark: #111;
+    --border-color: #4a3a5a; /* Subtle border */
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --error-color: #f44336;
+    --info-color: #2196f3;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    --border-radius: 8px;
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* --- Base Styles & Reset --- */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  html {
+    font-size: 16px; /* Base font size */
+  }
+  
+  body {
+    font-family: var(--font-family);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden; /* Prevent body scroll */
+  }
+  
+  #root {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* --- App Layout --- */
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--bg-primary);
+  }
+  
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0; /* Prevent header from shrinking */
+  }
+  
+  .app-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+  
+  .app-header .controls button {
+    margin-left: 0.75rem;
+  }
+  
+  .main-content {
+    flex-grow: 1; /* Take remaining vertical space */
+    display: flex;
+    overflow: hidden; /* Prevent content overflow */
+  }
+  
+  .chat-area {
+    flex-grow: 1; /* Take most horizontal space */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Manage overflow within chat area */
+    padding: 1rem;
+    position: relative; /* For visualizer positioning if needed */
+  }
+  
+  .sidebar {
+    width: 260px; /* Fixed width for sidebar */
+    flex-shrink: 0; /* Prevent sidebar from shrinking */
+    background-color: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    padding: 1rem;
+    overflow-y: auto; /* Allow sidebar content scrolling if needed */
+    position: relative; /* For positioning previews inside */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .sidebar p {
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+  }
+  
+  .app-footer {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    gap: 0.75rem;
+    flex-shrink: 0; /* Prevent footer from shrinking */
+  }
+  
+  /* --- Chat History & Messages --- */
+  .chat-history {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 0.5rem; /* Space for scrollbar */
+    margin-bottom: 1rem; /* Space above visualizer */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem; /* Space between messages */
+  }
+  
+  /* Scrollbar Styling (Optional but nice) */
+  .chat-history::-webkit-scrollbar {
+    width: 8px;
+  }
+  .chat-history::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+  }
+  .chat-history::-webkit-scrollbar-thumb {
+    background-color: var(--accent-secondary);
+    border-radius: 4px;
+    border: 2px solid var(--bg-tertiary);
+  }
+  .chat-history::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-primary);
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .chat-message {
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--border-radius);
+    max-width: 75%; /* Prevent bubbles from being too wide */
+    word-wrap: break-word;
+    position: relative;
+    animation: fadeIn 0.3s ease-out;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  /* Chat Bubble Tails (Optional) */
+  .chat-message::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent; /* Size of the tail */
+  }
+  
+  .user-message {
+    background-color: var(--bg-user-message);
+    color: var(--text-primary);
+    align-self: flex-end; /* Align user messages to the right */
+    border-bottom-right-radius: 0; /* Flatten corner for tail */
+  }
+  
+  .user-message::before {
+    right: -10px; /* Position tail */
+    border-left-color: var(--bg-user-message); /* Tail color */
+    border-bottom-color: var(--bg-user-message);
+  }
+  
+  .model-message {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    align-self: flex-start; /* Align model messages to the left */
+    border-bottom-left-radius: 0; /* Flatten corner for tail */
+  }
+  
+  .model-message::before {
+    left: -10px; /* Position tail */
+    border-right-color: var(--bg-tertiary); /* Tail color */
+    border-bottom-color: var(--bg-tertiary);
+  }
+  
+  /* Placeholder Styling */
+  .chat-message.type-audio_input_placeholder {
+      font-style: italic;
+      color: var(--text-secondary);
+      opacity: 0.8;
+  }
+  
+  /* Streaming Indicator (Optional) */
+  .chat-message.streaming::after {
+      content: '▋'; /* Blinking cursor */
+      animation: blink 1s step-end infinite;
+      margin-left: 4px;
+      font-weight: bold;
+      color: var(--accent-secondary);
+  }
+  
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+  
+  
+  /* --- Footer Controls --- */
+  #messageInput {
+    flex-grow: 1;
+    padding: 0.6rem 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  #messageInput:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(138, 43, 226, 0.3); /* Subtle glow */
+  }
+  
+  #messageInput::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+  }
+  
+  #messageInput:disabled {
+      background-color: #444; /* Darker when disabled */
+      cursor: not-allowed;
+      opacity: 0.6;
+  }
+  
+  /* Base Button Style */
+  button, .control-btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--border-radius);
+    border: none;
+    background-color: var(--accent-primary);
+    color: #fff; /* White text on accent */
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem; /* Space for icons */
+    white-space: nowrap; /* Prevent button text wrapping */
+  }
+  
+  button:hover:not(:disabled), .control-btn:hover:not(:disabled) {
+    background-color: var(--accent-secondary);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  button:active:not(:disabled), .control-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  
+  button:disabled, .control-btn:disabled {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
+  /* Specific Control Buttons (Mic, Cam, Screen) */
+  .control-btn.active {
+    background-color: var(--success-color); /* Green when active */
+    color: #fff;
+  }
+  .control-btn.active:hover:not(:disabled) {
+      background-color: #388e3c; /* Darker green on hover */
+  }
+  
+  /* Suspended Mic */
+  .control-btn.mic-btn.suspended {
+      background-color: var(--warning-color); /* Orange when suspended */
+      color: var(--text-dark); /* Dark text for better contrast on orange */
+  }
+  .control-btn.mic-btn.suspended:hover:not(:disabled) {
+      background-color: #f57c00; /* Darker orange on hover */
+  }
+  
+  /* Error State */
+  .control-btn.error {
+      background-color: var(--error-color); /* Red on error */
+       color: #fff;
+  }
+  .control-btn.error:hover:not(:disabled) {
+      background-color: #d32f2f; /* Darker red on hover */
+  }
+  
+  /* Settings Button in Header */
+  .app-header .controls button {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+  }
+  .app-header .controls button:hover:not(:disabled) {
+      background-color: #4a3a5a; /* Darker tertiary on hover */
+  }
+  
+  /* --- Audio Visualizer --- */
+  .visualizer {
+    width: 100%; /* Take full width of chat area */
+    height: 80px; /* Fixed height */
+    background-color: rgba(42, 26, 62, 0.5); /* Semi-transparent background */
+    border-radius: var(--border-radius);
+    margin-top: auto; /* Push to bottom of chat area */
+    flex-shrink: 0;
+    /* Gradient is set via JS, ensure canvas style doesn't override line color */
+  }
+  
+  
+  /* --- Preview Placeholders --- */
+  /* Style the container divs added in App.js useEffect */
+  #cameraPreview, #screenPreview {
+      position: relative; /* Change from fixed/absolute if inside sidebar */
+      width: 100%; /* Fill sidebar width */
+      aspect-ratio: 16 / 9; /* Maintain aspect ratio */
+      background-color: #111; /* Dark background */
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      overflow: hidden; /* Hide overflowing video */
+      display: none; /* Hidden by default, shown by App.js */
+      box-shadow: var(--shadow-sm);
+  }
+  
+  #cameraPreview video, #screenPreview video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* Cover the area, might crop */
+  }
+  
+  /* Button inside preview (e.g., switch camera) */
+  .preview .camera-switch-btn,
+  .sidebar .switch-camera-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
+      background-color: rgba(0, 0, 0, 0.6);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background-color 0.2s ease;
+  }
+  .preview .camera-switch-btn:hover,
+  .sidebar .switch-camera-btn:hover {
+      background-color: rgba(0, 0, 0, 0.8);
+  }
+  /* Style the button placed directly in sidebar */
+  .sidebar .switch-camera-btn {
+       position: static; /* Override absolute if placed directly */
+       align-self: flex-end; /* Place at the end of the sidebar flow */
+       margin-top: -2.5rem; /* Pull it up slightly if needed */
+       margin-right: 0.5rem;
+  }
+  
+  
+  /* --- Status Bar --- */
+  .status-bar {
+    padding: 0.3rem 1.5rem;
+    background-color: var(--bg-secondary);
+    font-size: 0.85rem;
+    text-align: center;
+    flex-shrink: 0;
+    min-height: 28px; /* Ensure it has some height even when empty */
+  }
+  
+  .status {
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    margin: 0 0.3rem;
+    display: inline-block; /* Allow multiple statuses */
+  }
+  
+  .status-initializing {
+    background-color: var(--info-color);
+    color: #fff;
+    animation: pulse 1.5s infinite ease-in-out;
+  }
+  .status-connected {
+    background-color: var(--success-color);
+    color: #fff;
+  }
+  .status-disconnected {
+    background-color: var(--text-secondary);
+    color: var(--text-dark);
+  }
+  .status-error {
+    background-color: var(--error-color);
+    color: #fff;
+  }
+  .status-warning {
+    background-color: var(--warning-color);
+    color: var(--text-dark);
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+  }
+  
+  
+  /* --- Settings Dialog --- */
+  .settings-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+  }
+  .settings-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease;
+  }
+  
+  .settings-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background-color: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+    z-index: 2000;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+  }
+  
+  .settings-dialog.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  
+  .settings-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .settings-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  
+  .settings-group input[type="text"],
+  .settings-group input[type="password"],
+  .settings-group input[type="number"],
+  .settings-group select,
+  .settings-group textarea {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .settings-group input:focus,
+  .settings-group select:focus,
+  .settings-group textarea:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(138, 43, 226, 0.3);
+  }
+  
+  .settings-group input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--accent-primary); /* Modern way to style slider thumb/track */
+  }
+  
+  .settings-group textarea {
+      resize: vertical;
+      min-height: 80px;
+  }
+  
+  .collapsible {
+    cursor: pointer;
+    padding: 0.5rem 0;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .collapsible-content {
+    padding-left: 0.5rem; /* Indent content slightly */
+    border-left: 2px solid var(--accent-primary);
+    margin-left: 0.25rem;
+    /* Animation can be added here */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+  }
+  .collapsible-content.active {
+      max-height: 1000px; /* Allow content to expand */
+      transition: max-height 0.5s ease-in;
+  }
+  
+  .settings-save-btn {
+    display: block;
+    width: 100%;
+    margin-top: 2rem;
+    padding: 0.8rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  /* --- Responsive Adjustments --- */
+  @media (max-width: 768px) {
+    html {
+      font-size: 15px; /* Slightly smaller base font */
+    }
+    .main-content {
+      flex-direction: column-reverse; /* Stack chat above sidebar */
+    }
+    .sidebar {
+      width: 100%; /* Full width */
+      height: 200px; /* Fixed height for previews */
+      flex-shrink: 0;
+      border-left: none;
+      border-top: 1px solid var(--border-color);
+      flex-direction: row; /* Previews side-by-side */
+      align-items: center;
+      overflow-x: auto; /* Allow horizontal scrolling if previews overflow */
+      overflow-y: hidden;
+    }
+    #cameraPreview, #screenPreview {
+       width: 160px; /* Fixed width for previews on mobile */
+       height: 90px;
+       flex-shrink: 0; /* Prevent shrinking */
+       aspect-ratio: auto; /* Override aspect ratio */
+    }
+    .chat-area {
+       padding: 0.5rem;
+    }
+    .app-footer {
+       padding: 0.5rem 1rem;
+       gap: 0.5rem;
+    }
+     button, .control-btn {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    .chat-message {
+        max-width: 85%;
+    }
+    .settings-dialog {
+        width: 95%;
+        padding: 1.5rem;
+    }
+  }
