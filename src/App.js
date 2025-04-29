@@ -4,9 +4,9 @@ import './css/styles.css'; // Import global styles (Now contains the new theme)
 
 // Import Icons from react-icons
 import {
-    FaLink, FaUnlink,FaStroopwafel, FaCog, FaPaperPlane, FaMicrophone, FaMicrophoneSlash,
+    FaLink, FaUnlink, FaStroopwafel, FaCog, FaPaperPlane, FaMicrophone, FaMicrophoneSlash,
     FaVideo, FaVideoSlash, FaDesktop, FaStopCircle, FaSyncAlt, FaExclamationTriangle,
-    FaSpinner, FaCheckCircle, FaTimesCircle
+    FaSpinner, FaCheckCircle, FaTimesCircle, FaSun, FaMoon // Import theme icons
 } from 'react-icons/fa'; // Using Font Awesome icons
 
 // Only import components that you have actually implemented
@@ -19,7 +19,7 @@ import { useGeminiAgent } from './hooks/useGeminiAgent';
 
 
 function App() {
-    // Settings hook logic remains the same
+    // Settings hook logic updated with theme
     const {
         settings,
         isSettingsOpen,
@@ -28,7 +28,10 @@ function App() {
         closeSettings,
         getGeminiConfig,
         getWebsocketUrl,
-        thresholds
+        thresholds,
+        // Theme state and toggle function
+        theme,
+        toggleTheme
     } = useSettings();
 
     // Agent hook logic remains the same
@@ -131,7 +134,7 @@ function App() {
      }, [messages]);
 
 
-    // --- Agent Event Callbacks (Updated) ---
+    // --- Agent Event Callbacks (Unchanged) ---
     useEffect(() => {
         // --- Transcription & Model Responses ---
         onTranscriptionRef.current = (transcript) => {
@@ -196,7 +199,7 @@ function App() {
     }, [addMessage, updateStreamingMessage, finalizeStreamingMessage, addUserAudioPlaceholder, lastUserMessageType, displayMicActive]);
 
 
-    // --- UI Event Handlers ---
+    // --- UI Event Handlers (Unchanged handlers, just add theme toggle later) ---
     const handleConnect = () => {
         if (!isConnected && !isInitializing) {
             setCameraError(null);
@@ -308,9 +311,9 @@ function App() {
         return <span className="status status-disconnected"><FaTimesCircle /> Disconnected</span>; // Or FaUnlinkAlt
     };
 
-    // --- JSX Return (Updated with Icons and Classes) ---
+    // --- JSX Return (Updated with Theme Toggle) ---
     return (
-        <div className="app-container">
+        <div className="app-container"> {/* Theme class is applied to <body> by useSettings */}
             {/* Header */}
             <div className="app-header">
                 <div className="header-left">
@@ -331,6 +334,11 @@ function App() {
                     {isConnected && <button onClick={handleDisconnect} title="Disconnect">
                          <FaUnlink /> <span className="button-text">Disconnect</span>
                     </button>}
+                    {/* --- Theme Toggle Button --- */}
+                     <button onClick={toggleTheme} title="Toggle Theme">
+                         {theme === 'dark' ? <FaSun /> : <FaMoon />}
+                     </button>
+                     {/* --- End Theme Toggle Button --- */}
                     <button onClick={openSettings} disabled={isInitializing || isConnected} title="Settings">
                          <FaCog />
                     </button>

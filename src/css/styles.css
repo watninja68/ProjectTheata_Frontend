@@ -1,30 +1,102 @@
 /* src/css/styles.css */
 
-/* --- Craftify Theme Variables --- */
+/* --- Craftify Theme Variables (Dark - Default) --- */
 :root {
   --bg-primary: #120824; /* Darker base purple */
   --bg-secondary: #1e0f3a; /* Slightly lighter purple for surfaces */
   --bg-tertiary: #2a1a4e; /* Lighter purple for elements */
   --bg-user-message: #3c2c6a; /* User message bubble */
+  --bg-header-footer: rgba(30, 15, 58, 0.8); /* Semi-transparent secondary */
+  --bg-sidebar: rgba(30, 15, 58, 0.7);
+  --bg-input: var(--bg-tertiary);
+  --bg-input-disabled: #33254e;
+  --bg-placeholder: #0c0518; /* Preview placeholder */
+  --bg-visualizer: rgba(18, 8, 36, 0.5);
+  --bg-settings: rgba(30, 15, 58, 0.75);
+  --bg-settings-input: rgba(18, 8, 36, 0.7);
+  --bg-settings-input-focus: rgba(30, 15, 58, 0.8);
+  --bg-collapsible: rgba(60, 44, 106, 0.3);
+  --bg-collapsible-hover: rgba(60, 44, 106, 0.5);
+  --bg-overlay: rgba(10, 5, 20, 0.8);
+  --bg-grid-line: rgba(42, 26, 62, 0.3); /* Grid lines */
+
   --accent-primary: #8a2be2; /* Bright purple */
   --accent-secondary: #a450e0; /* Lighter accent */
   --accent-glow: rgba(138, 43, 226, 0.5); /* Glow effect color */
+
   --text-primary: #e8e0ff; /* Light lavender/white text */
   --text-secondary: #a094c0; /* Medium grey/purple text */
-  --text-dark: #111;
+  --text-dark: #111; /* Text for bright buttons */
+  --text-placeholder: var(--text-secondary);
+
   --border-color: #3c2c6a; /* Subtle border */
+  --border-settings: rgba(60, 44, 106, 0.5);
+
   --success-color: #00f5a0; /* Neon green */
   --warning-color: #ffcc00; /* Bright yellow */
   --error-color: #ff4d4d; /* Bright red */
   --info-color: #3d9eff; /* Bright blue */
+
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   --border-radius: 10px; /* Slightly larger radius */
   --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 5px 15px rgba(0, 0, 0, 0.4);
+  --shadow-settings: 0 10px 30px rgba(0, 0, 0, 0.5);
   --transition-speed: 0.3s;
+  --backdrop-blur: 8px;
+  --backdrop-blur-settings: 15px;
 }
+
+/* --- Light Theme Variables --- */
+body.theme-light {
+  --bg-primary: #f4f7fa; /* Very light grey/blue */
+  --bg-secondary: #ffffff; /* White */
+  --bg-tertiary: #e9edf1; /* Slightly darker white */
+  --bg-user-message: #d0e0ff; /* Light blue for user */
+  --bg-header-footer: rgba(255, 255, 255, 0.8); /* Semi-transparent white */
+  --bg-sidebar: rgba(255, 255, 255, 0.7);
+  --bg-input: var(--bg-secondary);
+  --bg-input-disabled: #e0e4e8;
+  --bg-placeholder: #d8dde4; /* Preview placeholder */
+  --bg-visualizer: rgba(233, 237, 241, 0.5); /* Light transparent base */
+  --bg-settings: rgba(255, 255, 255, 0.75);
+  --bg-settings-input: rgba(244, 247, 250, 0.8);
+  --bg-settings-input-focus: var(--bg-secondary);
+  --bg-collapsible: rgba(138, 43, 226, 0.08); /* Faint accent background */
+  --bg-collapsible-hover: rgba(138, 43, 226, 0.15);
+  --bg-overlay: rgba(50, 50, 70, 0.6); /* Darker overlay for contrast */
+  --bg-grid-line: rgba(180, 190, 210, 0.3); /* Grid lines */
+
+  --accent-primary: #8a2be2; /* Keep Purple */
+  --accent-secondary: #a450e0; /* Keep Lighter accent */
+  --accent-glow: rgba(138, 43, 226, 0.4); /* Slightly less intense glow */
+
+  --text-primary: #1f2937; /* Dark grey/blue */
+  --text-secondary: #5b667a; /* Medium grey */
+  --text-dark: #ffffff; /* Text for bright buttons */
+  --text-placeholder: var(--text-secondary);
+
+  --border-color: #d1d8e0; /* Light grey border */
+  --border-settings: rgba(164, 80, 224, 0.2); /* Subtle purple border */
+
+  /* Keep functional colors */
+  --success-color: #00f5a0;
+  --warning-color: #ffcc00;
+  --error-color: #ff4d4d;
+  --info-color: #3d9eff;
+
+  /* Keep shadows, maybe slightly lighter */
+  --shadow-sm: 0 2px 5px rgba(100, 116, 139, 0.15);
+  --shadow-md: 0 5px 15px rgba(100, 116, 139, 0.2);
+  --shadow-settings: 0 10px 30px rgba(100, 116, 139, 0.25);
+
+  /* Reduce blur slightly for light mode? Optional */
+  /* --backdrop-blur: 5px; */
+  /* --backdrop-blur-settings: 10px; */
+}
+
 
 /* --- Base Styles & Reset --- */
 *,
@@ -42,15 +114,16 @@ html {
 body {
   font-family: var(--font-family);
   background-color: var(--bg-primary);
-  /* Subtle Grid Background */
-  background-image: linear-gradient(rgba(42, 26, 62, 0.3) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(42, 26, 62, 0.3) 1px, transparent 1px);
+  /* Subtle Grid Background - Uses variable */
+  background-image: linear-gradient(var(--bg-grid-line) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--bg-grid-line) 1px, transparent 1px);
   background-size: 30px 30px;
   color: var(--text-primary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden; /* Prevent body scroll */
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease; /* Smooth theme transition */
 }
 
 #root {
@@ -72,13 +145,15 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.8rem 1.8rem; /* Slightly more padding */
-  background-color: rgba(30, 15, 58, 0.8); /* Semi-transparent secondary */
-  backdrop-filter: blur(8px); /* Subtle header blur */
+  background-color: var(--bg-header-footer); /* Use variable */
+  backdrop-filter: blur(var(--backdrop-blur)); /* Use variable */
+  -webkit-backdrop-filter: blur(var(--backdrop-blur));
   border-bottom: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   flex-shrink: 0;
   position: relative;
   z-index: 10; /* Ensure header is above content */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 /* --- Header Sections --- */
@@ -135,27 +210,31 @@ body {
   transition: all var(--transition-speed) ease;
 }
 
-/* Status colors with icons */
+/* Status colors with icons - Use text-dark var for contrast */
 .header-status .status-initializing {
   background-color: var(--info-color);
-  color: #fff;
+  color: #fff; /* Keep white on blue */
   animation: pulse 1.5s infinite ease-in-out;
 }
 .header-status .status-connected {
   background-color: var(--success-color);
-  color: var(--text-dark); /* Dark text on bright green */
+  color: var(--text-dark); /* Use variable */
 }
 .header-status .status-disconnected {
-  background-color: var(--text-secondary);
-  color: var(--text-dark);
+  background-color: var(--text-secondary); /* Use secondary text color background */
+  color: var(--bg-secondary); /* Use secondary background color for text */
 }
+body.theme-light .header-status .status-disconnected {
+  color: var(--text-dark); /* Ensure dark text on light gray in light mode */
+}
+
 .header-status .status-error {
   background-color: var(--error-color);
-  color: #fff;
+  color: #fff; /* Keep white on red */
 }
 .header-status .status-warning {
   background-color: var(--warning-color);
-  color: var(--text-dark);
+  color: var(--text-dark); /* Use variable */
 }
 
 /* End Header Status Indicator */
@@ -178,8 +257,9 @@ body {
 .sidebar {
   width: 280px; /* Slightly wider */
   flex-shrink: 0;
-  background-color: rgba(30, 15, 58, 0.7); /* Semi-transparent secondary */
+  background-color: var(--bg-sidebar); /* Use variable */
   backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   border-left: 1px solid var(--border-color);
   padding: 1.5rem;
   overflow-y: auto;
@@ -187,6 +267,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.2rem; /* More gap */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 .sidebar p {
@@ -202,12 +283,14 @@ body {
   display: flex;
   align-items: center;
   padding: 0.8rem 1.8rem;
-  background-color: rgba(30, 15, 58, 0.8); /* Semi-transparent secondary */
-  backdrop-filter: blur(8px);
+  background-color: var(--bg-header-footer); /* Use variable */
+  backdrop-filter: blur(var(--backdrop-blur)); /* Use variable */
+  -webkit-backdrop-filter: blur(var(--backdrop-blur));
   border-top: 1px solid var(--border-color);
   gap: 0.8rem;
   flex-shrink: 0;
   z-index: 10;
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 /* --- Chat History & Messages --- */
@@ -250,7 +333,7 @@ body {
   animation: fadeIn 0.4s ease-out;
   box-shadow: none; /* Remove default shadow */
   border: 1px solid transparent; /* Base for potential borders */
-  transition: background-color var(--transition-speed) ease;
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
 }
 
 /* Remove tails for cleaner look */
@@ -259,17 +342,21 @@ body {
 }
 
 .user-message {
-  background-color: var(--bg-user-message);
-  color: var(--text-primary);
+  background-color: var(--bg-user-message); /* Use variable */
+  color: var(--text-primary); /* Use text color appropriate for the user bubble background */
   align-self: flex-end;
-  /* border-bottom-right-radius: 0; */ /* Keep rounded */
 }
 
+/* Ensure text contrast in light mode user message */
+body.theme-light .user-message {
+  color: var(--text-primary); /* Darker text on light blue */
+}
+
+
 .model-message {
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-tertiary); /* Use variable */
   color: var(--text-primary);
   align-self: flex-start;
-  /* border-bottom-left-radius: 0; */ /* Keep rounded */
 }
 
 /* Placeholder Styling */
@@ -301,7 +388,7 @@ body {
   padding: 0.7rem 1.2rem;
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-input); /* Use variable */
   color: var(--text-primary);
   font-size: 1rem;
   outline: none;
@@ -314,12 +401,12 @@ body {
 }
 
 #messageInput::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-placeholder); /* Use variable */
   opacity: 0.6;
 }
 
 #messageInput:disabled {
-    background-color: #33254e; /* Darker purple when disabled */
+    background-color: var(--bg-input-disabled); /* Use variable */
     cursor: not-allowed;
     opacity: 0.5;
 }
@@ -330,7 +417,7 @@ button, .control-btn {
   border-radius: var(--border-radius);
   border: none;
   background-color: var(--accent-primary);
-  color: #fff;
+  color: #fff; /* Keep white on primary accent */
   font-size: 0.95rem;
   font-weight: 600; /* Bolder */
   cursor: pointer;
@@ -362,7 +449,7 @@ button:active:not(:disabled), .control-btn:active:not(:disabled) {
 }
 
 button:disabled, .control-btn:disabled {
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-tertiary); /* Use variable */
   color: var(--text-secondary);
   cursor: not-allowed;
   opacity: 0.5;
@@ -373,7 +460,7 @@ button:disabled, .control-btn:disabled {
 /* Specific Control Buttons (Mic, Cam, Screen) */
 .control-btn.active {
   background-color: var(--success-color);
-  color: var(--text-dark); /* Dark text on neon green */
+  color: var(--text-dark); /* Use variable */
 }
 .control-btn.active:hover:not(:disabled) {
     background-color: #00e090; /* Slightly lighter green */
@@ -383,7 +470,7 @@ button:disabled, .control-btn:disabled {
 /* Suspended Mic */
 .control-btn.mic-btn.suspended {
     background-color: var(--warning-color);
-    color: var(--text-dark);
+    color: var(--text-dark); /* Use variable */
 }
 .control-btn.mic-btn.suspended:hover:not(:disabled) {
     background-color: #ffdb4d; /* Lighter yellow */
@@ -393,26 +480,28 @@ button:disabled, .control-btn:disabled {
 /* Error State */
 .control-btn.error {
     background-color: var(--error-color);
-     color: #fff;
+    color: #fff; /* Keep white text */
 }
 .control-btn.error:hover:not(:disabled) {
     background-color: #ff6666; /* Lighter red */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 15px rgba(255, 77, 77, 0.6); /* Red glow */
 }
 
-/* Settings Button in Header */
+/* Settings & Theme Button in Header */
 .app-header .controls button {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-tertiary); /* Use variable */
     color: var(--text-primary);
     box-shadow: none; /* Remove default button shadow */
 }
 .app-header .controls button:hover:not(:disabled) {
-    background-color: #3c2c6a; /* Darker tertiary */
+    background-color: var(--bg-user-message); /* Use user message bg for hover */
     box-shadow: 0 0 10px var(--accent-glow); /* Add glow on hover */
     transform: none; /* No lift */
 }
-.app-header .controls button[title="Settings"] {
-    padding: 0.7rem; /* More square */
+/* Make Settings and Theme square */
+.app-header .controls button[title="Settings"],
+.app-header .controls button[title="Toggle Theme"] {
+    padding: 0.7rem;
 }
 
 
@@ -420,12 +509,13 @@ button:disabled, .control-btn:disabled {
 .visualizer {
   width: 100%;
   height: 80px;
-  background-color: rgba(18, 8, 36, 0.5); /* Darker transparent base */
+  background-color: var(--bg-visualizer); /* Use variable */
   border-radius: var(--border-radius);
   margin-top: auto;
   flex-shrink: 0;
   border: 1px solid var(--border-color);
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.5); /* Inner shadow */
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.1); /* Lighter inner shadow */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 
@@ -434,12 +524,13 @@ button:disabled, .control-btn:disabled {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
-    background-color: #0c0518; /* Very dark purple */
+    background-color: var(--bg-placeholder); /* Use variable */
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     overflow: hidden;
     display: none;
     box-shadow: var(--shadow-sm);
+    transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 #cameraPreview video, #screenPreview video {
@@ -493,23 +584,23 @@ button:disabled, .control-btn:disabled {
 }
 
 
-/* --- Settings Dialog (Glassmorphism) --- */
+/* --- Settings Dialog (Glassmorphism - Adapt for Light Mode) --- */
 .settings-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(10, 5, 20, 0.8); /* Darker overlay */
+  background-color: var(--bg-overlay); /* Use variable */
   z-index: 1999;
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--transition-speed) ease, visibility 0s linear var(--transition-speed);
+  transition: opacity var(--transition-speed) ease, visibility 0s linear var(--transition-speed), background-color var(--transition-speed) ease;
 }
 .settings-overlay.active {
   opacity: 1;
   visibility: visible;
-  transition: opacity var(--transition-speed) ease;
+  transition: opacity var(--transition-speed) ease, background-color var(--transition-speed) ease;
 }
 
 .settings-dialog {
@@ -517,15 +608,15 @@ button:disabled, .control-btn:disabled {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) scale(0.95); /* Start slightly smaller */
-  /* Glassmorphism Background */
-  background-color: rgba(30, 15, 58, 0.75); /* Semi-transparent purple */
-  backdrop-filter: blur(15px); /* Increase blur */
-  -webkit-backdrop-filter: blur(15px); /* Safari */
-  border: 1px solid rgba(60, 44, 106, 0.5); /* Subtle border */
+  /* Glassmorphism Background - Use Variable */
+  background-color: var(--bg-settings);
+  backdrop-filter: blur(var(--backdrop-blur-settings)); /* Use variable */
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-settings));
+  border: 1px solid var(--border-settings); /* Use variable */
 
   padding: 2.5rem; /* More padding */
   border-radius: 15px; /* More rounded */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Stronger shadow */
+  box-shadow: var(--shadow-settings); /* Use variable */
   z-index: 2000;
   width: 90%;
   max-width: 650px; /* Wider dialog */
@@ -533,7 +624,7 @@ button:disabled, .control-btn:disabled {
   overflow-y: auto;
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease, visibility 0s linear var(--transition-speed);
+  transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease, visibility 0s linear var(--transition-speed), background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 /* Scrollbar inside Dialog */
@@ -552,7 +643,7 @@ button:disabled, .control-btn:disabled {
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, -50%) scale(1); /* Scale to full size */
-  transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease;
+  transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease, background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
 
 .settings-group {
@@ -577,19 +668,38 @@ button:disabled, .control-btn:disabled {
   padding: 0.8rem 1.1rem;
   border-radius: 8px; /* Slightly less round than dialog */
   border: 1px solid var(--border-color);
-  background-color: rgba(18, 8, 36, 0.7); /* Darker transparent */
+  background-color: var(--bg-settings-input); /* Use variable */
   color: var(--text-primary);
   font-size: 1rem;
   outline: none;
   transition: all var(--transition-speed) ease;
 }
+/* Styling for checkbox group */
+.settings-group.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.settings-group.checkbox-group label {
+    margin-bottom: 0; /* Reset margin for inline label */
+    text-transform: none; /* Normal case for checkbox labels */
+    font-weight: 400; /* Normal weight */
+     color: var(--text-primary); /* Use primary text for readability */
+}
+.settings-group.checkbox-group input[type="checkbox"] {
+     width: auto; /* Override full width */
+     height: 16px;
+     accent-color: var(--accent-primary); /* Style the checkbox */
+     cursor: pointer;
+}
+
 
 .settings-group input:focus,
 .settings-group select:focus,
 .settings-group textarea:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 10px var(--accent-glow);
-  background-color: rgba(30, 15, 58, 0.8); /* Lighten on focus */
+  background-color: var(--bg-settings-input-focus); /* Use variable */
 }
 
 .settings-group input[type="range"] {
@@ -603,12 +713,13 @@ button:disabled, .control-btn:disabled {
     min-height: 100px;
 }
 
+/* Update collapsible styles */
 .collapsible {
   cursor: pointer;
   padding: 0.8rem 1rem; /* Padding around title */
   font-weight: 600;
   color: var(--text-primary);
-  background-color: rgba(60, 44, 106, 0.3); /* Faint background */
+  background-color: var(--bg-collapsible); /* Use variable */
   border-radius: 8px;
   margin-bottom: 1rem;
   display: flex;
@@ -617,9 +728,8 @@ button:disabled, .control-btn:disabled {
   transition: background-color var(--transition-speed) ease;
 }
 .collapsible:hover {
-    background-color: rgba(60, 44, 106, 0.5);
+    background-color: var(--bg-collapsible-hover); /* Use variable */
 }
-
 .collapsible-content {
   padding-left: 1rem;
   margin-left: 0.5rem;
@@ -635,6 +745,7 @@ button:disabled, .control-btn:disabled {
     padding-top: 1rem;
     padding-bottom: 0.5rem;
 }
+
 
 .settings-save-btn {
   display: block;
@@ -662,6 +773,10 @@ button:disabled, .control-btn:disabled {
    .app-header h1 {
        font-size: 1.4rem;
    }
+   /* Ensure theme toggle is square on smaller buttons */
+   .app-header .controls button[title="Toggle Theme"] {
+       padding: 0.6rem;
+   }
 }
 
 @media (max-width: 768px) {
@@ -669,14 +784,17 @@ button:disabled, .control-btn:disabled {
     font-size: 15px;
   }
 
+  /* Adjust header wrapping slightly to accommodate more buttons if needed */
   .app-header {
       flex-wrap: wrap;
       padding: 0.6rem 1rem;
-      justify-content: center;
+      justify-content: center; /* Center items when wrapped */
+      gap: 0.5rem; /* Add gap between rows */
   }
-  .app-header .header-left { order: 1; flex-basis: 100%; justify-content: center; margin-bottom: 0.6rem; }
-  .app-header .header-center { order: 2; flex-basis: 100%; justify-content: center; margin-bottom: 0.6rem; }
-  .app-header .header-right { order: 3; flex-basis: 100%; justify-content: center; }
+  /* Allow left/right sections to take up less than 100% if space permits */
+  .app-header .header-left { order: 1; flex-basis: auto; justify-content: center; /* margin-bottom: 0.6rem; */ }
+  .app-header .header-center { order: 2; flex-basis: auto; justify-content: center; /* margin-bottom: 0.6rem; */ }
+  .app-header .header-right { order: 3; flex-basis: auto; justify-content: center; }
 
 
   .main-content {
@@ -693,7 +811,8 @@ button:disabled, .control-btn:disabled {
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0.5rem;
-    background-color: rgba(30, 15, 58, 0.7); /* Keep consistent */
+    background-color: var(--bg-sidebar); /* Use variable */
+    transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
   }
   #cameraPreview, #screenPreview {
      width: 142px;
@@ -721,5 +840,5 @@ button:disabled, .control-btn:disabled {
    }
 
   .chat-message { max-width: 90%; padding: 0.7rem 1.2rem; }
-  .settings-dialog { width: 95%; padding: 2rem; max-height: 90vh; }
+  .settings-dialog { width: 95%; padding: 1.5rem; max-height: 90vh; }
 }

@@ -1,3 +1,4 @@
+// src/hooks/useSettings.js
 import { useState, useEffect, useCallback } from 'react';
 
 // Define default settings values (apiKey default is now less relevant)
@@ -40,8 +41,13 @@ export const useSettings = () => {
     // it might be useful for display or other purposes.
     const [settings, setSettings] = useState(defaults);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    // --- Theme State ---
+    const [theme, setTheme] = useState(() => {
+        const savedTheme = localStorage.getItem('theme');
+        return savedTheme === 'light' ? 'light' : 'dark'; // Default to dark
+    });
 
-    // Load settings from localStorage on initial mount
+    // Load settings and apply theme from localStorage on initial mount
     useEffect(() => {
         const loadedSettings = {};
         Object.keys(defaults).forEach(key => {
@@ -72,7 +78,34 @@ export const useSettings = () => {
             // setIsSettingsOpen(true);
         }
 
+        // Apply initial theme class
+        if (theme === 'light') {
+            document.body.classList.add('theme-light');
+        } else {
+            document.body.classList.remove('theme-light');
+        }
+
+    }, []); // Empty dependency array runs only on mount
+
+    // --- Theme Management ---
+    useEffect(() => {
+        // Apply theme class whenever theme state changes
+        if (theme === 'light') {
+            document.body.classList.add('theme-light');
+            localStorage.setItem('theme', 'light');
+            console.log("Applied light theme");
+        } else {
+            document.body.classList.remove('theme-light');
+            localStorage.setItem('theme', 'dark');
+            console.log("Applied dark theme");
+        }
+    }, [theme]); // Runs when theme state changes
+
+    const toggleTheme = useCallback(() => {
+        setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
     }, []);
+    // --- End Theme Management ---
+
 
     // Function to save settings to localStorage and state
     const saveSettings = useCallback((newSettings) => {
@@ -144,6 +177,9 @@ export const useSettings = () => {
         closeSettings,
         getGeminiConfig, // Still useful for agent configuration
         getWebsocketUrl, // Now returns the hardcoded URL
-        thresholds
+        thresholds,
+        // Theme exports
+        theme,
+        toggleTheme,
     };
 };

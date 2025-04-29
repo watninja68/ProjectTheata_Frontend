@@ -1,3 +1,4 @@
+// src/components/SettingsDialog.js
 import React, { useState, useEffect } from 'react';
 
 // Helper Collapsible Component (Defined within SettingsDialog file)
@@ -57,7 +58,7 @@ const SettingsDialog = ({ isOpen, onClose, initialSettings, onSave, thresholds }
         return labels[value] || value;
      };
 
-    // Uses styles from styles.css
+    // Uses styles from styles.css which now includes light theme adaptations
     return (
         <>
             {/* Overlay handles closing */}
