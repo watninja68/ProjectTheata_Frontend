@@ -162,7 +162,16 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
 .app-footer { display: flex; align-items: center; padding: 0.8rem 1.8rem; background-color: var(--bg-header-footer); backdrop-filter: blur(var(--backdrop-blur)); -webkit-backdrop-filter: blur(var(--backdrop-blur)); border-top: 1px solid var(--border-color); gap: 0.8rem; flex-shrink: 0; z-index: 10; transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; }
 
 /* --- Chat History & Messages --- */
-.chat-history { flex-grow: 1; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
+.chat-history {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 0.5rem; /* Keep padding for scrollbar */
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    position: relative; /* Needed for absolute positioning or centering */
+}
 .chat-history::-webkit-scrollbar { width: 8px; }
 .chat-history::-webkit-scrollbar-track { background: transparent; }
 .chat-history::-webkit-scrollbar-thumb { background-color: var(--accent-secondary); border-radius: 4px; }
@@ -177,6 +186,85 @@ body.theme-light .user-message { color: var(--text-primary); }
 .chat-message.streaming::after { content: '▋'; animation: blink 1s step-end infinite; margin-left: 5px; font-weight: bold; color: var(--accent-primary); }
 @keyframes blink { 50% { opacity: 0; } }
 .system-message { align-self: center; background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 0.8rem 1.4rem; border-radius: var(--border-radius); margin: 1rem 0; font-style: italic; max-width: 70%; text-align: center; } /* System message style */
+
+/* --- Connect Prompt Styling --- */
+.connect-prompt-container {
+    /* Center the prompt box within the chat history area */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    margin: auto; /* Auto margins horizontally and vertically center in flex container */
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    max-width: 400px; /* Limit width */
+    box-shadow: var(--shadow-sm);
+    color: var(--text-primary);
+}
+
+.connect-prompt-container p {
+    margin-bottom: 1rem;
+    line-height: 1.5;
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+}
+/* Style the welcome message differently */
+.connect-prompt-container p:first-of-type {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+
+.connect-prompt-button {
+    /* Inherit base button styles but customize appearance */
+    padding: 0.8rem 1.5rem; /* Make it prominent */
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    background-color: var(--accent-primary); /* Use primary accent */
+    color: #fff;
+    box-shadow: var(--shadow-sm), 0 0 0px var(--accent-glow);
+}
+
+.connect-prompt-button:hover:not(:disabled) {
+    background-color: var(--accent-secondary);
+    box-shadow: var(--shadow-md), 0 0 15px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+/* Style for retry button */
+.connect-prompt-button.retry-button {
+    margin-top: 0.8rem; /* Smaller margin */
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    background-color: var(--accent-secondary); /* Slightly different color? */
+}
+.connect-prompt-button.retry-button:hover:not(:disabled) {
+    background-color: var(--accent-primary);
+}
+
+/* Style for error message within system-message */
+.system-message.error-message {
+    background-color: rgba(255, 77, 77, 0.15); /* Use error color background */
+    border: 1px solid var(--error-color);
+    color: var(--error-color); /* Use error color text */
+    font-style: normal; /* Override italic */
+    max-width: 80%;
+}
+body.theme-light .system-message.error-message {
+    background-color: rgba(255, 77, 77, 0.1);
+}
+.system-message.error-message svg {
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    margin-bottom: 2px; /* Align icon better */
+}
+
 
 /* --- Footer Controls --- */
 #messageInput { flex-grow: 1; padding: 0.7rem 1.2rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 1rem; outline: none; transition: all var(--transition-speed) ease; }
@@ -227,15 +315,11 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
 .profile-logout-btn {
     background: none; border: none; color: var(--logout-color); text-align: left; padding: 0.6rem 1.2rem;
     cursor: pointer; font-size: 0.95rem; font-weight: 500; width: 100%;
-    display: flex; align-items: center; gap: 0.6rem; /* Keep flex for alignment */
+    display: flex; align-items: center; gap: 0.7rem; /* Use flex and gap */
     transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
-    line-height: normal; /* Explicitly set line-height if needed */
+    line-height: 1; /* Ensure consistent line height */
 }
-/* Ensure icon in logout button is vertically centered */
-.profile-logout-btn svg {
-    vertical-align: middle; /* Or adjust as needed */
-    margin-top: -1px; /* Small adjustment if needed */
-}
+.profile-logout-btn svg { flex-shrink: 0; /* Prevent icon shrinking */ } /* No vertical-align needed */
 .profile-logout-btn:hover { background-color: var(--bg-profile-logout-hover); color: var(--logout-color-hover); }
 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 .user-info { display: none; } /* Hide old user email display */
