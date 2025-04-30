@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { GeminiAgent } from '../lib/main/agent';
 import { ToolManager } from '../lib/tools/tool-manager';
 import { GoogleSearchTool } from '../lib/tools/google-search'; // Assuming this exists
-
+import {WolframAlphaTool } from "../lib/tools/wolf-from-alpha.js"
 export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     const [agent, setAgent] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -37,6 +37,8 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         if (!toolManager.current) {
              toolManager.current = new ToolManager();
              toolManager.current.registerTool('googleSearch', new GoogleSearchTool());
+
+             toolManager.current.registerTool('wolframalpha', new WolframAlphaTool());
              // Register other tools if needed
              console.log("ToolManager initialized and tools registered.");
         }
