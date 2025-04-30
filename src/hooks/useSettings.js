@@ -1,5 +1,6 @@
 // src/hooks/useSettings.js
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from './useAuth'; // Import the useAuth hook
 
 // Define default settings values (apiKey default is now less relevant)
 const defaults = {
@@ -7,7 +8,7 @@ const defaults = {
     deepgramApiKey: '',
     voiceName: 'Aoede',
     sampleRate: 27000,
-    systemInstructions: 'You are a helpful assistant',
+    systemInstructions: 'You are a helpful assistant named Theata.', // Example base instructions
     temperature: 1.8,
     top_p: 0.95,
     top_k: 65,
@@ -19,6 +20,8 @@ const defaults = {
     sexuallyExplicitThreshold: 3,
     civicIntegrityThreshold: 3,
     // Add other settings keys as needed
+    transcribeModelsSpeech: true, // Default for transcribe toggle
+    transcribeUsersSpeech: false, // Default for transcribe toggle
 };
 
 // Threshold mapping for safety settings
@@ -32,11 +35,14 @@ const thresholds = {
 // !!! --- IMPORTANT: Hardcode your API Key Here --- !!!
 // Replace "YOUR_API_KEY_HERE" with your actual Gemini API key.
 // Remember: This is NOT secure for production or shared code.
-const HARDCODED_API_KEY = "AIzaSyCDvSi6OVlgdODnPmHmIBcc5UylRH0CvB8";
+const HARDCODED_API_KEY = "AIzaSyCDvSi6OVlgdODnPmHmIBcc5UylRH0CvB8"; // USE YOUR KEY
 // !!! ---------------------------------------------- !!!
 
 
 export const useSettings = () => {
+    // Use the Auth hook to get user information
+    const { user } = useAuth();
+
     // Keep settings state, even if apiKey isn't used for URL anymore,
     // it might be useful for display or other purposes.
     const [settings, setSettings] = useState(defaults);
@@ -53,29 +59,27 @@ export const useSettings = () => {
         Object.keys(defaults).forEach(key => {
             const storedValue = localStorage.getItem(key);
             if (storedValue !== null) {
-                if (key === 'deepgramApiKey' || key === 'voiceName' || key === 'systemInstructions') { // Removed apiKey check here
+                // Handle booleans from localStorage (stored as strings)
+                if (key === 'transcribeModelsSpeech' || key === 'transcribeUsersSpeech') {
+                     loadedSettings[key] = storedValue === 'true';
+                } else if (key === 'deepgramApiKey' || key === 'voiceName' || key === 'systemInstructions') {
                     loadedSettings[key] = storedValue;
                 } else if (key === 'temperature' || key === 'top_p' || key === 'quality') {
                     loadedSettings[key] = parseFloat(storedValue);
                 } else {
-                    loadedSettings[key] = parseInt(storedValue, 10);
+                    // Ensure keys like 'harassmentThreshold' are parsed correctly
+                    const parsedInt = parseInt(storedValue, 10);
+                    loadedSettings[key] = isNaN(parsedInt) ? defaults[key] : parsedInt;
                 }
             } else {
-                 loadedSettings[key] = defaults[key];
+                 loadedSettings[key] = defaults[key]; // Fallback to default if not in localStorage
             }
         });
          setSettings(loadedSettings);
 
-        // We don't need to force open settings if the key is hardcoded
-        // if (!loadedSettings.apiKey) {
-        //     setIsSettingsOpen(true);
-        // }
-
         // Add a console warning if the key isn't set
         if (!HARDCODED_API_KEY || HARDCODED_API_KEY === "YOUR_API_KEY_HERE") {
             console.warn("WARNING: Gemini API Key is not hardcoded in src/hooks/useSettings.js. Connection will fail.");
-            // Optionally open settings here if the hardcoded key is missing/default
-            // setIsSettingsOpen(true);
         }
 
         // Apply initial theme class
@@ -110,13 +114,10 @@ export const useSettings = () => {
     // Function to save settings to localStorage and state
     const saveSettings = useCallback((newSettings) => {
         Object.entries(newSettings).forEach(([key, value]) => {
-            // Don't save the hardcoded apiKey to localStorage unless you have a reason to
-            // if (key !== 'apiKey') {
-                 localStorage.setItem(key, value);
-            // }
+            localStorage.setItem(key, value);
         });
         setSettings(newSettings);
-         setIsSettingsOpen(false);
+        setIsSettingsOpen(false);
         // Reload might still be needed for other settings to take effect in agent config
         window.location.reload();
     }, []);
@@ -124,12 +125,23 @@ export const useSettings = () => {
     const openSettings = useCallback(() => setIsSettingsOpen(true), []);
     const closeSettings = useCallback(() => setIsSettingsOpen(false), []);
 
-    // Function to generate the Gemini config object based on current settings
+    // Function to generate the Gemini config object based on current settings AND auth state
     const getGeminiConfig = useCallback((toolDeclarations = []) => {
-        // Config generation remains the same, using values from the 'settings' state
+        // --- System Instruction Update ---
+        // Get user name from Supabase metadata if available, otherwise fallback to email
+        const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email;
+        const baseInstructions = settings.systemInstructions || "You are a helpful assistant named Theata.";
+        // Add user info if logged in
+        const userPrefix = userName
+            ? `The user you are speaking with is logged in as ${userName}. `
+            : 'The user is not logged in. ';
+        const finalInstructions = userPrefix + baseInstructions;
+        console.log("Using final system instructions:", finalInstructions);
+        // --- End System Instruction Update ---
+
         return {
             model: 'models/gemini-2.0-flash-exp',
-            generationConfig: { /* ... uses settings.temperature, etc ... */
+            generationConfig: {
                 temperature: settings.temperature,
                 top_p: settings.top_p,
                 top_k: settings.top_k,
@@ -142,19 +154,22 @@ export const useSettings = () => {
                     }
                 }
             },
-            systemInstruction: { /* ... uses settings.systemInstructions ... */
-                parts: [{ text: settings.systemInstructions }]
+            // Use the potentially modified system instructions
+            systemInstruction: {
+                parts: [{ text: finalInstructions }]
             },
             tools: { functionDeclarations: toolDeclarations },
-            safetySettings: [ /* ... uses settings thresholds ... */
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: thresholds[settings.harassmentThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: thresholds[settings.dangerousContentThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: thresholds[settings.sexuallyExplicitThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: thresholds[settings.harassmentThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" }, // Check original logic if hate != harassment
-                { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: thresholds[settings.civicIntegrityThreshold] || "HARM_BLOCK_THRESHOLD_UNSPECIFIED" }
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: thresholds[settings.harassmentThreshold] ?? "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: thresholds[settings.dangerousContentThreshold] ?? "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: thresholds[settings.sexuallyExplicitThreshold] ?? "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                // Map hate speech setting if needed, otherwise use harassment or add a separate setting
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: thresholds[settings.harassmentThreshold] ?? "HARM_BLOCK_THRESHOLD_UNSPECIFIED" },
+                { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: thresholds[settings.civicIntegrityThreshold] ?? "HARM_BLOCK_THRESHOLD_UNSPECIFIED" }
             ]
         };
-    }, [settings]); // Still depends on settings state for *other* config values
+        // Depend on the user object now, so config updates when user logs in/out
+    }, [settings, user]);
 
     // Function to get WebSocket URL - NOW USES HARDCODED KEY
     const getWebsocketUrl = useCallback(() => {
@@ -175,7 +190,7 @@ export const useSettings = () => {
         saveSettings,
         openSettings,
         closeSettings,
-        getGeminiConfig, // Still useful for agent configuration
+        getGeminiConfig, // Now incorporates user info
         getWebsocketUrl, // Now returns the hardcoded URL
         thresholds,
         // Theme exports
