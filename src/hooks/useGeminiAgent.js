@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { GeminiAgent } from '../lib/main/agent';
 import { ToolManager } from '../lib/tools/tool-manager';
 import { GoogleSearchTool } from '../lib/tools/google-search'; // Assuming this exists
-import {WolframAlphaTool } from "../lib/tools/wolf-from-alpha.js"
+import { WolframAlphaTool } from "../lib/tools/wolf-from-alpha.js"
+
 export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     const [agent, setAgent] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -17,12 +18,13 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
 
     // Store callbacks in refs to avoid dependency issues in useEffect/useCallback
     // These refs are set by the consuming component (App.js)
-    const onTranscriptionRef = useRef(null);
+    const onTranscriptionRef = useRef(null); // For UI display of model speech
+    const onUserTranscriptionRef = useRef(null); // For UI display of user speech
+    const onTranscriptForBackendRef = useRef(null); // <<< NEW: For sending any transcript to backend
     const onTextSentRef = useRef(null);
     const onInterruptedRef = useRef(null);
     const onTurnCompleteRef = useRef(null);
     const onScreenShareStoppedRef = useRef(null);
-    const onUserTranscriptionRef = useRef(null); // If using user transcription display
     const onErrorRef = useRef(null); // General error callback
     const onMicStateChangedRef = useRef(null); // Callback for mic state changes
     const onCameraStartedRef = useRef(null);
@@ -65,13 +67,14 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         try {
             // Pass the current settings object to the agent constructor
              const agentConfig = {
-                url,
-                config: getGeminiConfig(toolManager.current?.getToolDeclarations() || []), // Get latest config
-                deepgramApiKey: settings.deepgramApiKey || null,
-                modelSampleRate: settings.sampleRate,
-                toolManager: toolManager.current, // Pass ToolManager instance
-                transcribeUsersSpeech: settings.transcribeUsersSpeech || false, // Example: Get from settings
-                settings: settings // Pass the whole settings object
+                 url,
+                 config: getGeminiConfig(toolManager.current?.getToolDeclarations() || []), // Get latest config
+                 deepgramApiKey: settings.deepgramApiKey || null,
+                 modelSampleRate: settings.sampleRate,
+                 toolManager: toolManager.current, // Pass ToolManager instance
+                 transcribeUsersSpeech: settings.transcribeUsersSpeech || false, // Example: Get from settings
+                 transcribeModelsSpeech: settings.transcribeModelsSpeech || false, // Example: Get from settings
+                 settings: settings // Pass the whole settings object
             };
              console.log("Creating GeminiAgent with config:", agentConfig);
              const newAgent = new GeminiAgent(agentConfig);
@@ -79,7 +82,18 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
 
             // --- Setup Agent Event Listeners ---
             // These listeners bridge events from the Agent class to the hook's callbacks
-            newAgent.on('transcription', (transcript) => onTranscriptionRef.current?.(transcript));
+            newAgent.on('transcription', (transcript) => {
+                // For UI:
+                onTranscriptionRef.current?.(transcript);
+                // <<< NEW: For Backend >>>
+                onTranscriptForBackendRef.current?.('agent', transcript);
+            });
+            newAgent.on('user_transcription', (transcript) => {
+                // For UI:
+                onUserTranscriptionRef.current?.(transcript);
+                 // <<< NEW: For Backend >>>
+                onTranscriptForBackendRef.current?.('user', transcript);
+            });
             newAgent.on('text_sent', (text) => onTextSentRef.current?.(text));
             newAgent.on('interrupted', () => onInterruptedRef.current?.());
             newAgent.on('turn_complete', () => onTurnCompleteRef.current?.());
@@ -87,8 +101,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
                  console.log("Hook: screenshare_stopped event received");
                  setIsScreenShareActive(false); // Update state based on event
                  onScreenShareStoppedRef.current?.();
-             });
-            newAgent.on('user_transcription', (transcript) => onUserTranscriptionRef.current?.(transcript));
+              });
             newAgent.on('error', (err) => {
                 console.error("Hook: Agent emitted error:", err);
                 const errMsg = err instanceof Error ? err.message : String(err);
@@ -117,8 +130,8 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
                  setIsScreenShareActive(true);
                  onScreenShareStartedRef.current?.();
              });
-             // Add listener for agent disconnect? Agent class needs to emit 'disconnected'
-            // newAgent.on('disconnected', () => { ... handle agent-side disconnect ... });
+              // Add listener for agent disconnect? Agent class needs to emit 'disconnected'
+             // newAgent.on('disconnected', () => { ... handle agent-side disconnect ... });
             // --- End Agent Event Listeners ---
 
             setAgent(newAgent); // Set agent instance first
@@ -344,12 +357,13 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         startScreenShare,
         stopScreenShare,
         // Refs for setting callbacks from the consuming component
-        onTranscriptionRef,
+        onTranscriptionRef,         // For UI (model)
+        onUserTranscriptionRef,     // For UI (user)
+        onTranscriptForBackendRef,  // <<< NEW: For Backend (user+model)
         onTextSentRef,
         onInterruptedRef,
         onTurnCompleteRef,
         onScreenShareStoppedRef,
-        onUserTranscriptionRef,
         onErrorRef,
         onMicStateChangedRef,
         onCameraStartedRef,
