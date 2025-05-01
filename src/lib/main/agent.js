@@ -166,13 +166,13 @@ export class GeminiAgent extends EventEmitter {
         // --- REFINED 'audio' EVENT HANDLER ---
         this.client.on('audio', async (data) => {
             // 1. Check if streamer exists and is initialized
-            if (!this.audioStreamer || !this.audioStreamer.isInitialized) {
+            if (!this.audioStreamer || !this.audioStreamer.isInitialized || this.audioStreamer.isDisposed) { // Added isDisposed check
                 // Log less frequently to avoid spam if streamer is consistently missing
                 if (Math.random() < 0.1) {
-                    console.warn(`Agent: Audio received but streamer missing or not initialized (Initialized: ${this.audioStreamer?.isInitialized}). Skipping.`);
+                    console.warn(`Agent: Audio received but streamer missing/uninitialized/disposed (Init: ${this.audioStreamer?.isInitialized}, Disposed: ${this.audioStreamer?.isDisposed}). Skipping.`);
                 }
                 // Optionally try to re-initialize if streamer exists but isn't initialized
-                if (this.audioStreamer && !this.audioStreamer.isInitialized && this.audioContext && this.audioContext.state !== 'closed') {
+                if (this.audioStreamer && !this.audioStreamer.isInitialized && !this.audioStreamer.isDisposed && this.audioContext && this.audioContext.state !== 'closed') {
                     console.warn("Agent: Attempting lazy re-initialization of streamer.");
                     try {
                          await this.audioStreamer.initialize();
@@ -208,7 +208,7 @@ export class GeminiAgent extends EventEmitter {
         // Handle model interruptions by stopping audio playback
         this.client.on('interrupted', () => {
              console.info(`${this.name}: Model interrupted.`);
-             if (this.audioStreamer) {
+             if (this.audioStreamer && !this.audioStreamer.isDisposed) { // Added isDisposed check
                 this.audioStreamer.stop(); // Should handle internal state reset
             }
             this.emit('interrupted');
@@ -240,6 +240,8 @@ export class GeminiAgent extends EventEmitter {
              // Instead, perhaps set flags and let the main disconnect logic handle cleanup.
              this.connected = false; // Mark as disconnected
              // Let higher-level logic (hook) decide if full disconnect/cleanup is needed
+             // Emitting an internal event might be useful for the hook
+             this.emit('internal_ws_disconnected');
         });
     }
 
@@ -338,31 +340,27 @@ export class GeminiAgent extends EventEmitter {
             console.debug(`${this.name}: Intervals cleared.`);
 
             // Stop capture managers gracefully
-            // Use try-catch for each potentially failing async operation
             try {
-                // Check if manager exists before calling stop
                 if (this.cameraManager) {
-                    await this.stopCameraCapture(); // Calls dispose internally
+                    await this.stopCameraCapture();
                 }
             } catch (e) { console.warn("Error stopping camera capture during disconnect:", e); }
             try {
                  if (this.screenManager) {
-                    await this.stopScreenShare(); // Calls dispose internally (via onStop)
+                    await this.stopScreenShare();
                  }
             } catch (e) { console.warn("Error stopping screen share during disconnect:", e); }
              console.debug(`${this.name}: Capture managers stopped.`);
 
             // Cleanup audio resources
             if (this.audioRecorder) {
-                this.audioRecorder.stop(); // Stops tracks and closes context if owned
+                this.audioRecorder.stop();
                  console.debug(`${this.name}: Audio recorder stopped.`);
             }
-            // --- Ensure streamer disposal ---
             if (this.audioStreamer) {
-                this.audioStreamer.dispose(); // Call dispose explicitly
+                this.audioStreamer.dispose();
                 console.debug(`${this.name}: Audio streamer disposed.`);
             }
-            // --- End streamer disposal ---
 
             // Cleanup transcribers
             if (this.modelTranscriber) {
@@ -374,13 +372,17 @@ export class GeminiAgent extends EventEmitter {
                  console.debug(`${this.name}: User transcriber disconnected.`);
             }
 
-             // Close the main audio context IF it exists and isn't already closed
-            if (this.audioContext && this.audioContext.state !== 'closed') {
-                try {
-                    await this.audioContext.close();
-                    console.info(`${this.name}: AudioContext closed.`);
-                } catch (acError) {
-                    console.warn(`${this.name}: Error closing AudioContext:`, acError);
+            // **FIX:** Remove listener BEFORE closing/nullifying context
+            if (this.audioContext) {
+                this.audioContext.onstatechange = null; // Remove listener
+                console.debug(`${this.name}: AudioContext onstatechange listener removed.`);
+                if (this.audioContext.state !== 'closed') {
+                    try {
+                        await this.audioContext.close();
+                        console.info(`${this.name}: AudioContext closed.`);
+                    } catch (acError) {
+                        console.warn(`${this.name}: Error closing AudioContext:`, acError);
+                    }
                 }
             }
 
@@ -392,32 +394,28 @@ export class GeminiAgent extends EventEmitter {
 
         } catch (error) {
             console.error(`${this.name}: Error during disconnect cleanup:`, error);
-            // Still ensure state is reset even if cleanup had errors
+            // State will be reset in finally block
         } finally {
             // Reset state flags and resources definitively
             this.initialized = false;
             this.connected = false;
             this.connecting = false;
             this.client = null;
-            this.audioContext = null;
+            this.audioContext = null; // Nullify context AFTER removing listener and closing
             this.audioStreamer = null;
             this.audioRecorder = null;
             this.modelTranscriber = null;
             this.userTranscriber = null;
-            // Reset managers? Or assume they are disposed?
-            // If disconnect is called without stopping captures, managers might still exist.
-            // Ensure they are disposed.
+
+            // Ensure managers are disposed if cleanup errored before reaching them
              if (this.cameraManager) {
                  this.cameraManager.dispose();
-                 // this.cameraManager = null; // Optionally nullify
              }
               if (this.screenManager) {
                  this.screenManager.dispose();
-                 // this.screenManager = null; // Optionally nullify
              }
             this.removeAllListeners(); // Clear agent's own listeners
             console.info(`${this.name}: Disconnect process finished. State reset.`);
-            // Emit a final disconnected state? Depends on how hooks manage state.
             this.emit('disconnected_cleanup_complete'); // Example custom event
         }
     }
@@ -436,18 +434,21 @@ export class GeminiAgent extends EventEmitter {
         try {
            // --- AudioContext Creation/Management ---
            if (!this.audioContext || this.audioContext.state === 'closed') {
-               // Create context ONLY IF interaction has likely occurred.
-               // Browsers often require a user gesture (click, etc.) before allowing AudioContext creation.
-               // Relying on a previous interaction (like the connect button) is safer.
                try {
                    this.audioContext = new AudioContext();
                    console.info(`${this.name}: New AudioContext created.`);
-                   // Add state change listener immediately after creation
+                   // **FIX:** Assign listener AFTER context creation, check context existence inside handler
                    this.audioContext.onstatechange = () => {
+                       // Guard check inside the listener
+                       if (!this.audioContext) {
+                           console.debug("Agent: AudioContext state changed, but context is null (likely during disconnect). Ignoring.");
+                           return;
+                       }
                        console.log(`Agent: AudioContext state changed to: ${this.audioContext.state}`);
                        this.emit('audio_context_state_changed', this.audioContext.state);
-                       // Attempt resume if suspended and streamer exists/is playing
-                       if (this.audioContext?.state === 'suspended' && this.audioStreamer?.isPlaying) {
+
+                       // Attempt resume only if context exists, is suspended, and streamer is playing
+                       if (this.audioContext.state === 'suspended' && this.audioStreamer?.isPlaying && !this.audioStreamer?.isDisposed) {
                            console.warn("Agent: AudioContext suspended unexpectedly, attempting resume from state change handler...");
                            this.audioContext.resume().catch(e => console.error("Error resuming context on state change:", e));
                        }
@@ -463,7 +464,6 @@ export class GeminiAgent extends EventEmitter {
                     console.info(`${this.name}: Resumed existing AudioContext.`);
                 } catch (resumeError) {
                      console.error(`${this.name}: Failed to resume AudioContext during initialization:`, resumeError);
-                     // Throw error because audio playback will likely fail
                      throw new Error(`Failed to resume existing AudioContext. Error: ${resumeError.message}`);
                 }
            }
@@ -510,7 +510,7 @@ export class GeminiAgent extends EventEmitter {
                 if (this.modelTranscriber) this.modelTranscriber.disconnect();
                 if (this.userTranscriber) this.userTranscriber.disconnect();
                 if (this.audioContext) {
-                    this.audioContext.onstatechange = null;
+                    this.audioContext.onstatechange = null; // Remove listener here too
                     if(this.audioContext.state !== 'closed') await this.audioContext.close();
                 }
            } catch (cleanupError) { console.warn("Error during initialization failure cleanup:", cleanupError); }
