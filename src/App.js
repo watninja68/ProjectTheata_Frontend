@@ -7,7 +7,7 @@ import {
     FaLink, FaUnlink, FaStroopwafel, FaCog, FaPaperPlane, FaMicrophone, FaMicrophoneSlash,
     FaVideo, FaVideoSlash, FaDesktop, FaStopCircle, FaSyncAlt, FaExclamationTriangle,
     FaSpinner, FaCheckCircle, FaTimesCircle, FaSun, FaMoon, FaGoogle, FaSignOutAlt,
-    FaUserCircle
+    FaUserCircle // Keep FaUserCircle as a fallback
 } from 'react-icons/fa';
 
 // Import custom components and hooks
@@ -49,14 +49,11 @@ function App() {
 
     // --- Derived State ---
     const displayMicActive = isMicActive && !isMicSuspended;
-    // Core interaction requires login, agent connection, and not initializing
     const canInteract = session && isConnected && !isInitializing;
-    // Show auth spinner only during initial load when not logged in
     const showAuthSpinner = authLoading && !session;
-    // Show connect prompt if logged in, not connected, not initializing, not loading auth, and no connection error
     const showConnectPrompt = session && !isConnected && !isInitializing && !authLoading && !agentError;
-    // Show connection error message if logged in, errored, not connected, not initializing
     const showConnectError = session && agentError && !isConnected && !isInitializing && !authLoading;
+    const profileImageUrl = user?.user_metadata?.avatar_url; // Get profile image URL
 
     // --- Toggle Profile Menu ---
     const toggleProfileMenu = () => setIsProfileMenuOpen(prev => !prev);
@@ -375,7 +372,14 @@ function App() {
                      {/* Profile Menu */}
                      {session && (
                          <div className="profile-container">
-                             <button ref={profileIconRef} onClick={toggleProfileMenu} className="profile-btn" title="User Profile" aria-haspopup="true" aria-expanded={isProfileMenuOpen} > <FaUserCircle /> </button>
+                            {/* **MODIFIED:** Conditionally render image or icon */}
+                             <button ref={profileIconRef} onClick={toggleProfileMenu} className="profile-btn" title="User Profile" aria-haspopup="true" aria-expanded={isProfileMenuOpen} >
+                                {profileImageUrl ? (
+                                    <img src={profileImageUrl} alt="User profile" className="profile-img" />
+                                ) : (
+                                    <FaUserCircle />
+                                )}
+                             </button>
                              {isProfileMenuOpen && (
                                  <div ref={profileMenuRef} className="profile-dropdown" role="menu">
                                      <div className="profile-user-info" role="menuitem"> Signed in as:<br/> <strong>{getUserDisplayName()}</strong> {user.email && <div className="profile-user-email">({user.email})</div>} </div>
