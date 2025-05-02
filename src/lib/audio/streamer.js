@@ -30,6 +30,7 @@ export class AudioStreamer {
         this.lastScheduleTimeLog = 0;
         this.lastContextCheckTime = 0;
         this.isScheduling = false; // Flag to prevent re-entrant scheduling calls
+        this.isDisposed = false; // **FIX:** Flag to track disposal state
 
         // --- Nodes ---
         this.gainNode = this.context.createGain();
@@ -51,6 +52,8 @@ export class AudioStreamer {
     }
 
     _handleContextStateChange() {
+        if (this.isDisposed) return; // Don't handle if disposed
+
         const newState = this.context.state;
         console.log(`AudioStreamer: Context state changed to: ${newState}`);
 
@@ -74,6 +77,7 @@ export class AudioStreamer {
     }
 
     _ensureConnections() {
+        if (this.isDisposed) return;
         try {
             // Only connect if context is not closed
             if (this.context && this.context.state !== 'closed') {
@@ -94,6 +98,8 @@ export class AudioStreamer {
     }
 
     async _ensureContextRunning() {
+        if (this.isDisposed || !this.context) return false;
+
         const now = performance.now();
         if (now - this.lastContextCheckTime < 100) { // Throttle slightly less aggressively
             return this.context.state === 'running';
@@ -143,6 +149,7 @@ export class AudioStreamer {
     }
 
     _startPlaybackScheduling() {
+        if (this.isDisposed) return;
         if (!this.isPlaying && this.audioQueue.length > 0) {
             console.info("AudioStreamer: Starting playback scheduling.");
             this.isPlaying = true;
@@ -163,6 +170,7 @@ export class AudioStreamer {
 
     get sampleRate() { return this._sampleRate; }
     set sampleRate(value) {
+        if (this.isDisposed) return;
         if (!Number.isFinite(value) || value <= 1 || value > 48000) {
             console.warn('Attempt to set invalid sample rate:' + value); return;
         }
@@ -172,6 +180,7 @@ export class AudioStreamer {
     }
 
     async streamAudio(chunk) {
+        if (this.isDisposed) return;
         if (!this.isInitialized) {
             console.warn('AudioStreamer: streamAudio called but not initialized. Attempting lazy init.');
             if (this.context && this.context.state !== 'closed') {
@@ -234,6 +243,7 @@ export class AudioStreamer {
     }
 
     createAudioBuffer(audioData) {
+        if (this.isDisposed) return null;
         // Check context state *before* creating buffer
         if (!this.context || this.context.state !== 'running') {
              console.warn(`AudioStreamer: Cannot create buffer, context state is ${this.context?.state || 'missing'}.`);
@@ -253,6 +263,13 @@ export class AudioStreamer {
 
     // --- Core Scheduling Logic ---
     async scheduleNextBuffer() {
+        // **FIX:** Check dispose flag first
+        if (this.isDisposed) {
+            console.debug("AudioStreamer: scheduleNextBuffer called on disposed instance.");
+            this.isScheduling = false; // Ensure lock is released if somehow set
+            return;
+        }
+
         // Prevent multiple concurrent scheduling attempts
         if (this.isScheduling) {
              // console.debug("AudioStreamer: scheduleNextBuffer already running, skipping.");
@@ -289,7 +306,11 @@ export class AudioStreamer {
 
             // --- Scheduling Loop ---
             while (this.audioQueue.length > 0) {
-                // Re-check context state inside the loop for robustness
+                // Re-check dispose flag and context state inside the loop
+                if (this.isDisposed) {
+                    console.debug("AudioStreamer: Disposed during scheduling loop. Breaking.");
+                    break;
+                }
                 if (this.context.state !== 'running') {
                      console.warn("AudioStreamer: Context stopped running during scheduling loop. Breaking.");
                      if (!this.checkInterval) { this.checkInterval = setInterval(this.scheduleNextBuffer, 250); }
@@ -324,6 +345,8 @@ export class AudioStreamer {
 
                 this.scheduledSources.add(source);
                 source.onended = () => {
+                    // **FIX:** Add dispose check in onended
+                    if (this.isDisposed || !this.scheduledSources) return;
                     this.scheduledSources.delete(source);
                     try { source.disconnect(); } catch (e) {/* ignore disconnect errors */}
                     // If this was the very last source, clear the tracker
@@ -361,7 +384,7 @@ export class AudioStreamer {
                 } catch (startError) {
                     console.error(`AudioStreamer: Error starting source node at ${startTime.toFixed(3)} (CurrentTime: ${currentTime.toFixed(3)}):`, startError);
                     // Clean up the failed source node
-                    this.scheduledSources.delete(source);
+                    if (this.scheduledSources) this.scheduledSources.delete(source); // Check if set exists
                     try { source.disconnect(); } catch(e) {}
                     if (this.endOfQueueAudioSource === source) { this.endOfQueueAudioSource = null; }
                     continue; // Try next buffer
@@ -369,6 +392,13 @@ export class AudioStreamer {
             } // --- End while loop ---
 
             // --- Determine Next Action After Loop ---
+            // Add dispose check before determining next action
+            if (this.isDisposed) {
+                 console.debug("AudioStreamer: Disposed after scheduling loop.");
+                 this.isScheduling = false;
+                 return;
+            }
+
             if (this.audioQueue.length === 0) {
                 // Queue is empty, check processing buffer
                 if (this.processingBuffer.length > 0) {
@@ -379,7 +409,7 @@ export class AudioStreamer {
                      // Queue and buffer empty, and stream is marked complete
                      console.info("AudioStreamer: Stream complete and queue empty. Stopping playback check.");
                      // Check if the last scheduled source is still playing
-                     if (!this.endOfQueueAudioSource && this.scheduledSources.size === 0) {
+                     if (!this.endOfQueueAudioSource && this.scheduledSources?.size === 0) { // Added check for scheduledSources existence
                           console.info("AudioStreamer: All scheduled sources finished. Setting isPlaying=false.");
                           this.isPlaying = false;
                      } else {
@@ -404,14 +434,21 @@ export class AudioStreamer {
         } catch (error) {
             console.error('AudioStreamer: Uncaught error in scheduleNextBuffer:', error);
             this.isPlaying = false; // Stop playback on major error
-             this.isScheduling = false; // Release lock
-             this.stop(); // Attempt full cleanup
+            // **FIX:** Check isDisposed before calling stop again
+            if (!this.isDisposed) {
+                 this.stop(); // Attempt full cleanup only if not already disposed
+            }
         } finally {
             this.isScheduling = false; // Release the scheduling lock
         }
     }
 
     stop() {
+        // **FIX:** Check dispose flag first
+        if (this.isDisposed) {
+            console.debug("AudioStreamer: stop called on disposed instance.");
+            return;
+        }
         console.info('AudioStreamer: Stopping audio playback...');
         this.isPlaying = false;
         this.isStreamComplete = true; // Mark stream as complete on explicit stop
@@ -419,30 +456,34 @@ export class AudioStreamer {
         this.isScheduling = false; // Ensure scheduling lock is released
 
         try {
-            // Stop all currently scheduled sources gracefully
-            const currentTime = this.context?.state === 'running' ? this.context.currentTime : performance.now() / 1000;
-            const stopTime = currentTime + 0.05; // Stop slightly in the future
+            // **FIX:** Check if scheduledSources exists before operating on it
+            if (this.scheduledSources) {
+                // Stop all currently scheduled sources gracefully
+                const currentTime = this.context?.state === 'running' ? this.context.currentTime : performance.now() / 1000;
+                const stopTime = currentTime + 0.05; // Stop slightly in the future
 
-            this.scheduledSources.forEach(source => {
-                try {
-                    if (source && typeof source.stop === 'function') {
-                        // Check if start() has been called before calling stop()
-                         // This property check is a bit of a guess, might need adjustment
-                        // A safer approach might be to track sources that have been started.
-                        // For now, try/catch is the main defense.
-                        source.stop(stopTime);
+                this.scheduledSources.forEach(source => {
+                    try {
+                        if (source && typeof source.stop === 'function') {
+                            // Check if start() has been called before calling stop()
+                            // This property check is a bit of a guess, might need adjustment
+                            // A safer approach might be to track sources that have been started.
+                            // For now, try/catch is the main defense.
+                            source.stop(stopTime);
+                        }
+                        // Disconnect might throw if already disconnected by onended
+                         try { source.disconnect(); } catch (e) {}
+                    } catch (e) {
+                        console.warn("AudioStreamer: Error stopping/disconnecting source during stop:", e.message);
+                         try { source.disconnect(); } catch (e2) {}
                     }
-                    // Disconnect might throw if already disconnected by onended
-                     try { source.disconnect(); } catch (e) {}
-                } catch (e) {
-                    console.warn("AudioStreamer: Error stopping/disconnecting source during stop:", e.message);
-                     try { source.disconnect(); } catch (e2) {}
-                }
-            });
+                });
+                 this.scheduledSources.clear(); // Clear the set after iterating
+            } else {
+                 console.warn("AudioStreamer: scheduledSources is null during stop, cannot clear.");
+            }
         } catch(e) {
-            console.error("AudioStreamer: Error iterating scheduled sources during stop:", e);
-        } finally {
-             this.scheduledSources.clear(); // Clear the set regardless of errors
+            console.error("AudioStreamer: Error iterating/clearing scheduled sources during stop:", e);
         }
 
         // Clear internal buffers and state
@@ -453,6 +494,7 @@ export class AudioStreamer {
 
         // Fade out main gain node if context is running
         try {
+            // **FIX:** Add guard checks for gainNode and context
             if (this.gainNode && this.context?.state === 'running') {
                 const now = this.context.currentTime;
                 this.gainNode.gain.cancelScheduledValues(now);
@@ -462,7 +504,7 @@ export class AudioStreamer {
                 // Optionally reset gain to 1 after a delay for next use
                  this.gainNode.gain.setValueAtTime(1, now + 0.1);
             } else if (this.gainNode) {
-                 // If context not running, just reset gain value directly
+                 // If context not running or missing, just reset gain value directly
                  this.gainNode.gain.value = 1;
             }
         } catch (error) {
@@ -473,6 +515,7 @@ export class AudioStreamer {
     }
 
     async initialize() {
+        if (this.isDisposed) throw new Error("Cannot initialize a disposed AudioStreamer.");
         console.log("AudioStreamer: Initializing...");
         this.isInitialized = false; // Mark as not initialized until success
 
@@ -505,8 +548,17 @@ export class AudioStreamer {
         } catch (e) { console.warn("AudioStreamer: Error resetting gain node during init:", e.message); }
 
         // Clear any lingering scheduled sources from previous runs
-        try { this.scheduledSources.forEach(source => { try { source.disconnect(); } catch(e){} }); }
-        finally { this.scheduledSources.clear(); }
+        try {
+            // **FIX:** Check if scheduledSources exists
+            if (this.scheduledSources) {
+                 this.scheduledSources.forEach(source => { try { source.disconnect(); } catch(e){} });
+                 this.scheduledSources.clear();
+            }
+        } catch(e) { console.error("AudioStreamer: Error clearing scheduled sources during init:", e); }
+        finally {
+            // Ensure it's cleared even if forEach fails (unlikely)
+            if (this.scheduledSources) this.scheduledSources.clear();
+        }
         this.endOfQueueAudioSource = null;
 
         this.isInitialized = true; // Mark as initialized *after* successful setup
@@ -515,12 +567,16 @@ export class AudioStreamer {
     }
 
     dispose() {
+        // **FIX:** Set dispose flag immediately
+        if (this.isDisposed) return; // Prevent multiple disposals
+        this.isDisposed = true;
+
         console.log("AudioStreamer: Disposing...");
         // Remove event listener first
         if (this.context) {
             this.context.removeEventListener('statechange', this._handleContextStateChange);
         }
-        this.stop(); // Ensure playback is stopped and resources are cleared
+        this.stop(); // Ensure playback is stopped and resources are cleared (stop now checks isDisposed)
         this._clearCheckInterval(); // Clear any lingering timers
 
         // Explicitly disconnect nodes if they exist
@@ -532,6 +588,9 @@ export class AudioStreamer {
         this.analyserTapNode = null;
         this.audioQueue = null;
         this.processingBuffer = null;
+        if (this.scheduledSources) { // Check before clearing
+             this.scheduledSources.clear();
+        }
         this.scheduledSources = null; // Allow GC
         this.context = null; // Release context reference
         this.isInitialized = false;
