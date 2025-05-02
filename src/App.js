@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fa';
 
 // Import custom components and hooks
+import { sendToMCP } from './lib/mcp/client'; // Adjust path if needed
 import AudioVisualizerComponent from './components/AudioVisualizerComponent';
 import SettingsDialog from './components/SettingsDialog';
 import { useSettings } from './hooks/useSettings';
