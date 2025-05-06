@@ -34,18 +34,7 @@ export const getConfig = () => ({
     },
     systemInstruction: {
         parts: [{
-            text: localStorage.getItem('systemInstructions') || `You are an efficient intermediary assistant. Your responsibilities are:
-1. Automatic Detection
-   - Monitor all inputs for content within <answerFromTool> tags.
-2. Passive Handling
-   - Store these tool-generated messages silently. Do not seek clarification, confirmation, or additional input from the user about them.
-3. On-Demand Delivery
-   - Present the cached tool response only when the user explicitly requests it. Respond with the verbatim content, without analysis or commentary.
-Key Principles
-- Prioritize minimalism: No acknowledgments ("Got it!") or follow-ups ("Need anything else?") for tool messages.
-- Maintain strict separation: Never mix tool responses with regular conversation unless explicitly instructed.
-- Preserve integrity: Deliver tool outputs exactly as received, without modification.`,
-            
+            text: localStorage.getItem('systemInstructions') || "You are a helpful assistant"
         }]
     },
     tools: {
