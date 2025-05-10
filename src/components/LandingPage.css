@@ -44,6 +44,7 @@
   --bg-secondary-rgb: var(--bg-secondary-rgb-dark);
   --card-shadow: var(--card-shadow-dark);
   --card-border: var(--card-border-dark);
+  --accent-primary-rgb: 138, 43, 226;
 }
 
 .light-mode {
@@ -58,6 +59,7 @@
   --bg-secondary-rgb: var(--bg-secondary-rgb-light);
   --card-shadow: var(--card-shadow-light);
   --card-border: var(--card-border-light);
+  --accent-primary-rgb: 124, 58, 237;
 }
 
 
@@ -69,6 +71,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
   line-height: 1.6;
+  overflow-x: hidden; /* Prevent horizontal scrollbar during animations */
 }
 
 .landing-page {
@@ -99,13 +102,7 @@ body {
 .landing-nav a:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(var(--accent-primary-rgb, 138, 43, 226), 0.3); /* Define --accent-primary-rgb or use a fixed color */
-}
-.dark-mode {
-  --accent-primary-rgb: 138, 43, 226;
-}
-.light-mode {
-  --accent-primary-rgb: 124, 58, 237;
+  box-shadow: 0 0 0 4px rgba(var(--accent-primary-rgb), 0.3);
 }
 
 
@@ -124,12 +121,15 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
+  /* Animation for children */
+  animation: fadeInDown 0.5s 0.1s ease-out backwards;
 }
 
 .logo-title {
   display: flex;
   align-items: center;
   color: var(--text-primary);
+  animation: fadeInDown 0.6s 0.2s ease-out backwards;
 }
 
 .logo-title h1 {
@@ -151,7 +151,12 @@ body {
   color: var(--text-secondary);
   font-weight: 500;
   transition: color 0.2s ease;
+  animation: fadeInDown 0.5s ease-out backwards;
 }
+.landing-nav a:nth-child(1) { animation-delay: 0.3s; }
+/* .landing-nav a:nth-child(2) { animation-delay: 0.4s; } */ /* If you add more nav links */
+
+
 .landing-nav a:hover {
   color: var(--accent-primary);
 }
@@ -166,6 +171,7 @@ body {
   font-weight: 500;
   margin-left: 25px;
   transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  animation: fadeInDown 0.5s 0.5s ease-out backwards;
 }
 .theme-toggle-btn:hover {
   color: var(--accent-primary);
@@ -186,6 +192,7 @@ body {
   border: none;
   margin-left: 25px;
   white-space: nowrap;
+  animation: fadeInDown 0.5s 0.6s ease-out backwards;
 }
 
 .cta-button:hover {
@@ -213,6 +220,7 @@ body {
   margin-bottom: 20px;
   line-height: 1.2;
   font-weight: 900;
+  animation: fadeInUp 0.6s 0.2s ease-out backwards;
 }
 
 .hero-content p {
@@ -222,11 +230,14 @@ body {
   max-width: 650px;
   margin-left: auto;
   margin-right: auto;
+  animation: fadeInUp 0.6s 0.4s ease-out backwards;
 }
 
 .hero-cta {
   padding: 15px 30px;
   font-size: 1.1em;
+  /* Overriding the .cta-button animation from header for hero specific entry */
+  animation: fadeInUp 0.6s 0.6s ease-out backwards, pulse 2s infinite 3s; /* Adding a delayed pulse */
 }
 
 .hero-image-placeholder {
@@ -245,12 +256,13 @@ body {
   position: relative;
   overflow: hidden;
   box-shadow: var(--card-shadow);
+  animation: scaleIn 0.7s 0.5s ease-out backwards;
 }
 .hero-icon-bg {
   position: absolute;
-  opacity: 0.1;
+  /* opacity and transform are handled by animation now */
   filter: blur(3px); /* Slightly more blur */
-  transform: scale(1.1); /* Slightly larger */
+  animation: gentlePulse 5s infinite ease-in-out 1s;
 }
 
 
@@ -267,6 +279,7 @@ body {
   color: var(--text-primary);
   margin-bottom: 50px;
   font-weight: 700;
+  animation: fadeInUp 0.6s 0.2s ease-out backwards;
 }
 
 .features-grid {
@@ -283,7 +296,18 @@ body {
   border: var(--card-border);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   text-align: left; /* Align text left for better readability */
+  animation: fadeInUp 0.5s ease-out backwards;
 }
+
+/* Stagger feature card animations - adjust if you have more/less cards usually visible */
+.feature-card:nth-child(1) { animation-delay: 0.3s; }
+.feature-card:nth-child(2) { animation-delay: 0.4s; }
+.feature-card:nth-child(3) { animation-delay: 0.5s; }
+/* Add more if needed, or remove if you typically have fewer */
+.feature-card:nth-child(4) { animation-delay: 0.6s; }
+.feature-card:nth-child(5) { animation-delay: 0.7s; }
+.feature-card:nth-child(6) { animation-delay: 0.8s; }
+
 
 .feature-card:hover {
   transform: translateY(-6px);
@@ -315,6 +339,7 @@ body {
   border-top: 1px solid var(--accent-secondary);
   color: var(--text-secondary);
   font-size: 0.9em;
+  animation: fadeIn 1s 0.5s ease-out backwards;
 }
 
 
@@ -387,6 +412,8 @@ body {
   .landing-nav > * { /* Ensure full width for wrapped items if needed */
     flex-basis: calc(50% - 10px); /* Example: 2 items per row */
     text-align: center;
+    /* Reset animation delays for simpler mobile layout if needed */
+    /* animation-delay: 0.1s !important;  */
   }
   .landing-nav .cta-button {
     flex-basis: 100%; /* CTA button takes full width when wrapped */
@@ -396,5 +423,91 @@ body {
   }
   .hero-content p {
     font-size: 0.95em;
+  }
+}
+
+
+/* ------------------------- */
+/* --- ANIMATION KEYFRAMES --- */
+/* ------------------------- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse { /* For hero CTA button emphasis */
+  0% { transform: scale(1) translateY(0); } /* Ensure translateY from hover is reset or base */
+  50% { transform: scale(1.05) translateY(0); }
+  100% { transform: scale(1) translateY(0); }
+}
+/* Note: The hero-cta also has a hover transform. The pulse animation might conflict slightly
+   or be overridden during hover. `pulse 2s infinite 3s` means it pulses infinitely after a 3s delay.
+   Consider if this interaction is desired. Removing translateY(0) from pulse if it interferes with hover.
+*/
+@keyframes gentlePulse { /* For hero icon background */
+  0%, 100% {
+    opacity: 0.08; /* Adjusted for better visibility with blur */
+    transform: scale(1.1);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scale(1.15);
+  }
+}
+
+
+/* ---------------------------------- */
+/* --- REDUCED MOTION PREFERENCES --- */
+/* ---------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    animation-delay: 0ms !important;
+  }
+  .hero-cta { /* Remove pulse if motion is reduced */
+    animation: fadeInUp 0.01s 0s ease-out backwards !important;
+  }
+  .hero-icon-bg { /* Remove gentlePulse if motion is reduced */
+     animation: none !important;
+     opacity: 0.1; /* Set a static opacity */
+     transform: scale(1.1); /* Set a static scale */
   }
 }
