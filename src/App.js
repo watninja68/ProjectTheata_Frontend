@@ -1,6 +1,7 @@
 // src/App.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './css/styles.css'; // Import global styles
+import "./App.css"
+//import './css/styles.css'; // Import global styles
 
 // Import Icons from react-icons
 import {
