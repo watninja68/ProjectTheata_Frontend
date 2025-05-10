@@ -1,0 +1,84 @@
+/* src/components/LoginPage.css */
+.login-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--bg-primary, #120824); /* Fallback if theme vars not loaded */
+    color: var(--text-primary, #EAE4F8);
+    font-family: var(--font-family, 'Inter', sans-serif);
+    padding: 20px;
+    box-sizing: border-box;
+    /* Grid background from index.css will apply if body bg is transparent enough or LoginPage itself uses it */
+    background-image:
+        linear-gradient(var(--bg-grid-line, rgba(42, 26, 62, 0.3)) 1px, transparent 1px),
+        linear-gradient(90deg, var(--bg-grid-line, rgba(42, 26, 62, 0.3)) 1px, transparent 1px);
+    background-size: 30px 30px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.login-box {
+    background-color: var(--bg-secondary, #1e0f3a);
+    padding: 30px 40px;
+    border-radius: var(--border-radius, 10px);
+    box-shadow: var(--shadow-md, 0 5px 15px rgba(0, 0, 0, 0.4));
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border-color, #3c2c6a);
+}
+
+.login-box h2 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.8em;
+    color: var(--text-primary, #EAE4F8);
+}
+
+.login-box p {
+    margin-bottom: 25px;
+    color: var(--text-secondary, #a094c0);
+    font-size: 1em;
+}
+
+.login-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 1em;
+    font-weight: 600;
+    border-radius: var(--border-radius, 8px);
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+    box-shadow: var(--shadow-sm, 0 2px 5px rgba(0,0,0,0.2));
+}
+
+.login-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.login-button.google-login {
+    background-color: #4285F4; /* Google Blue */
+    color: white;
+}
+
+.login-button.google-login:hover:not(:disabled) {
+    background-color: #357ae8;
+    box-shadow: var(--shadow-md, 0 4px 10px rgba(0,0,0,0.3));
+    transform: translateY(-2px);
+}
+.login-button.google-login:active:not(:disabled) {
+    background-color: #2a6ac8;
+    transform: translateY(0px);
+}
+
+.login-box .fa-spin {
+    color: var(--accent-primary, #8a2be2);
+    margin-bottom: 15px;
+}
+
+/* Light theme styles are handled by body.theme-light in index.css affecting vars */

@@ -1,22 +1,39 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; // Import router components
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import App from './App';
-import LandingPage from './components/LandingPage'; // Import your new landing page
+import LandingPage from './components/LandingPage';
+import LoginPage from './components/LoginPage'; // Import LoginPage
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import './index.css'; // Ensure global styles (including theme vars) are imported
 
 // A component to protect routes that require authentication
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth(); // Assuming your useAuth provides a loading state
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a proper loading spinner
+    // Show a loading indicator while auth state is being determined
+    // This prevents a flash of the login page if the user is already authenticated
+    return (
+        <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            backgroundColor: 'var(--bg-primary, #120824)', // Fallback color
+            color: 'var(--text-primary, #EAE4F8)' // Fallback color
+        }}>
+            <div>Loading authentication...</div> {/* Or a proper spinner component */}
+        </div>
+    );
   }
 
   if (!user) {
-    // User not authenticated, redirect to landing or login page
-    // The <Navigate> component will change the URL
-    return <Navigate to="/" replace />;
+    // User not authenticated, redirect to login page
+    // Pass the current location in state so LoginPage can redirect back after login
+    console.log("ProtectedRoute: User not authenticated, redirecting to /login. From:", location.pathname);
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   return children; // User authenticated, render the protected component
 };
@@ -25,20 +42,21 @@ const ProtectedRoute = ({ children }) => {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AuthProvider> {/* AuthProvider should wrap BrowserRouter to provide context to all routes */}
+    <AuthProvider> {/* AuthProvider wraps BrowserRouter to provide context to all routes */}
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} /> {/* Add LoginPage route */}
           <Route
-            path="/app/*" // Use /* if App.js has its own internal routing
+            path="/app/*" // For routes like /app, /app/settings etc.
             element={
               <ProtectedRoute>
                 <App />
               </ProtectedRoute>
             }
           />
-          {/* You could add more routes here, e.g., /login, /signup if they are separate pages */}
-          <Route path="*" element={<Navigate to="/" replace />} /> {/* Catch-all, redirect to landing */}
+          {/* Catch-all for undefined routes, redirect to landing page */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
