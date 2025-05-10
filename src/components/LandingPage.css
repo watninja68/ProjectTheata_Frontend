@@ -234,7 +234,24 @@ body {
   border-color: var(--accent-primary);
   background-color: rgba(var(--accent-primary-rgb), 0.1);
 }
-
+.cta-button-go-to {
+  /*background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));*/
+  /* MODIFIED: Use themed text color */
+  color: var(--cta-text-color);
+  padding: 20px 32px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  border: none;
+  margin-left: 20px;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(var(--accent-primary-rgb), 0.2);
+  animation: fadeInDown 0.5s 0.6s ease-out backwards;
+}
 .cta-button {
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   /* MODIFIED: Use themed text color */
@@ -861,3 +878,4 @@ body {
   .hero-bg-icon.icon-users { transform: rotate(10deg); opacity: 0.1;}
   .hero-bg-icon.icon-cog { transform: translateX(-50%) rotate(5deg); opacity: 0.18;}
 }
+
