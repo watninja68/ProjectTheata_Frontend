@@ -1,0 +1,142 @@
+/* ... existing styles ... */
+
+/* Manual Tasks Panel (replaces delegated-tasks-panel) */
+.manual-tasks-panel {
+  background-color: var(--bg-tertiary);
+  border-radius: var(--border-radius);
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.manual-tasks-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  background-color: rgba(0,0,0,0.1);
+  transition: background-color var(--transition-speed) ease;
+}
+.manual-tasks-panel .panel-header:hover {
+  background-color: rgba(0,0,0,0.2);
+}
+
+.manual-tasks-panel .panel-header p {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.manual-tasks-panel .panel-header svg {
+  font-size: 1.1em;
+}
+.manual-tasks-panel .panel-header span svg {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.manual-tasks-panel .panel-content {
+  padding: 0rem 1rem 1rem 1rem; /* Reduced top padding */
+  max-height: 250px; /* Adjusted height */
+  overflow-y: auto;
+  border-top: 1px solid var(--border-color);
+}
+.manual-tasks-panel .panel-content::-webkit-scrollbar { width: 6px; }
+.manual-tasks-panel .panel-content::-webkit-scrollbar-track { background: transparent; }
+.manual-tasks-panel .panel-content::-webkit-scrollbar-thumb { background-color: var(--accent-secondary); border-radius: 3px; }
+
+.manual-task-input-area {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-top: 1rem; /* Added padding here */
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
+}
+
+.manual-task-input-area input[type="text"] {
+  flex-grow: 1;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all var(--transition-speed) ease;
+}
+.manual-task-input-area input[type="text"]:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.manual-task-input-area input[type="text"]::placeholder {
+  color: var(--text-placeholder);
+  opacity: 0.7;
+}
+.manual-task-input-area input[type="text"]:disabled {
+  background-color: var(--bg-input-disabled);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.manual-task-input-area button {
+  padding: 0.6rem; /* Make it more square */
+  font-size: 1.1rem; /* Icon size */
+  flex-shrink: 0;
+  /* Uses base button styles already defined */
+}
+
+
+.task-item {
+  padding: 0.7rem 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem; /* Slightly smaller */
+  line-height: 1.5;
+}
+.task-item:last-child {
+  border-bottom: none;
+}
+.task-item strong {
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 0.1rem;
+  font-size: 0.9rem;
+}
+.task-item p {
+  margin: 0 0 0.2rem 0;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+.task-item small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.task-item.task-success p { /* For manual_task_result without error */
+    color: var(--success-color) !important;
+}
+.task-item.task-error p { /* For manual_task_result with is_error:true */
+    color: var(--error-color) !important;
+}
+
+.no-tasks {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* Message type styling */
+.type-manual_task_submission .chat-message-text {
+  font-style: italic;
+  opacity: 0.8;
+}
+.type-task_update .chat-message-text {
+  background-color: rgba(var(--info-color-rgb, 61, 158, 255), 0.1); /* Assuming you define info-color-rgb */
+  border-left: 3px solid var(--info-color);
+  padding-left: 0.8rem;
+}

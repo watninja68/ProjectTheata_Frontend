@@ -1,4 +1,6 @@
+// src/hooks/useGeminiAgent.js
 import { useState, useEffect, useRef, useCallback } from 'react';
+<<<<<<< Updated upstream
 import { GeminiAgent } from '../lib/main/agent';
 import { ToolManager } from '../lib/tools/tool-manager';
 import { GoogleSearchTool } from '../lib/tools/google-search'; // Assuming this exists
@@ -50,21 +52,156 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     const connectAgent = useCallback(async () => {
         if (agent || isInitializing || isConnected) {
             console.warn("Connect cancelled: Agent exists, is initializing, or already connected.");
+=======
+
+export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl, authUser, authSession) => {
+    const [isConnected, setIsConnected] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(false);
+    const [error, setError] = useState(null);
+    const eventSourceRef = useRef(null);
+    const currentSessionIdRef = useRef(null);
+
+    const [manualTasks, setManualTasks] = useState({});
+
+    const [isMicActive, setIsMicActive] = useState(false);
+    const [isMicSuspended, setIsMicSuspended] = useState(true);
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [isScreenShareActive, setIsScreenShareActive] = useState(false);
+
+    const onPrimaryAgentResponseRef = useRef(null);
+    const onTurnCompleteRef = useRef(null);
+    const onErrorRef = useRef(null);
+    const onManualTaskUpdateRef = useRef(null);
+    const onUserTranscriptionRef = useRef(null);
+    const onMicStateChangedRef = useRef(null);
+    const onCameraStartedRef = useRef(null);
+    const onCameraStoppedRef = useRef(null);
+    const onScreenShareStartedRef = useRef(null);
+    const onScreenShareStoppedRef = useRef(null);
+
+    const goBackendUrl = settings.goBackendBaseUrl;
+
+    // --- Define disconnectSSE and connectSSE first ---
+    const disconnectSSE = useCallback(() => {
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+            console.log("[SSE] Disconnected.");
+        }
+    }, []); // No dependencies needed for disconnectSSE itself
+
+    const connectSSE = useCallback(() => {
+        if (!goBackendUrl) {
+            console.error("[SSE] Go backend URL is not configured.");
+            setError("SSE URL not configured.");
+            onErrorRef.current?.("SSE URL not configured.");
+            return;
+        }
+        if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED) {
+            console.warn("[SSE] Attempted to connect SSE, but already connected or connecting.");
             return;
         }
 
-        const url = getWebsocketUrl();
-        if (!url) {
-            const errMsg = 'API Key or WebSocket URL is missing. Please configure settings.';
+        const sseUrl = `${goBackendUrl}/api/agent/events?session_id=${currentSessionIdRef.current || 'general'}`;
+        console.log(`[SSE] Connecting to ${sseUrl}`);
+        const es = new EventSource(sseUrl, { withCredentials: true });
+
+        es.onopen = () => {
+            console.log("[SSE] Connection established.");
+            setError(null);
+        };
+
+        es.onmessage = (event) => {
+            try {
+                const eventData = JSON.parse(event.data);
+                console.log("[SSE] Received data:", eventData);
+
+                switch (eventData.type) {
+                    case 'connection_ack':
+                        console.log("[SSE] Connection Acknowledged by backend:", eventData.payload);
+                        if(eventData.payload && eventData.payload.session_id) {
+                            if (!currentSessionIdRef.current) {
+                                currentSessionIdRef.current = eventData.payload.session_id;
+                                console.log("[SSE] Main agent session_id set/confirmed by SSE ack:", currentSessionIdRef.current);
+                            }
+                        }
+                        break;
+                    case 'main_agent_response_chunk':
+                        onPrimaryAgentResponseRef.current?.(eventData.payload.text_chunk, false);
+                        break;
+                    case 'main_agent_audio_chunk':
+                        console.log("[SSE] Received audio chunk (playback not implemented in this hook yet).");
+                        break;
+                    case 'main_agent_turn_complete':
+                        onPrimaryAgentResponseRef.current?.("", true);
+                        onTurnCompleteRef.current?.();
+                        break;
+                    case 'manual_task_submitted':
+                    case 'manual_task_update':
+                    case 'manual_task_result':
+                        setManualTasks(prevTasks => ({
+                            ...prevTasks,
+                            [eventData.payload.task_id]: {
+                                ...(prevTasks[eventData.payload.task_id] || {}),
+                                ...eventData.payload,
+                                type: eventData.type,
+                                last_update: new Date().toISOString(),
+                            }
+                        }));
+                        onManualTaskUpdateRef.current?.(eventData.payload);
+                        break;
+                    case 'agent_error':
+                        console.error("[SSE] Agent error from backend:", eventData.payload.message);
+                        setError(eventData.payload.message);
+                        onErrorRef.current?.(eventData.payload.message);
+                        break;
+                    case 'user_transcript_chunk':
+                        onUserTranscriptionRef.current?.(eventData.payload.text_chunk);
+                        break;
+                    default:
+                        console.warn("[SSE] Received unhandled event type:", eventData.type);
+                }
+            } catch (e) {
+                console.error("[SSE] Error parsing message or handling event:", e, event.data);
+            }
+        };
+
+        es.onerror = (err) => {
+            console.error("[SSE] EventSource error:", err);
+            setError("SSE connection error.");
+            onErrorRef.current?.("SSE connection error.");
+            if (es) es.close();
+            eventSourceRef.current = null;
+        };
+
+        eventSourceRef.current = es;
+    }, [goBackendUrl, onErrorRef, onPrimaryAgentResponseRef, onTurnCompleteRef, onManualTaskUpdateRef, onUserTranscriptionRef]); // Dependencies for connectSSE
+
+
+    // --- Agent Lifecycle ---
+    const connectAgent = useCallback(async () => {
+        if (isConnected || isInitializing) {
+            console.warn("Connect cancelled: Already connected or initializing.");
+>>>>>>> Stashed changes
+            return;
+        }
+        if (!goBackendUrl) {
+            const errMsg = "Go Backend URL not set in settings.";
             setError(errMsg);
             onErrorRef.current?.(errMsg);
             console.error(errMsg);
             return;
         }
+<<<<<<< Updated upstream
         setError(null); // Clear previous errors
+=======
+
+>>>>>>> Stashed changes
         setIsInitializing(true);
+        setError(null);
 
         try {
+<<<<<<< Updated upstream
             // Pass the current settings object to the agent constructor
              const agentConfig = {
                  url,
@@ -114,6 +251,17 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
                  setIsMicActive(state.active);
                  setIsMicSuspended(state.suspended);
                  onMicStateChangedRef.current?.(state);
+=======
+            const sessionPayload = {
+                user_id: authUser?.id || 'default_user',
+                session_id: '',
+            };
+
+            const response = await fetch(`${goBackendUrl}/api/agent/session`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sessionPayload),
+>>>>>>> Stashed changes
             });
              newAgent.on('camera_started', () => {
                  console.log("Hook: camera_started event received");
@@ -134,6 +282,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
              // newAgent.on('disconnected', () => { ... handle agent-side disconnect ... });
             // --- End Agent Event Listeners ---
 
+<<<<<<< Updated upstream
             setAgent(newAgent); // Set agent instance first
             await newAgent.connect(); // Connect WebSocket
             await newAgent.initialize(); // Initialize includes starting audio context, streamer, recorder, transcribers etc.
@@ -145,8 +294,26 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
             setIsMicSuspended(newAgent.audioRecorder?.isSuspended !== false); // Assume suspended if not explicitly false
 
             console.log("Hook: Agent connected and initialized successfully.");
+=======
+            if (!response.ok) {
+                let errorData;
+                try { errorData = await response.json(); }
+                catch (e) { errorData = { error: `Session creation failed: ${response.status} - ${response.statusText}` }; }
+                throw new Error(errorData.error || `Session creation failed: ${response.status}`);
+            }
 
+            const sessionData = await response.json();
+            if (!sessionData.session_id) {
+                throw new Error("Backend did not return a session_id for the main agent.");
+            }
+            currentSessionIdRef.current = sessionData.session_id;
+            console.log("Main voice agent session created with backend, session_id:", currentSessionIdRef.current);
+>>>>>>> Stashed changes
+
+            connectSSE();
+            setIsConnected(true);
         } catch (err) {
+<<<<<<< Updated upstream
             console.error('Hook: Agent Connection/Initialization Error:', err);
             const errMsg = err.message || 'Failed to connect or initialize agent.';
             setError(errMsg);
@@ -332,8 +499,219 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
              throw err; // Re-throw
         }
     }, [agent, isScreenShareActive]);
+=======
+            console.error("Error connecting main voice agent via backend:", err);
+            setError(err.message);
+            onErrorRef.current?.(err.message);
+            setIsConnected(false);
+            disconnectSSE(); // Now defined
+        } finally {
+            setIsInitializing(false);
+        }
+    }, [goBackendUrl, connectSSE, disconnectSSE, isConnected, isInitializing, authUser, onErrorRef]); // Added disconnectSSE, authUser, onErrorRef
 
+    const disconnectAgent = useCallback(async () => {
+        console.log("Disconnecting main voice agent via backend...");
+        disconnectSSE();
+        setIsConnected(false);
+        setIsInitializing(false);
+        if (currentSessionIdRef.current && goBackendUrl) {
+            try {
+                await fetch(`${goBackendUrl}/api/agent/session/${currentSessionIdRef.current}`, {
+                    method: 'DELETE',
+                });
+                console.log("Backend main agent session close signaled for session:", currentSessionIdRef.current);
+            } catch (err) {
+                console.warn("Error signaling backend main agent session close:", err);
+            }
+        }
+        currentSessionIdRef.current = null;
+        setError(null);
+        setManualTasks({});
+        setIsMicActive(false);
+        setIsMicSuspended(true);
+        setIsCameraActive(false);
+        setIsScreenShareActive(false);
+    }, [disconnectSSE, goBackendUrl]); // Added disconnectSSE
 
+    // --- Interactions ---
+    const sendTextToMainAgent = useCallback(async (text) => {
+        if (!isConnected || !currentSessionIdRef.current || !goBackendUrl) {
+            const msg = "Cannot send text to main agent: Not connected or session ID/URL missing.";
+            console.warn(msg);
+            onErrorRef.current?.(msg);
+            return;
+        }
+        if (!text || text.trim() === "") {
+            console.warn("Cannot send empty text to main agent.");
+            return;
+        }
+
+        const payload = {
+            user_id: authUser?.id || 'default_user',
+            session_id: currentSessionIdRef.current,
+            text: text,
+        };
+
+        try {
+            const response = await fetch(`${goBackendUrl}/api/agent/query`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorData;
+                try { errorData = await response.json(); }
+                catch (e) { errorData = { error: `Failed to send query to main agent: ${response.status} - ${response.statusText}` };}
+                throw new Error(errorData.error || `Failed to send query to main agent: ${response.status}`);
+            }
+        } catch (err) {
+            console.error("Error sending text query to main agent (backend):", err);
+            setError(err.message);
+            onErrorRef.current?.(err.message);
+        }
+    }, [isConnected, goBackendUrl, authUser, onErrorRef]); // Added onErrorRef and authUser
+
+    const submitManualTask = useCallback(async (taskQuery) => {
+        if (!goBackendUrl) {
+            const msg = "Cannot submit manual task: Go Backend URL missing.";
+            console.error(msg);
+            onErrorRef.current?.(msg);
+            return null;
+        }
+        if (!taskQuery || taskQuery.trim() === "") {
+            console.warn("Cannot submit empty manual task query.");
+            return null;
+        }
+
+        const payload = {
+            user_id: authUser?.id || 'default_user',
+            session_id: currentSessionIdRef.current || 'manual_task_session',
+            query: taskQuery,
+        };
+
+        try {
+            if (!eventSourceRef.current || eventSourceRef.current.readyState === EventSource.CLOSED) {
+                console.log("[SSE] SSE not active, attempting to connect for manual task updates...");
+                connectSSE();
+            }
+
+            const response = await fetch(`${goBackendUrl}/api/task/submit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorData;
+                try { errorData = await response.json(); }
+                catch (e) { errorData = { error: `Failed to submit manual task: ${response.status} - ${response.statusText}` };}
+                throw new Error(errorData.error || `Failed to submit manual task: ${response.status}`);
+            }
+
+            const responseData = await response.json();
+            console.log("Manual task submitted to backend, response:", responseData);
+            return responseData.task_id;
+
+        } catch (err) {
+            console.error("Error submitting manual task to backend:", err);
+            setError(err.message);
+            onErrorRef.current?.(err.message);
+            const tempErrorTaskId = `error-${Date.now()}`;
+            setManualTasks(prev => ({
+                ...prev,
+                [tempErrorTaskId]: {
+                    task_id: tempErrorTaskId,
+                    query: taskQuery,
+                    status_text: "Submission Failed",
+                    is_error: true,
+                    error_message: err.message,
+                    type: 'manual_task_result',
+                    last_update: new Date().toISOString()
+                }
+            }));
+            onManualTaskUpdateRef.current?.({ task_id: tempErrorTaskId, error_message: err.message, is_error: true, type: 'manual_task_result' });
+            return null;
+        }
+    }, [goBackendUrl, authUser, connectSSE, onErrorRef, onManualTaskUpdateRef]); // Added dependencies
+
+    const sendCommandToBackend = useCallback(async (command, commandPayload = {}) => {
+        if (!isConnected || !currentSessionIdRef.current || !goBackendUrl) {
+            console.warn(`Cannot send command '${command}' to main agent: Not connected or session ID/URL missing.`);
+            return Promise.reject(new Error("Main agent not connected"));
+        }
+        try {
+            const response = await fetch(`${goBackendUrl}/api/agent/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSessionIdRef.current,
+                    user_id: authUser?.id || 'default_user',
+                    command: command,
+                    payload: commandPayload
+                }),
+            });
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({error: `Command '${command}' failed with status ${response.status}`}));
+                throw new Error(errData.error);
+            }
+            return await response.json();
+        } catch (err) {
+            console.error(`Error sending command '${command}' to backend for main agent:`, err);
+            setError(err.message);
+            onErrorRef.current?.(err.message);
+            throw err;
+        }
+    }, [isConnected, goBackendUrl, authUser, onErrorRef]); // Added dependencies
+
+    const toggleMic = useCallback(async () => {
+        const newMicActiveState = !isMicActive || isMicSuspended;
+        setIsMicActive(newMicActiveState);
+        setIsMicSuspended(false);
+        onMicStateChangedRef.current?.({ active: newMicActiveState, suspended: false });
+        try { await sendCommandToBackend('toggle_microphone'); }
+        catch (err) {
+            setIsMicActive(!newMicActiveState);
+            setIsMicSuspended(newMicActiveState ? false : true);
+            onMicStateChangedRef.current?.({ active: !newMicActiveState, suspended: newMicActiveState ? false : true });
+            throw err;
+        }
+    }, [isMicActive, isMicSuspended, sendCommandToBackend, onMicStateChangedRef]);
+
+    const startCamera = useCallback(async () => {
+        setIsCameraActive(true); onCameraStartedRef.current?.();
+        try { await sendCommandToBackend('start_camera'); }
+        catch (err) { setIsCameraActive(false); onCameraStoppedRef.current?.(); throw err; }
+    }, [sendCommandToBackend, onCameraStartedRef, onCameraStoppedRef]);
+
+    const stopCamera = useCallback(async () => {
+        setIsCameraActive(false); onCameraStoppedRef.current?.();
+        try { await sendCommandToBackend('stop_camera'); }
+        catch (err) { setIsCameraActive(true); onCameraStartedRef.current?.(); throw err; }
+    }, [sendCommandToBackend, onCameraStartedRef, onCameraStoppedRef]);
+
+    const startScreenShare = useCallback(async () => {
+        setIsScreenShareActive(true); onScreenShareStartedRef.current?.();
+        try { await sendCommandToBackend('start_screen_share'); }
+        catch (err) { setIsScreenShareActive(false); onScreenShareStoppedRef.current?.(); throw err; }
+    }, [sendCommandToBackend, onScreenShareStartedRef, onScreenShareStoppedRef]);
+
+    const stopScreenShare = useCallback(async () => {
+        setIsScreenShareActive(false); onScreenShareStoppedRef.current?.();
+        try { await sendCommandToBackend('stop_screen_share'); }
+        catch (err) { setIsScreenShareActive(true); onScreenShareStartedRef.current?.(); throw err; }
+    }, [sendCommandToBackend, onScreenShareStartedRef, onScreenShareStoppedRef]);
+>>>>>>> Stashed changes
+
+    // --- Cleanup ---
+    useEffect(() => {
+        return () => {
+            disconnectAgent();
+        };
+    }, [disconnectAgent]); // disconnectAgent is memoized
+
+<<<<<<< Updated upstream
     // --- Return hook state and methods ---
     return {
         agent, // Expose agent if direct access is needed (e.g., for visualizer, switching camera)
@@ -369,5 +747,21 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         onCameraStartedRef,
         onCameraStoppedRef,
         onScreenShareStartedRef,
+=======
+    return {
+        isConnected, isInitializing, error,
+        manualTasks,
+        isMicActive, isMicSuspended, isCameraActive, isScreenShareActive,
+        connectAgent,
+        disconnectAgent,
+        sendTextToMainAgent,
+        submitManualTask,
+        toggleMic, startCamera, stopCamera, startScreenShare, stopScreenShare,
+        onPrimaryAgentResponseRef, onTurnCompleteRef, onErrorRef,
+        onManualTaskUpdateRef,
+        onUserTranscriptionRef,
+        onMicStateChangedRef, onCameraStartedRef, onCameraStoppedRef,
+        onScreenShareStartedRef, onScreenShareStoppedRef,
+>>>>>>> Stashed changes
     };
 };
