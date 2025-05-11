@@ -5,6 +5,11 @@ import { useAuth } from './useAuth';
 const defaults = {
     deepgramApiKey: '',
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+    goBackendBaseUrl: 'http://localhost:8080', // Ensure this is correct
+    backendBaseUrl: 'http://localhost:8000',
+>>>>>>> Stashed changes
 =======
     goBackendBaseUrl: 'http://localhost:8080', // Ensure this is correct
     backendBaseUrl: 'http://localhost:8000',
