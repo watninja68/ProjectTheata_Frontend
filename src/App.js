@@ -1,13 +1,9 @@
 // src/App.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import './css/styles.css'; // Import global styles
 
 // Import Icons from react-icons
-=======
-import "./App.css";
->>>>>>> Stashed changes
 =======
 import "./App.css";
 >>>>>>> Stashed changes
