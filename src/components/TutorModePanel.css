@@ -1,0 +1,116 @@
+/* FILE: watninja68-projecttheata_frontend/src/components/TutorModePanel.css */
+.tutor-mode-panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Dark overlay */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1500; /* Above settings dialog, below critical alerts if any */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+.tutor-mode-panel-overlay.visible { /* Added for CSS transition control */
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease;
+}
+
+
+.tutor-mode-panel-content {
+    background-color: var(--bg-secondary, #1e0f3a);
+    padding: 1rem;
+    border-radius: var(--border-radius, 10px);
+    box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.5)); /* More prominent shadow */
+    border: 1px solid var(--border-color);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    max-width: 90vw; /* Max width relative to viewport */
+    max-height: 90vh; /* Max height relative to viewport */
+    width: auto; /* Let content determine width up to max-width */
+    height: auto; /* Let content determine height up to max-height */
+    overflow: hidden; /* Prevent content from spilling, toolbar/canvas will handle their scroll */
+    transform: scale(0.95);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.tutor-mode-panel-overlay.visible .tutor-mode-panel-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+
+.close-panel-button {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    z-index: 10; /* Above toolbar */
+    transition: background-color 0.2s, transform 0.1s;
+}
+.close-panel-button:hover {
+    background-color: var(--error-color);
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.whiteboard-canvas-container {
+    flex-grow: 1; /* Allow canvas to take available space */
+    display: flex; /* For centering canvas if it's smaller than container */
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem; /* Some padding around the canvas */
+    overflow: auto; /* If canvas is larger than container */
+    background-color: var(--bg-primary); /* Background for the container area */
+    border-radius: 0 0 var(--border-radius) var(--border-radius); /* Rounded bottom */
+}
+
+/* The WhiteboardCanvas component itself will define its direct styles */
+
+/* Ensure toolbar and canvas container are laid out correctly */
+.tutor-mode-panel-content > .whiteboard-toolbar {
+    flex-shrink: 0; /* Toolbar should not shrink */
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .tutor-mode-panel-content {
+        max-width: 95vw;
+        max-height: 95vh;
+        padding: 0.8rem;
+    }
+}
+@media (max-width: 600px) {
+    .tutor-mode-panel-content {
+        padding: 0.5rem;
+    }
+    .close-panel-button {
+        top: 0.4rem;
+        right: 0.4rem;
+        width: 26px;
+        height: 26px;
+        font-size: 1.3rem;
+    }
+    .whiteboard-canvas-container {
+        padding: 0.3rem;
+    }
+}
