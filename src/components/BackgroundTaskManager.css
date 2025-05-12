@@ -1,3 +1,23 @@
+/* FILE: watninja68-projecttheata_frontend/src/components/BackgroundTaskManager.css */
+/* ... (previous styles) ... */
+
+.form-group input.task-query-input { /* Style for the new text input */
+    padding: 0.7rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group input.task-query-input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Ensure the rest of the styles are present in BackgroundTaskManager.css */
 .background-task-manager {
     padding: 1rem;
     border-top: 1px solid var(--border-color);
@@ -33,8 +53,9 @@
     color: var(--text-secondary);
 }
 
-.form-group select,
-.form-group textarea {
+/* Remove select and textarea specific styles if they are no longer used or generalise them */
+.form-group select, /* Keep if select is used elsewhere, or remove */
+.form-group textarea { /* Keep if textarea is used elsewhere, or remove */
     padding: 0.6rem 0.8rem;
     border-radius: 6px;
     border: 1px solid var(--border-color);
@@ -44,16 +65,17 @@
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.form-group select:focus,
-.form-group textarea:focus {
+.form-group select:focus, /* Keep if select is used elsewhere, or remove */
+.form-group textarea:focus { /* Keep if textarea is used elsewhere, or remove */
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-.form-group textarea {
+.form-group textarea { /* Keep if textarea is used elsewhere, or remove */
     min-height: 80px;
     resize: vertical;
 }
+
 
 .form-group small {
     font-size: 0.75em;
@@ -91,12 +113,16 @@
 .task-error {
     margin-top: 1rem;
     padding: 0.8rem;
-    background-color: rgba(var(--error-color), 0.15);
+    background-color: rgba(255, 77, 77, 0.15); /* Direct color value if var(--error-color) doesn't work with rgba */
     border: 1px solid var(--error-color);
     color: var(--error-color);
     border-radius: 6px;
     font-size: 0.9em;
 }
+/* Fallback for task-error background if CSS var issue with rgba */
+body.theme-dark .task-error { background-color: rgba(255, 77, 77, 0.15); }
+body.theme-light .task-error { background-color: rgba(255, 77, 77, 0.1); }
+
 
 .task-results {
     margin-top: 1.5rem;
