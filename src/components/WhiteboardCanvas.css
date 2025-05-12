@@ -1,0 +1,8 @@
+.whiteboard-canvas {
+    cursor: crosshair;
+    touch-action: none; /* Prevent scrolling on touch devices while drawing */
+    /* The background color is now set via a prop for dynamic theme changes */
+    /* border: 1px solid var(--border-color); /* Optional border */
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}

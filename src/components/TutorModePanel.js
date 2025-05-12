@@ -1,7 +1,7 @@
 // FILE: watninja68-projecttheata_frontend/src/components/TutorModePanel.js
 import React, { useState, useRef, useEffect } from 'react';
 import WhiteboardCanvas from './WhiteboardCanvas';
-import WhiteboardToolbar from './WhiteboardToolbar';
+import WhiteboardToolbar from './WhiteBoardToolbar';
 import './TutorModePanel.css';
 import { useSettings } from '../hooks/useSettings'; // To get theme for background
 

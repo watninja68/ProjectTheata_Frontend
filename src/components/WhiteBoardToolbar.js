@@ -1,6 +1,6 @@
 // FILE: watninja68-projecttheata_frontend/src/components/WhiteboardToolbar.js
 import React from 'react';
-import './WhiteboardToolbar.css';
+import './WhiteBoardToolbar.css';
 import { FaPen, FaEraser, FaTrashAlt, FaPalette, FaExpandArrowsAlt } from 'react-icons/fa'; // Added palette and size icons
 
 const WhiteboardToolbar = ({
