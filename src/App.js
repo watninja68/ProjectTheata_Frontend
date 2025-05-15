@@ -148,9 +148,8 @@ function App() {
         // Assuming settings.backendBaseUrl is the Go backend (http://localhost:8080)
         // and the primary agent's text logs go to a specific endpoint there.
         // If useGeminiAgent's SSE is handled by Go backend for main agent, this might be redundant for that specific path.
-        console.log("------------------------------------------------------------")
 
-        const backendUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'}/api/agent/log_transcript`;
+        const backendUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'}/text`;
         console.log(backendUrl)
 
         console.log(`Sending to Go backend (for main agent log): Speaker=${speaker}, Text=${transcript.substring(0, 50)}... via ${backendUrl}`);
