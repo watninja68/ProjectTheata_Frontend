@@ -178,12 +178,8 @@ const BackgroundTaskManager = () => {
                         className="task-query-input"
                     />
                     <small>
-<<<<<<< HEAD
                         Example for Google Search: {`{"query": "What is Project Theta?"}`}<br />
                         Example for Gmail (conceptual): {`{"to": "test@example.com", "subject": "Hello", "body_prompt": "Draft a friendly greeting."}`}
-=======
-                        The agent will interpret your query and use its available tools (e.g., Google Search, Gmail).
->>>>>>> 8de06f22939d3450098628b0d3e66ed142f2a156
                     </small>
                 </div>
                 <button onClick={handleExecuteTask} disabled={isLoading || !taskQuery.trim()}>
@@ -191,11 +187,7 @@ const BackgroundTaskManager = () => {
                 </button>
             </div>
 
-<<<<<<< HEAD
             {error && <div className="task-error">Error: {error}</div>}
-=======
-            {error && !isLoading && <div className="task-error">Error: {error}</div>} {/* Show error only if not loading */}
->>>>>>> 8de06f22939d3450098628b0d3e66ed142f2a156
 
             {results && (
                 <div className="task-results">
