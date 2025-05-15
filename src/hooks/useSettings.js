@@ -6,7 +6,7 @@ import { useAuth } from './useAuth'; // Import the useAuth hook
 const defaults = {
     // apiKey: '', // No longer strictly needed for URL generation
     deepgramApiKey: '',
-    backendBaseUrl: 'http://localhost:8080', 
+    backendBaseUrl: process.env.BACKEND_URL,
     voiceName: 'Aoede',
     sampleRate: 27000,
     systemInstructions: 'You are a helpful assistant named Theata.', // Example base instructions
@@ -62,7 +62,7 @@ export const useSettings = () => {
             if (storedValue !== null) {
                 // Handle booleans from localStorage (stored as strings)
                 if (key === 'transcribeModelsSpeech' || key === 'transcribeUsersSpeech') {
-                     loadedSettings[key] = storedValue === 'true';
+                    loadedSettings[key] = storedValue === 'true';
                 } else if (key === 'deepgramApiKey' || key === 'voiceName' || key === 'systemInstructions') {
                     loadedSettings[key] = storedValue;
                 } else if (key === 'temperature' || key === 'top_p' || key === 'quality') {
@@ -73,10 +73,10 @@ export const useSettings = () => {
                     loadedSettings[key] = isNaN(parsedInt) ? defaults[key] : parsedInt;
                 }
             } else {
-                 loadedSettings[key] = defaults[key]; // Fallback to default if not in localStorage
+                loadedSettings[key] = defaults[key]; // Fallback to default if not in localStorage
             }
         });
-         setSettings(loadedSettings);
+        setSettings(loadedSettings);
 
         // Add a console warning if the key isn't set
         if (!HARDCODED_API_KEY || HARDCODED_API_KEY === "YOUR_API_KEY_HERE") {

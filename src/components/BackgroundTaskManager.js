@@ -30,7 +30,7 @@ const BackgroundTaskManager = () => {
 
         try {
             // Assuming Go backend is on localhost:8080
-            const response = await fetch('http://localhost:8080/api/tasks/execute', {
+            const response = await fetch(process.env.BACKEND_URL + '/api/tasks/execute', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ const BackgroundTaskManager = () => {
                         rows="4"
                     />
                     <small>
-                        Example for Google Search: {`{"query": "What is Project Theta?"}`}<br/>
+                        Example for Google Search: {`{"query": "What is Project Theta?"}`}<br />
                         Example for Gmail (conceptual): {`{"to": "test@example.com", "subject": "Hello", "body_prompt": "Draft a friendly greeting."}`}
                     </small>
                 </div>
@@ -94,7 +94,7 @@ const BackgroundTaskManager = () => {
             </div>
 
             {error && <div className="task-error">Error: {error}</div>}
-            
+
             {results && (
                 <div className="task-results">
                     <h5>Task Results:</h5>

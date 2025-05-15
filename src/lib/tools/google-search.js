@@ -7,15 +7,16 @@ export class GoogleSearchTool {
    */
   constructor(options = {}) {
     //this.apiKey = options.apiKey || process.env.GOOGLE_API_KEY;
-    this.apiKey = "AIzaSyCSAPI6z1Is0haFtyZsHJq27FnAZ3Cs4ts";
+    this.apiKey = process.env.GOOGLE_API_KEY;
+
     //this.cx = options.cx || process.env.GOOGLE_CX;
     this.cx = "61c9c7e56aba94128";
     this.baseUrl = 'https://www.googleapis.com/customsearch/v1';
-    
+
     if (!this.apiKey) {
       console.warn('GoogleSearchTool: No API key provided. Please provide an API key or set GOOGLE_API_KEY environment variable.');
     }
-    
+
     if (!this.cx) {
       console.warn('GoogleSearchTool: No Custom Search Engine ID provided. Please provide a CX or set GOOGLE_CX environment variable.');
     }
@@ -56,7 +57,7 @@ export class GoogleSearchTool {
    */
   async execute(params) {
     const { query, numResults = 5 } = params;
-    
+
     try {
       const results = await this.search(query, numResults);
       return {
@@ -86,7 +87,7 @@ export class GoogleSearchTool {
     }
 
     let formattedResults = `Search results for: "${query}"\n\n`;
-    
+
     results.forEach((result, index) => {
       formattedResults += `[${index + 1}] ${result.title}\n`;
       formattedResults += `URL: ${result.link}\n`;
@@ -122,14 +123,14 @@ export class GoogleSearchTool {
 
       // Make the request
       const response = await fetch(searchUrl.toString());
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`Google Search API error: ${errorData.error?.message || response.statusText}`);
       }
 
       const data = await response.json();
-      
+
       // Format results
       if (!data.items || data.items.length === 0) {
         return [];
