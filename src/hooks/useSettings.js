@@ -36,7 +36,7 @@ const thresholds = {
 // !!! --- IMPORTANT: Hardcode your API Key Here --- !!!
 // Replace "YOUR_API_KEY_HERE" with your actual Gemini API key.
 // Remember: This is NOT secure for production or shared code.
-const HARDCODED_API_KEY = "AIzaSyCDvSi6OVlgdODnPmHmIBcc5UylRH0CvB8"; // USE YOUR KEY
+const HARDCODED_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY; // USE YOUR KEY
 // !!! ---------------------------------------------- !!!
 
 

@@ -4,7 +4,7 @@
  * 
  * @extends EventEmitter
  */
-import { EventEmitter } from 'eventemitter3'; 
+import { EventEmitter } from 'eventemitter3';
 import { blobToJSON, base64ToArrayBuffer } from '../utils/utils.js';
 
 export class GeminiWebsocketClient extends EventEmitter {
@@ -17,7 +17,7 @@ export class GeminiWebsocketClient extends EventEmitter {
     constructor(name, url, config) {
         super();
         this.name = name || 'WebSocketClient';
-        const apiKey = "AIzaSyCDvSi6OVlgdODnPmHmIBcc5UylRH0CvB8"
+        const apiKey = process.env.REACT_APP_GOOGLE_API_KEY
         this.url = url || `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
         this.ws = null;
         this.config = config;
@@ -94,10 +94,10 @@ export class GeminiWebsocketClient extends EventEmitter {
      */
     async receive(blob) {
         const response = await blobToJSON(blob);
-        
+
         // Handle tool call responses
         if (response.toolCall) {
-            console.debug(`${this.name} received tool call`, response);       
+            console.debug(`${this.name} received tool call`, response);
             this.emit('tool_call', response.toolCall);
             return;
         }
@@ -128,10 +128,10 @@ export class GeminiWebsocketClient extends EventEmitter {
 
                 // Filter out audio parts from the model's content parts
                 const audioParts = parts.filter((p) => p.inlineData && p.inlineData.mimeType.startsWith('audio/pcm'));
-                
+
                 // Extract base64 encoded audio data from the audio parts
                 const base64s = audioParts.map((p) => p.inlineData?.data);
-                
+
                 // Create an array of non-audio parts by excluding the audio parts
                 const otherParts = parts.filter((p) => !audioParts.includes(p));
 
@@ -173,7 +173,7 @@ export class GeminiWebsocketClient extends EventEmitter {
     async sendImage(base64image) {
         const data = { realtimeInput: { mediaChunks: [{ mimeType: 'image/jpeg', data: base64image }] } };
         await this.sendJSON(data);
-        console.debug(`Image with a size of ${Math.round(base64image.length/1024)} KB was sent to the ${this.name}.`);
+        console.debug(`Image with a size of ${Math.round(base64image.length / 1024)} KB was sent to the ${this.name}.`);
     }
 
     /**
@@ -183,14 +183,14 @@ export class GeminiWebsocketClient extends EventEmitter {
      * @param {boolean} endOfTurn - If false model will wait for more input without sending a response.
      */
     async sendText(text, endOfTurn = true) {
-        const formattedText = { 
-            clientContent: { 
+        const formattedText = {
+            clientContent: {
                 turns: [{
-                    role: 'user', 
+                    role: 'user',
                     parts: { text: text } // TODO: Should it be in the list or not?
-                }], 
-                turnComplete: endOfTurn 
-            } 
+                }],
+                turnComplete: endOfTurn
+            }
         };
         await this.sendJSON(formattedText);
         console.debug(`Text sent to ${this.name}:`, text);
@@ -224,7 +224,7 @@ export class GeminiWebsocketClient extends EventEmitter {
             }];
         }
 
-        await this.sendJSON({ toolResponse: {functionResponses: result} });
+        await this.sendJSON({ toolResponse: { functionResponses: result } });
         console.debug(`Tool response sent to ${this.name}:`, toolResponse);
     }
 
@@ -234,7 +234,7 @@ export class GeminiWebsocketClient extends EventEmitter {
      * @param {Object} json - The JSON object to send.
      */
 
-    async sendJSON(json) {        
+    async sendJSON(json) {
         try {
             this.ws.send(JSON.stringify(json));
             // console.debug(`JSON Object was sent to ${this.name}:`, json);

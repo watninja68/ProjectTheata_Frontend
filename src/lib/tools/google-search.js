@@ -7,10 +7,10 @@ export class GoogleSearchTool {
    */
   constructor(options = {}) {
     //this.apiKey = options.apiKey || process.env.GOOGLE_API_KEY;
-    this.apiKey = process.env.GOOGLE_API_KEY;
+    this.apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
 
-    //this.cx = options.cx || process.env.GOOGLE_CX;
-    this.cx = "61c9c7e56aba94128";
+    this.cx = options.cx || process.env.REACT_APP_GOOGLE_CX;
+    //this.cx = "61c9c7e56aba94128";
     this.baseUrl = 'https://www.googleapis.com/customsearch/v1';
 
     if (!this.apiKey) {
