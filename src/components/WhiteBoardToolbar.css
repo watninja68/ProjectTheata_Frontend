@@ -1,0 +1,145 @@
+/* FILE: watninja68-projecttheata_frontend/src/components/WhiteboardToolbar.css */
+.whiteboard-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around; /* Distribute sections */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    padding: 0.5rem 0.8rem;
+    background-color: var(--bg-tertiary, #2a1a4e);
+    border-radius: var(--border-radius) var(--border-radius) 0 0; /* Rounded top corners if panel is below */
+    border-bottom: 1px solid var(--border-color);
+    gap: 0.8rem; /* Spacing between sections */
+    box-shadow: var(--shadow-sm);
+}
+
+.toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.toolbar-label {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-right: 0.3rem;
+    display: flex;
+    align-items: center;
+}
+.toolbar-label svg {
+    margin-right: 0.2rem;
+}
+
+
+.tool-button {
+    background-color: var(--bg-input, #3c2c6a);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.9em;
+}
+
+.tool-button:hover:not(:disabled) {
+    background-color: var(--accent-primary);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.tool-button.active {
+    background-color: var(--accent-primary);
+    color: #fff;
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 5px var(--accent-glow);
+}
+
+.tool-button.clear-button {
+    background-color: var(--error-color);
+    color: #fff;
+}
+.tool-button.clear-button:hover {
+    background-color: #ff6666; /* Lighter red on hover */
+}
+
+
+.color-input {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: transparent; /* Ensure native color picker UI is visible */
+}
+/* Hide default color input appearance for better styling control if needed later */
+.color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.color-input::-webkit-color-swatch { border: none; border-radius: 3px;}
+
+
+.color-palette {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.palette-color-button {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: transform 0.1s;
+    padding: 0;
+}
+.palette-color-button:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 5px var(--accent-glow);
+}
+.palette-color-button[style*="backgroundColor: #FFFFFF"] {
+    border: 1px solid #ccc; /* Make white visible on light themes */
+}
+body.theme-light .palette-color-button[style*="backgroundColor: #000000"] {
+    border: 1px solid #333; /* Make black more distinct */
+}
+
+
+.size-slider {
+    width: 100px;
+    cursor: pointer;
+    accent-color: var(--accent-primary); /* Styles the track and thumb for range inputs */
+}
+
+.size-indicator {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    min-width: 35px; /* Ensure it doesn't jump around too much */
+    text-align: right;
+}
+
+
+/* Responsive adjustments for toolbar */
+@media (max-width: 768px) {
+    .whiteboard-toolbar {
+        flex-direction: column;
+        align-items: stretch; /* Make sections take full width */
+        padding: 0.8rem;
+    }
+    .toolbar-section {
+        justify-content: space-between; /* Distribute items within section */
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    .toolbar-section:last-child {
+        margin-bottom: 0;
+    }
+    .color-palette {
+        flex-wrap: wrap; /* Allow color palette to wrap */
+        justify-content: flex-start;
+    }
+    .size-slider {
+        flex-grow: 1; /* Allow slider to take more space */
+    }
+}

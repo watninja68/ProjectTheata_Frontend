@@ -1,8 +1,76 @@
+/* FILE: watninja68-projecttheata_frontend/src/components/BackgroundTaskManager.css */
+/* ... (previous styles for task-form, form-group, inputs, buttons, task-error, task-results) ... */
+
+.form-group input.task-query-input {
+    padding: 0.7rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group input.task-query-input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Gmail Auth Section Styles */
+.gmail-auth-section {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: rgba(var(--accent-primary-rgb), 0.05); /* Subtle accent background */
+    border: 1px solid rgba(var(--accent-primary-rgb), 0.1);
+    border-radius: var(--border-radius);
+}
+
+.gmail-auth-section h5 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: var(--accent-primary);
+}
+
+.auth-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    font-weight: 500;
+}
+.auth-status.success { color: var(--success-color); }
+.auth-status.error { color: var(--error-color); }
+.auth-status svg { font-size: 1.1em; }
+
+.gmail-auth-button {
+    background-color: var(--accent-primary) !important; /* Override generic button */
+    color: #fff !important;
+    padding: 0.6rem 1rem !important;
+    font-size: 0.9em !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.gmail-auth-button:hover:not(:disabled) {
+    background-color: var(--accent-secondary) !important;
+}
+.gmail-auth-section p small {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    line-height: 1.3;
+}
+
+
+/* Ensure other existing styles are present */
 .background-task-manager {
     padding: 1rem;
     border-top: 1px solid var(--border-color);
     margin-top: 1rem;
-    background-color: rgba(var(--bg-secondary-rgb), 0.3); /* Slightly different background */
+    background-color: rgba(var(--bg-secondary-rgb), 0.3);
     border-radius: var(--border-radius);
     color: var(--text-primary);
 }
@@ -31,28 +99,6 @@
     margin-bottom: 0.3rem;
     font-size: 0.85em;
     color: var(--text-secondary);
-}
-
-.form-group select,
-.form-group textarea {
-    padding: 0.6rem 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.form-group select:focus,
-.form-group textarea:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px var(--accent-glow);
-}
-
-.form-group textarea {
-    min-height: 80px;
-    resize: vertical;
 }
 
 .form-group small {
@@ -91,12 +137,16 @@
 .task-error {
     margin-top: 1rem;
     padding: 0.8rem;
-    background-color: rgba(var(--error-color), 0.15);
+    /* Use direct color value if var(--error-color) doesn't work with rgba */
+    background-color: rgba(255, 77, 77, 0.15); 
     border: 1px solid var(--error-color);
     color: var(--error-color);
     border-radius: 6px;
     font-size: 0.9em;
 }
+body.theme-dark .task-error { background-color: rgba(255, 77, 77, 0.15); }
+body.theme-light .task-error { background-color: rgba(255, 77, 77, 0.1); }
+
 
 .task-results {
     margin-top: 1.5rem;
