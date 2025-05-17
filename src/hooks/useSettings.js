@@ -6,7 +6,7 @@ import { useAuth } from './useAuth'; // Import the useAuth hook
 const defaults = {
     // apiKey: '', // No longer strictly needed for URL generation
     deepgramApiKey: '',
-    backendBaseUrl: process.env.BACKEND_URL,
+    backendBaseUrl: process.env.REACT_APP_BACKEND_URL,
     voiceName: 'Aoede',
     sampleRate: 27000,
     systemInstructions: 'You are a helpful assistant named Theata.', // Example base instructions
