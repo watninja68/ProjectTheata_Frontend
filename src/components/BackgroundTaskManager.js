@@ -1,29 +1,26 @@
 // FILE: watninja68-projecttheata_frontend/src/components/BackgroundTaskManager.js
-// --- Updated File Content ---
 import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { FaGoogle, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 
-// const ADK_AGENT_URL = 'http://localhost:8000'; // No longer directly used for task execution
 const GO_BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
-
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
-    const [results, setResults] = useState(null);
+    const [results, setResults] = useState(null); // This will now store the extracted text or error
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const { user } = useAuth();
     const [isGmailAuthChecking, setIsGmailAuthChecking] = useState(false);
-    const [gmailAuthStatus, setGmailAuthStatus] = useState(null); 
+    const [gmailAuthStatus, setGmailAuthStatus] = useState(null);
 
     const checkGmailAuth = async () => {
         setIsGmailAuthChecking(true);
         setGmailAuthStatus('checking');
         setError(null);
         try {
-            const ADK_AGENT_URL_FOR_AUTH_CHECK = 'http://localhost:8000'; 
+            const ADK_AGENT_URL_FOR_AUTH_CHECK = 'http://localhost:8000';
             const response = await fetch(`${ADK_AGENT_URL_FOR_AUTH_CHECK}/check-gmail-auth`, {
                 method: 'GET',
             });
@@ -54,13 +51,12 @@ const BackgroundTaskManager = () => {
         }
         setIsLoading(true);
         setError(null);
-        setResults(null);
+        setResults(null); // Clear previous results
 
-        // Payload for the Go backend's /api/tasks/execute endpoint
         const goBackendPayload = {
-            user_id: user ? user.id : "frontend_task_user", 
-            session_id: `task_session_fg_${Date.now()}`, // Optional: Frontend can suggest a task session ID
-            text: taskQuery // Send the natural language query directly
+            user_id: user ? user.id : "frontend_task_user",
+            session_id: `task_session_fg_${Date.now()}`,
+            text: taskQuery
         };
 
         try {
@@ -74,43 +70,55 @@ const BackgroundTaskManager = () => {
                 body: JSON.stringify(goBackendPayload),
             });
 
-            const responseText = await response.text(); 
+            const responseText = await response.text();
             console.log("Go Backend (for ADK Task) Raw Response:", responseText);
 
             if (!response.ok) {
                 let errorDetail = `Task execution failed via Go backend with status ${response.status}.`;
                 try {
                     const errorJson = JSON.parse(responseText);
-                    // The error "Session not found" comes from the ADK, which Go proxies.
-                    // So, errorJson.detail might contain "Session not found".
                     errorDetail = errorJson.detail || errorJson.error?.message || errorJson.error || errorDetail;
                 } catch (e) {
                     errorDetail += ` Response: ${responseText.substring(0, 200)}`;
                 }
                 throw new Error(errorDetail);
             }
-            
+
             let data;
             try {
                 data = JSON.parse(responseText);
-                 if (data.messages && data.messages.length > 0 && data.messages[0].parts && data.messages[0].parts.length > 0) {
-                    setResults({ agent_response: data.messages[0].parts[0].text, raw_adk_response: data });
-                 } else if (data.error) { 
-                    setError(data.error)
-                    setResults(null);
-                 }
-                 else {
-                    setResults({ raw_adk_response: data }); 
-                 }
+                
+                // --- MODIFIED RESPONSE HANDLING ---
+                let agentResponseText = "No text response from agent."; // Default if parsing fails
+
+                if (data && data.adk_response && Array.isArray(data.adk_response) && data.adk_response.length > 0) {
+                    const firstAdkEvent = data.adk_response[0];
+                    if (firstAdkEvent.content && firstAdkEvent.content.parts && Array.isArray(firstAdkEvent.content.parts) && firstAdkEvent.content.parts.length > 0) {
+                        const firstPart = firstAdkEvent.content.parts[0];
+                        if (firstPart.text) {
+                            agentResponseText = firstPart.text.trim();
+                        }
+                    }
+                } else if (data.raw_adk_response) { // Fallback for non-JSON or differently structured ADK responses proxied
+                     agentResponseText = typeof data.raw_adk_response === 'string' ? data.raw_adk_response : JSON.stringify(data.raw_adk_response);
+                } else if (data.error) { // If the Go backend itself returned an error in the JSON
+                    setError(data.error); // Set error state
+                    agentResponseText = `Error from backend: ${data.error}`; // Display error as result
+                } else if (typeof data === 'string') { // If the whole response was a string
+                    agentResponseText = data;
+                }
+
+                setResults(agentResponseText); // Store only the extracted text
+                // --- END MODIFIED RESPONSE HANDLING ---
 
             } catch (e) {
-                console.warn("Go backend response was not JSON, treating as plain text:", responseText);
-                setResults({ agent_response: responseText });
+                console.warn("Go backend response was not valid JSON or parsing ADK response failed, treating as plain text:", responseText, e);
+                setResults(responseText); // Show raw text if parsing fails
             }
         } catch (err) {
             console.error("Error executing task via Go backend:", err);
-            // err.message will now correctly show "Error: Session not found" if ADK returns that.
-            setError(err.message);
+            setError(err.message); // This will now show the parsed "Session not found" or other errors
+            setResults(null); // Clear results on error
         } finally {
             setIsLoading(false);
         }
@@ -176,10 +184,11 @@ const BackgroundTaskManager = () => {
 
             {error && <div className="task-error">Error: {error}</div>}
 
+            {/* MODIFIED: Displaying results (which is now just the agent's text response) */}
             {results && (
                 <div className="task-results">
                     <h5>Agent Task Response:</h5>
-                    <pre>{results.agent_response ? results.agent_response : JSON.stringify(results.raw_adk_response || results, null, 2)}</pre>
+                    <pre>{results}</pre> 
                 </div>
             )}
         </div>
