@@ -5,7 +5,9 @@ import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { FaGoogle, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 
-const ADK_AGENT_URL = 'http://localhost:8000'; // Your Python ADK agent URL
+// const ADK_AGENT_URL = 'http://localhost:8000'; // No longer directly used for task execution
+const GO_BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
@@ -14,18 +16,17 @@ const BackgroundTaskManager = () => {
     const [error, setError] = useState(null);
     const { user } = useAuth();
     const [isGmailAuthChecking, setIsGmailAuthChecking] = useState(false);
-    const [gmailAuthStatus, setGmailAuthStatus] = useState(null); // null, 'checking', 'success', 'error'
+    const [gmailAuthStatus, setGmailAuthStatus] = useState(null); 
 
-    // Placeholder: Function to check Gmail Auth Status with ADK agent
-    // This would require an endpoint on your ADK agent.
     const checkGmailAuth = async () => {
         setIsGmailAuthChecking(true);
         setGmailAuthStatus('checking');
         setError(null);
         try {
-            // Conceptual: ADK agent would need an endpoint like /check-gmail-auth
-            // that tries to initialize the Gmail service and returns its status.
-            const response = await fetch(`${ADK_AGENT_URL}/check-gmail-auth`, { // Replace with actual ADK endpoint
+            // This still directly calls ADK agent. If this also needs to be proxied,
+            // a similar new endpoint in Go backend would be needed.
+            const ADK_AGENT_URL_FOR_AUTH_CHECK = 'http://localhost:8000'; // Keep direct for now or proxy later
+            const response = await fetch(`${ADK_AGENT_URL_FOR_AUTH_CHECK}/check-gmail-auth`, {
                 method: 'GET',
             });
             if (!response.ok) {
@@ -48,11 +49,6 @@ const BackgroundTaskManager = () => {
         }
     };
 
-    // useEffect(() => {
-    //     checkGmailAuth(); // Optional: Check auth status on component mount
-    // }, []);
-
-
     const handleExecuteTask = async () => {
         if (!taskQuery.trim()) {
             setError('Please enter a query for the task.');
@@ -62,113 +58,107 @@ const BackgroundTaskManager = () => {
         setError(null);
         setResults(null);
 
-        // Construct payload for ADK /run endpoint
-        const adkPayload = {
-            app_name: "agents", // As defined in your agent.py
+        // Payload for the Go backend's /api/agent/run-task endpoint
+        const goBackendPayload = {
             user_id: user ? user.id : "frontend_task_user", // Provide a user ID
-            session_id: `task_session_${Date.now()}`, // Generate a unique session ID for the task
-            new_message: {
-                role: "user",
-                parts: [{ text: taskQuery }]
-            },
-            stream: false // Typically background tasks might not need streaming responses
+            // session_id can be omitted to let Go backend generate one for this task
+            // session_id: `task_query_session_from_frontend_${Date.now()}`, 
+            text: taskQuery
         };
 
         try {
-            console.log(`Sending task to ADK agent (${ADK_AGENT_URL}/run):`, adkPayload);
-            const response = await fetch(`${ADK_AGENT_URL}/run`, {
+            console.log(`Sending task query to Go backend (${GO_BACKEND_URL}/api/agent/run-task):`, goBackendPayload);
+            const response = await fetch(`${GO_BACKEND_URL}/api/agent/run-task`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add any other headers your ADK agent might expect
                 },
-                body: JSON.stringify(adkPayload),
+                body: JSON.stringify(goBackendPayload),
             });
 
-            const responseText = await response.text(); // Get raw text first for debugging
-            console.log("ADK Agent Raw Response:", responseText);
+            const responseText = await response.text(); 
+            console.log("Go Backend (for ADK Task) Raw Response:", responseText);
 
             if (!response.ok) {
-                let errorDetail = `Task execution failed with status ${response.status}.`;
+                let errorDetail = `Task execution failed via Go backend with status ${response.status}.`;
                 try {
                     const errorJson = JSON.parse(responseText);
-                    errorDetail = errorJson.detail || errorJson.error?.message || errorDetail;
+                    errorDetail = errorJson.detail || errorJson.error?.message || errorJson.error || errorDetail;
                 } catch (e) {
                     errorDetail += ` Response: ${responseText.substring(0, 200)}`;
                 }
                 throw new Error(errorDetail);
             }
-
-            // Assuming the ADK agent's /run response (non-streaming) is JSON
-            // containing the task result or a message.
-            // The structure depends on how your root_agent in agent.py formats its final response.
-            // If it's text, you might get it from event.content.parts[0].text in the ADK event loop.
-            // If you send stream: false, the ADK runner by default wraps the final agent message.
+            
             let data;
             try {
                 data = JSON.parse(responseText);
                  // The ADK runner's default /run response for stream=false looks like:
                  // { "session": {...}, "messages": [ { "role": "model", "parts": [{"text": "final agent output"}] } ] }
+                 // This structure is proxied by the Go backend.
                  if (data.messages && data.messages.length > 0 && data.messages[0].parts && data.messages[0].parts.length > 0) {
                     setResults({ agent_response: data.messages[0].parts[0].text, raw_adk_response: data });
-                 } else {
-                    setResults({ raw_adk_response: data }); // Store whatever JSON was received
+                 } else if (data.error) { // Handle if Go backend itself returns an error JSON
+                    setError(data.error)
+                    setResults(null);
+                 }
+                 else {
+                    setResults({ raw_adk_response: data }); 
                  }
 
             } catch (e) {
-                // If response is not JSON, but was status 200, treat as plain text result
-                console.warn("ADK response was not JSON, treating as plain text:", responseText);
+                console.warn("Go backend response was not JSON, treating as plain text:", responseText);
                 setResults({ agent_response: responseText });
             }
-
-            // setTaskQuery(''); // Optionally clear input
         } catch (err) {
-            console.error("Error executing task directly with ADK agent:", err);
-            setError(err.message + ". Make sure the Python ADK agent is running on " + ADK_AGENT_URL + " and CORS is configured if you are calling it directly from the browser.");
+            console.error("Error executing task via Go backend:", err);
+            setError(err.message + ". Make sure the Go backend is running on " + GO_BACKEND_URL);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleInitiateGmailAuth = () => {
-        // This is where you'd redirect to your Go backend's Google OAuth initiation endpoint
-        // For example: window.location.href = 'http://localhost:8080/auth/google/gmail/login';
-        // That Go endpoint would then handle the OAuth dance and eventually create token.pickle
         alert("Gmail authentication flow needs to be implemented.\n\nFor now, please ensure you have run 'gmail_auth.py' manually in the ADK agent's environment if Gmail tools are needed by the agent.");
-        // After backend handles auth and creates token.pickle, user might need to "recheck" status
-        // Or the ADK agent automatically picks up the new token on its next Gmail tool use.
     };
 
     return (
         <div className="background-task-manager">
-            <h4>Background Task (Direct to ADK Agent)</h4>
+            <h4>Background Task (Via Go Backend)</h4>
 
-            {/* Gmail Auth Placeholder */}
             <div className="gmail-auth-section">
-                <h5>Gmail Integration</h5>
+                <h5>Gmail Integration Status (ADK Agent)</h5>
                 {gmailAuthStatus === 'success' && (
-                    <p className="auth-status success"><FaCheckCircle /> Gmail access appears to be authorized for the agent.</p>
+                    <p className="auth-status success"><FaCheckCircle /> Gmail access appears to be authorized for the ADK agent.</p>
                 )}
                 {gmailAuthStatus === 'error' && (
-                    <p className="auth-status error"><FaExclamationTriangle /> {error || "Gmail access might not be authorized for the agent."}</p>
+                    <p className="auth-status error"><FaExclamationTriangle /> {error || "Gmail access might not be authorized for the ADK agent."}</p>
                 )}
-                {gmailAuthStatus !== 'success' && (
-                    <button
-                        onClick={handleInitiateGmailAuth}
-                        disabled={isGmailAuthChecking}
-                        className="gmail-auth-button"
-                    >
-                        <FaGoogle style={{ marginRight: '8px' }} />
-                        {isGmailAuthChecking ? 'Checking...' : 'Authorize Gmail for Agent'}
-                    </button>
-                )}
-                 <p><small>Note: For Gmail tasks, the ADK agent needs prior authorization. If not done, click above or ensure <code>token.pickle</code> is present for the agent.</small></p>
+                 {/* Button to manually check ADK agent's Gmail auth */}
+                <button 
+                    onClick={checkGmailAuth} 
+                    disabled={isGmailAuthChecking}
+                    className="gmail-auth-button"
+                    style={{backgroundColor: 'var(--info-color)', marginBottom: '1rem'}}
+                >
+                    {isGmailAuthChecking ? 'Checking...' : 'Check ADK Gmail Auth'}
+                </button>
+                <br/> 
+                
+                <button
+                    onClick={handleInitiateGmailAuth}
+                    className="gmail-auth-button"
+                >
+                    <FaGoogle style={{ marginRight: '8px' }} />
+                    Initiate Gmail Auth for ADK Agent
+                </button>
+                 <p><small>Note: For Gmail tasks, the ADK agent needs prior authorization. If status above is error, ensure <code>token.pickle</code> is present for the agent.</small></p>
             </div>
 
 
             <div className="task-form">
                 <div className="form-group">
-                    <label htmlFor="taskQuery">Describe the task for the agent:</label>
+                    <label htmlFor="taskQuery">Task Query for Agent:</label>
                     <input
                         type="text"
                         id="taskQuery"
@@ -178,12 +168,12 @@ const BackgroundTaskManager = () => {
                         className="task-query-input"
                     />
                     <small>
-                        Example for Google Search: {`{"query": "What is Project Theta?"}`}<br />
-                        Example for Gmail (conceptual): {`{"to": "test@example.com", "subject": "Hello", "body_prompt": "Draft a friendly greeting."}`}
+                        Enter a natural language query for the ADK agent.
+                        The Go backend will forward this to the ADK agent for non-streaming execution.
                     </small>
                 </div>
                 <button onClick={handleExecuteTask} disabled={isLoading || !taskQuery.trim()}>
-                    {isLoading ? 'Executing...' : 'Send Task to Agent'}
+                    {isLoading ? 'Executing...' : 'Send Task Query'}
                 </button>
             </div>
 
