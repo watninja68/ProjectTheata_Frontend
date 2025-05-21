@@ -149,8 +149,9 @@ function App() {
         // and the primary agent's text logs go to a specific endpoint there.
         // If useGeminiAgent's SSE is handled by Go backend for main agent, this might be redundant for that specific path.
 
-        const backendUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'}/text`;
-        console.log(backendUrl)
+        // UPDATED to /api/text
+        const backendUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'}/api/text`;
+        console.log("Attempting to send transcript log to Go backend:", backendUrl)
 
         console.log(`Sending to Go backend (for main agent log): Speaker=${speaker}, Text=${transcript.substring(0, 50)}... via ${backendUrl}`);
 
@@ -245,7 +246,7 @@ function App() {
         onScreenShareStartedRef.current = () => { console.log("App: Screen Share Started"); setScreenError(null); };
     }, [
         addMessage, updateStreamingMessage, finalizeStreamingMessage, addUserAudioPlaceholder, displayMicActive,
-        sendTranscriptToBackend
+        sendTranscriptToBackend // Re-add sendTranscriptToBackend here
     ]);
 
     // --- UI Event Handlers ---

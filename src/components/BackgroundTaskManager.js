@@ -23,9 +23,7 @@ const BackgroundTaskManager = () => {
         setGmailAuthStatus('checking');
         setError(null);
         try {
-            // This still directly calls ADK agent. If this also needs to be proxied,
-            // a similar new endpoint in Go backend would be needed.
-            const ADK_AGENT_URL_FOR_AUTH_CHECK = 'http://localhost:8000'; // Keep direct for now or proxy later
+            const ADK_AGENT_URL_FOR_AUTH_CHECK = 'http://localhost:8000'; 
             const response = await fetch(`${ADK_AGENT_URL_FOR_AUTH_CHECK}/check-gmail-auth`, {
                 method: 'GET',
             });
@@ -58,17 +56,17 @@ const BackgroundTaskManager = () => {
         setError(null);
         setResults(null);
 
-        // Payload for the Go backend's /api/agent/run-task endpoint
+        // Payload for the Go backend's /api/tasks/execute endpoint
         const goBackendPayload = {
-            user_id: user ? user.id : "frontend_task_user", // Provide a user ID
-            // session_id can be omitted to let Go backend generate one for this task
-            // session_id: `task_query_session_from_frontend_${Date.now()}`, 
-            text: taskQuery
+            user_id: user ? user.id : "frontend_task_user", 
+            session_id: `task_session_fg_${Date.now()}`, // Optional: Frontend can suggest a task session ID
+            text: taskQuery // Send the natural language query directly
         };
 
         try {
-            console.log(`Sending task query to Go backend (${GO_BACKEND_URL}/api/agent/run-task):`, goBackendPayload);
-            const response = await fetch(`${GO_BACKEND_URL}/api/agent/run-task`, {
+            const endpoint = `${GO_BACKEND_URL}/api/tasks/execute`;
+            console.log(`Sending task query to Go backend (${endpoint}):`, goBackendPayload);
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,6 +81,8 @@ const BackgroundTaskManager = () => {
                 let errorDetail = `Task execution failed via Go backend with status ${response.status}.`;
                 try {
                     const errorJson = JSON.parse(responseText);
+                    // The error "Session not found" comes from the ADK, which Go proxies.
+                    // So, errorJson.detail might contain "Session not found".
                     errorDetail = errorJson.detail || errorJson.error?.message || errorJson.error || errorDetail;
                 } catch (e) {
                     errorDetail += ` Response: ${responseText.substring(0, 200)}`;
@@ -93,12 +93,9 @@ const BackgroundTaskManager = () => {
             let data;
             try {
                 data = JSON.parse(responseText);
-                 // The ADK runner's default /run response for stream=false looks like:
-                 // { "session": {...}, "messages": [ { "role": "model", "parts": [{"text": "final agent output"}] } ] }
-                 // This structure is proxied by the Go backend.
                  if (data.messages && data.messages.length > 0 && data.messages[0].parts && data.messages[0].parts.length > 0) {
                     setResults({ agent_response: data.messages[0].parts[0].text, raw_adk_response: data });
-                 } else if (data.error) { // Handle if Go backend itself returns an error JSON
+                 } else if (data.error) { 
                     setError(data.error)
                     setResults(null);
                  }
@@ -112,7 +109,8 @@ const BackgroundTaskManager = () => {
             }
         } catch (err) {
             console.error("Error executing task via Go backend:", err);
-            setError(err.message + ". Make sure the Go backend is running on " + GO_BACKEND_URL);
+            // err.message will now correctly show "Error: Session not found" if ADK returns that.
+            setError(err.message);
         } finally {
             setIsLoading(false);
         }
@@ -134,7 +132,6 @@ const BackgroundTaskManager = () => {
                 {gmailAuthStatus === 'error' && (
                     <p className="auth-status error"><FaExclamationTriangle /> {error || "Gmail access might not be authorized for the ADK agent."}</p>
                 )}
-                 {/* Button to manually check ADK agent's Gmail auth */}
                 <button 
                     onClick={checkGmailAuth} 
                     disabled={isGmailAuthChecking}
