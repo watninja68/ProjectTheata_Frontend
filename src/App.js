@@ -218,7 +218,7 @@ function App() {
       if (!transcript || transcript.trim() === "") {
         return;
       }
-      const backendUrl = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8080"}/api/text`;
+      const backendUrl = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8080"}/text`;
       console.log(
         "Attempting to send transcript log to Go backend:",
         backendUrl,
