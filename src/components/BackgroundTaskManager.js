@@ -2,193 +2,198 @@
 import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
-import { FaGoogle, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
-
-const GO_BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+import { useSettings } from '../hooks/useSettings';
+import { FaGoogle, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
-    const [results, setResults] = useState(null); // This will now store the extracted text or error
+    const [results, setResults] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [taskError, setTaskError] = useState(null);
     const { user } = useAuth();
-    const [isGmailAuthChecking, setIsGmailAuthChecking] = useState(false);
-    const [gmailAuthStatus, setGmailAuthStatus] = useState(null);
+    const { settings } = useSettings();
+    const [gmailConnectionInfo, setGmailConnectionInfo] = useState("Verifying Google connection...");
 
-    const checkGmailAuth = async () => {
-        setIsGmailAuthChecking(true);
-        setGmailAuthStatus('checking');
-        setError(null);
-        try {
-            const ADK_AGENT_URL_FOR_AUTH_CHECK = 'http://localhost:8000';
-            const response = await fetch(`${ADK_AGENT_URL_FOR_AUTH_CHECK}/check-gmail-auth`, {
-                method: 'GET',
-            });
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({ detail: "Failed to check Gmail auth status." }));
-                throw new Error(errData.detail || `Auth check failed: ${response.statusText}`);
+    useEffect(() => {
+        const checkBackendGoogleTokenStatus = async () => {
+            if (!user || !user.id) {
+                setGmailConnectionInfo("Log in to connect your Google account for background tasks.");
+                return;
             }
-            const data = await response.json();
-            if (data.authenticated) {
-                setGmailAuthStatus('success');
-            } else {
-                setGmailAuthStatus('error');
-                setError(data.message || "Gmail service not authenticated. Please run the authentication script for the agent.");
+            if (!settings.backendBaseUrl) {
+                console.error("BackgroundTaskManager: backendBaseUrl is not set in settings.");
+                setGmailConnectionInfo("Backend URL not configured. Cannot check Google connection status.");
+                return;
             }
-        } catch (err) {
-            console.error("Error checking Gmail auth status:", err);
-            setGmailAuthStatus('error');
-            setError(err.message || "Could not connect to agent to check Gmail auth status. Ensure the ADK agent is running and CORS is configured if direct calling.");
-        } finally {
-            setIsGmailAuthChecking(false);
-        }
-    };
+
+            try {
+                const statusUrl = `${settings.backendBaseUrl}/api/auth/google/status?supabase_user_id=${user.id}`;
+                console.log("Attempting to fetch Google Auth Status from URL:", statusUrl);
+                const response = await fetch(statusUrl);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.connected) {
+                        setGmailConnectionInfo("Your Google account appears to be connected for background tasks.");
+                    } else {
+                        setGmailConnectionInfo("Google account not connected. Use 'Connect/Refresh Google Account' to enable Gmail/Drive tools.");
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error("Failed to fetch Google auth status:", response.status, errorText);
+                    setGmailConnectionInfo(`Could not verify Google account connection (Status: ${response.status}). Try connecting again.`);
+                }
+            } catch (e) {
+                console.error("Error checking backend Google token status:", e);
+                setGmailConnectionInfo("Error checking Google connection. Ensure backend is running.");
+            }
+        };
+
+        checkBackendGoogleTokenStatus();
+    }, [user, settings.backendBaseUrl]);
+
 
     const handleExecuteTask = async () => {
         if (!taskQuery.trim()) {
-            setError('Please enter a query for the task.');
+            setTaskError('Please enter a query for the task.');
             return;
         }
         setIsLoading(true);
-        setError(null);
-        setResults(null); // Clear previous results
+        setTaskError(null);
+        setResults(null);
+
+        if (!settings.backendBaseUrl) {
+            console.error("BackgroundTaskManager: backendBaseUrl is not set for task execution.");
+            setTaskError("Backend URL not configured. Cannot execute task.");
+            setIsLoading(false);
+            return;
+        }
 
         const goBackendPayload = {
-            user_id: user ? user.id : "frontend_task_user",
-            session_id: `task_session_fg_${Date.now()}`,
-            text: taskQuery
+            user_id: user ? user.id : "",
+            // --- CORRECTED FIELD NAME TO MATCH GO BACKEND EXPECTATION ---
+            text: taskQuery, // This field is expected by Go backend as `json:"text,omitempty"`
+            // If you want to send structured tool calls in the future, you'd use:
+            // tool_name: "specific_tool_name_here",
+            // parameters: { /* tool specific params */ }
         };
 
         try {
-            const endpoint = `${GO_BACKEND_URL}/api/tasks/execute`;
-            console.log(`Sending task query to Go backend (${endpoint}):`, goBackendPayload);
+            const endpoint = `${settings.backendBaseUrl}/api/tasks/execute`;
+            console.log(`Sending task to Go backend (${endpoint}):`, goBackendPayload);
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json', },
                 body: JSON.stringify(goBackendPayload),
             });
 
             const responseText = await response.text();
-            console.log("Go Backend (for ADK Task) Raw Response:", responseText);
+            console.log("Go Backend Task Response (Raw):", responseText);
 
             if (!response.ok) {
-                let errorDetail = `Task execution failed via Go backend with status ${response.status}.`;
+                let errorDetail = `Task execution via Go backend failed (Status: ${response.status}).`;
                 try {
                     const errorJson = JSON.parse(responseText);
-                    errorDetail = errorJson.detail || errorJson.error?.message || errorJson.error || errorDetail;
-                } catch (e) {
-                    errorDetail += ` Response: ${responseText.substring(0, 200)}`;
-                }
+                    errorDetail = errorJson.error?.message || errorJson.error || errorJson.detail || errorDetail;
+                } catch (e) { /* Ignore if not JSON */ }
+                errorDetail += ` Response: ${responseText.substring(0,300)}`;
                 throw new Error(errorDetail);
             }
 
-            let data;
             try {
-                data = JSON.parse(responseText);
-                
-                // --- MODIFIED RESPONSE HANDLING ---
-                let agentResponseText = "No text response from agent."; // Default if parsing fails
-
-                if (data && data.adk_response && Array.isArray(data.adk_response) && data.adk_response.length > 0) {
-                    const firstAdkEvent = data.adk_response[0];
-                    if (firstAdkEvent.content && firstAdkEvent.content.parts && Array.isArray(firstAdkEvent.content.parts) && firstAdkEvent.content.parts.length > 0) {
-                        const firstPart = firstAdkEvent.content.parts[0];
-                        if (firstPart.text) {
-                            agentResponseText = firstPart.text.trim();
-                        }
-                    }
-                } else if (data.raw_adk_response) { // Fallback for non-JSON or differently structured ADK responses proxied
-                     agentResponseText = typeof data.raw_adk_response === 'string' ? data.raw_adk_response : JSON.stringify(data.raw_adk_response);
-                } else if (data.error) { // If the Go backend itself returned an error in the JSON
-                    setError(data.error); // Set error state
-                    agentResponseText = `Error from backend: ${data.error}`; // Display error as result
-                } else if (typeof data === 'string') { // If the whole response was a string
-                    agentResponseText = data;
+                const data = JSON.parse(responseText);
+                let agentResponseText = "Task processed. No specific text output from agent.";
+                if (data.adk_response) {
+                    agentResponseText = typeof data.adk_response === 'string' ? data.adk_response : JSON.stringify(data.adk_response, null, 2);
+                } else if (data.raw_adk_response) {
+                    agentResponseText = data.raw_adk_response;
+                } else if (data.result && data.result.tool_response && data.result.tool_response.outputs) {
+                    agentResponseText = data.result.tool_response.outputs.map(o => o.text || JSON.stringify(o.tool_code_output) || JSON.stringify(o)).join("\n");
+                } else if (data.error) {
+                    setTaskError(data.error.message || data.error);
+                    agentResponseText = `Error: ${data.error.message || data.error}`;
+                } else if (Object.keys(data).length > 0) {
+                    agentResponseText = JSON.stringify(data, null, 2);
                 }
-
-                setResults(agentResponseText); // Store only the extracted text
-                // --- END MODIFIED RESPONSE HANDLING ---
-
+                setResults(agentResponseText.trim());
             } catch (e) {
-                console.warn("Go backend response was not valid JSON or parsing ADK response failed, treating as plain text:", responseText, e);
-                setResults(responseText); // Show raw text if parsing fails
+                console.warn("Go backend task response was not valid JSON, showing raw text:", e);
+                setResults(responseText);
             }
         } catch (err) {
-            console.error("Error executing task via Go backend:", err);
-            setError(err.message); // This will now show the parsed "Session not found" or other errors
-            setResults(null); // Clear results on error
+            console.error("Error during task execution call:", err);
+            setTaskError(err.message || "Network error or unexpected issue during task execution.");
+            setResults(null);
         } finally {
             setIsLoading(false);
         }
     };
-
-    const handleInitiateGmailAuth = () => {
-        alert("Gmail authentication flow needs to be implemented.\n\nFor now, please ensure you have run 'gmail_auth.py' manually in the ADK agent's environment if Gmail tools are needed by the agent.");
+    
+    const handleInitiateGoogleAuthViaGo = () => {
+        if (user && user.id && settings.backendBaseUrl) {
+            const googleLoginUrl = `${settings.backendBaseUrl}/api/auth/google/login?supabase_user_id=${user.id}`;
+            window.location.href = googleLoginUrl;
+        } else if (!settings.backendBaseUrl) {
+            alert("Backend URL is not configured in settings. Cannot connect Google Account.");
+            console.error("BackgroundTaskManager: backendBaseUrl is missing from settings for Google Auth initiation.");
+        } else {
+            alert("Please log in to your main application account first to connect your Google Account.");
+        }
     };
 
     return (
         <div className="background-task-manager">
-            <h4>Background Task (Via Go Backend)</h4>
-
+            <h4>Background Tasks (via ADK Agent)</h4>
             <div className="gmail-auth-section">
-                <h5>Gmail Integration Status (ADK Agent)</h5>
-                {gmailAuthStatus === 'success' && (
-                    <p className="auth-status success"><FaCheckCircle /> Gmail access appears to be authorized for the ADK agent.</p>
+                <h5>Google Account for Gmail/Drive Tools</h5>
+                {gmailConnectionInfo && (
+                    <p className={`auth-status ${gmailConnectionInfo.includes("Error") || gmailConnectionInfo.includes("not connected") || gmailConnectionInfo.includes("Could not verify") || gmailConnectionInfo.includes("not configured") ? 'error' : 'info'}`}>
+                        {gmailConnectionInfo.includes("Error") || gmailConnectionInfo.includes("not connected") || gmailConnectionInfo.includes("Could not verify") || gmailConnectionInfo.includes("not configured") ? <FaExclamationTriangle /> : <FaInfoCircle />}
+                        {gmailConnectionInfo}
+                    </p>
                 )}
-                {gmailAuthStatus === 'error' && (
-                    <p className="auth-status error"><FaExclamationTriangle /> {error || "Gmail access might not be authorized for the ADK agent."}</p>
-                )}
-                <button 
-                    onClick={checkGmailAuth} 
-                    disabled={isGmailAuthChecking}
-                    className="gmail-auth-button"
-                    style={{backgroundColor: 'var(--info-color)', marginBottom: '1rem'}}
-                >
-                    {isGmailAuthChecking ? 'Checking...' : 'Check ADK Gmail Auth'}
-                </button>
-                <br/> 
-                
                 <button
-                    onClick={handleInitiateGmailAuth}
+                    onClick={handleInitiateGoogleAuthViaGo}
                     className="gmail-auth-button"
+                    disabled={!user || !settings.backendBaseUrl}
+                    title={!user ? "Log in first" : !settings.backendBaseUrl ? "Backend URL not set" : "Connect or Refresh Google Account"}
                 >
                     <FaGoogle style={{ marginRight: '8px' }} />
-                    Initiate Gmail Auth for ADK Agent
+                    Connect/Refresh Google Account
                 </button>
-                 <p><small>Note: For Gmail tasks, the ADK agent needs prior authorization. If status above is error, ensure <code>token.pickle</code> is present for the agent.</small></p>
+                 <p><small>
+                    For tasks involving Gmail or Google Drive, your Google account needs to be connected via the application.
+                    This allows the background agent to use your permissions securely.
+                 </small></p>
             </div>
-
 
             <div className="task-form">
                 <div className="form-group">
-                    <label htmlFor="taskQuery">Task Query for Agent:</label>
+                    <label htmlFor="taskQuery">Task Instruction for Agent:</label>
                     <input
                         type="text"
                         id="taskQuery"
-                        placeholder="e.g., Summarize the latest AI news from Google"
+                        placeholder="e.g., Search my Gmail for emails from 'boss@example.com' with subject 'report'"
                         value={taskQuery}
                         onChange={(e) => setTaskQuery(e.target.value)}
                         className="task-query-input"
                     />
                     <small>
-                        Enter a natural language query for the ADK agent.
-                        The Go backend will forward this to the ADK agent for non-streaming execution.
+                        Enter a natural language instruction for the ADK agent.
+                        The Go backend will forward this. If it involves Gmail/Drive, ensure Google Account is connected.
                     </small>
                 </div>
-                <button onClick={handleExecuteTask} disabled={isLoading || !taskQuery.trim()}>
-                    {isLoading ? 'Executing...' : 'Send Task Query'}
+                <button onClick={handleExecuteTask} disabled={isLoading || !taskQuery.trim() || !user}>
+                    {isLoading ? 'Executing...' : 'Send Task to Agent'}
                 </button>
             </div>
 
-            {error && <div className="task-error">Error: {error}</div>}
+            {taskError && <div className="task-error">Error: {taskError}</div>}
 
-            {/* MODIFIED: Displaying results (which is now just the agent's text response) */}
             {results && (
                 <div className="task-results">
                     <h5>Agent Task Response:</h5>
-                    <pre>{results}</pre> 
+                    <pre>{results}</pre>
                 </div>
             )}
         </div>
