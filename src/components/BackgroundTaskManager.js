@@ -3,11 +3,13 @@ import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
-import { FaGoogle, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
+import { FaGoogle, FaExclamationTriangle, FaInfoCircle, FaRobot, FaCog, FaTerminal } from 'react-icons/fa'; // Added new icons
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
-    const [results, setResults] = useState(null);
+    // Store results as an array of processed events or a structured object
+    const [processedResults, setProcessedResults] = useState([]);
+    const [rawResponse, setRawResponse] = useState(null); // For debugging or raw view
     const [isLoading, setIsLoading] = useState(false);
     const [taskError, setTaskError] = useState(null);
     const { user } = useAuth();
@@ -28,15 +30,13 @@ const BackgroundTaskManager = () => {
 
             try {
                 const statusUrl = `${settings.backendBaseUrl}/api/auth/google/status?supabase_user_id=${user.id}`;
-                console.log("Attempting to fetch Google Auth Status from URL:", statusUrl);
                 const response = await fetch(statusUrl);
-
                 if (response.ok) {
                     const data = await response.json();
                     if (data.connected) {
                         setGmailConnectionInfo("Your Google account appears to be connected for background tasks.");
                     } else {
-                        setGmailConnectionInfo("Google account not connected. Use 'Connect/Refresh Google Account' to enable Gmail/Drive tools.");
+                        setGmailConnectionInfo(`Google account not connected. Reason: ${data.reason || 'Unknown'}. Use 'Connect/Refresh Google Account' to enable Gmail/Drive tools.`);
                     }
                 } else {
                     const errorText = await response.text();
@@ -48,9 +48,49 @@ const BackgroundTaskManager = () => {
                 setGmailConnectionInfo("Error checking Google connection. Ensure backend is running.");
             }
         };
-
         checkBackendGoogleTokenStatus();
     }, [user, settings.backendBaseUrl]);
+
+    const processAdkResponse = (responseData) => {
+        const processed = [];
+        if (Array.isArray(responseData)) {
+            responseData.forEach(event => {
+                if (event.content && event.content.parts) {
+                    event.content.parts.forEach(part => {
+                        if (part.text) {
+                            processed.push({ type: 'text', author: event.author || 'Agent', content: part.text.trim() });
+                        } else if (part.functionCall) {
+                            processed.push({
+                                type: 'functionCall',
+                                author: event.author || 'Agent',
+                                name: part.functionCall.name,
+                                args: part.functionCall.args,
+                                id: part.functionCall.id,
+                            });
+                        } else if (part.functionResponse) {
+                            processed.push({
+                                type: 'functionResponse',
+                                author: event.author || 'Tool', // Or determine based on context
+                                name: part.functionResponse.name,
+                                response: part.functionResponse.response,
+                                id: part.functionResponse.id,
+                            });
+                        }
+                    });
+                }
+            });
+        } else if (responseData && responseData.text) { // Simple text response
+             processed.push({ type: 'text', author: 'Agent', content: responseData.text.trim() });
+        } else if (typeof responseData === 'string') { // Raw string response
+            processed.push({ type: 'text', author: 'Agent', content: responseData });
+        }
+        
+        // If nothing was processed but we have a response, show raw
+        if (processed.length === 0 && responseData) {
+            processed.push({ type: 'raw', content: JSON.stringify(responseData, null, 2) });
+        }
+        return processed;
+    };
 
 
     const handleExecuteTask = async () => {
@@ -60,10 +100,10 @@ const BackgroundTaskManager = () => {
         }
         setIsLoading(true);
         setTaskError(null);
-        setResults(null);
+        setProcessedResults([]); // Clear previous results
+        setRawResponse(null);
 
         if (!settings.backendBaseUrl) {
-            console.error("BackgroundTaskManager: backendBaseUrl is not set for task execution.");
             setTaskError("Backend URL not configured. Cannot execute task.");
             setIsLoading(false);
             return;
@@ -71,24 +111,19 @@ const BackgroundTaskManager = () => {
 
         const goBackendPayload = {
             user_id: user ? user.id : "",
-            // --- CORRECTED FIELD NAME TO MATCH GO BACKEND EXPECTATION ---
-            text: taskQuery, // This field is expected by Go backend as `json:"text,omitempty"`
-            // If you want to send structured tool calls in the future, you'd use:
-            // tool_name: "specific_tool_name_here",
-            // parameters: { /* tool specific params */ }
+            text: taskQuery, // This is the natural language instruction
         };
 
         try {
             const endpoint = `${settings.backendBaseUrl}/api/tasks/execute`;
-            console.log(`Sending task to Go backend (${endpoint}):`, goBackendPayload);
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(goBackendPayload),
             });
 
             const responseText = await response.text();
-            console.log("Go Backend Task Response (Raw):", responseText);
+            setRawResponse(responseText); // Store raw response for debugging
 
             if (!response.ok) {
                 let errorDetail = `Task execution via Go backend failed (Status: ${response.status}).`;
@@ -96,34 +131,34 @@ const BackgroundTaskManager = () => {
                     const errorJson = JSON.parse(responseText);
                     errorDetail = errorJson.error?.message || errorJson.error || errorJson.detail || errorDetail;
                 } catch (e) { /* Ignore if not JSON */ }
-                errorDetail += ` Response: ${responseText.substring(0,300)}`;
+                errorDetail += ` Response: ${responseText.substring(0, 300)}`;
                 throw new Error(errorDetail);
             }
 
-            try {
-                const data = JSON.parse(responseText);
-                let agentResponseText = "Task processed. No specific text output from agent.";
-                if (data.adk_response) {
-                    agentResponseText = typeof data.adk_response === 'string' ? data.adk_response : JSON.stringify(data.adk_response, null, 2);
-                } else if (data.raw_adk_response) {
-                    agentResponseText = data.raw_adk_response;
-                } else if (data.result && data.result.tool_response && data.result.tool_response.outputs) {
-                    agentResponseText = data.result.tool_response.outputs.map(o => o.text || JSON.stringify(o.tool_code_output) || JSON.stringify(o)).join("\n");
-                } else if (data.error) {
-                    setTaskError(data.error.message || data.error);
-                    agentResponseText = `Error: ${data.error.message || data.error}`;
-                } else if (Object.keys(data).length > 0) {
-                    agentResponseText = JSON.stringify(data, null, 2);
-                }
-                setResults(agentResponseText.trim());
-            } catch (e) {
-                console.warn("Go backend task response was not valid JSON, showing raw text:", e);
-                setResults(responseText);
+            const data = JSON.parse(responseText);
+            
+            // ADK /run often returns an array of events or a single event object
+            // The Go backend might wrap this, check the 'adk_response' or 'content' field
+            let adkDataToProcess = data; // Default to processing the whole response data
+
+            if (data.adk_response) { // If Go backend wraps it
+                adkDataToProcess = data.adk_response;
+            } else if (Array.isArray(data) && data.length > 0 && data[0].content) {
+                // This looks like the direct array of ADK events
+                adkDataToProcess = data;
+            } else if (data.content && data.content.parts) { // Single event object
+                adkDataToProcess = [data]; // Wrap in array for consistent processing
+            } else if (data.text) { // Simple text response from ADK (less common for complex tasks)
+                 adkDataToProcess = [{ content: { parts: [{ text: data.text }] } }];
             }
+
+
+            setProcessedResults(processAdkResponse(adkDataToProcess));
+
         } catch (err) {
             console.error("Error during task execution call:", err);
             setTaskError(err.message || "Network error or unexpected issue during task execution.");
-            setResults(null);
+            setProcessedResults([]);
         } finally {
             setIsLoading(false);
         }
@@ -135,7 +170,6 @@ const BackgroundTaskManager = () => {
             window.location.href = googleLoginUrl;
         } else if (!settings.backendBaseUrl) {
             alert("Backend URL is not configured in settings. Cannot connect Google Account.");
-            console.error("BackgroundTaskManager: backendBaseUrl is missing from settings for Google Auth initiation.");
         } else {
             alert("Please log in to your main application account first to connect your Google Account.");
         }
@@ -190,12 +224,48 @@ const BackgroundTaskManager = () => {
 
             {taskError && <div className="task-error">Error: {taskError}</div>}
 
-            {results && (
+            {processedResults.length > 0 && (
                 <div className="task-results">
                     <h5>Agent Task Response:</h5>
-                    <pre>{results}</pre>
+                    <div className="task-response-steps">
+                        {processedResults.map((item, index) => (
+                            <div key={index} className={`response-step step-type-${item.type}`}>
+                                {item.type === 'text' && (
+                                    <div className="text-response">
+                                        <FaRobot className="step-icon" /> <strong>{item.author || 'Agent'}:</strong> {item.content}
+                                    </div>
+                                )}
+                                {item.type === 'functionCall' && (
+                                    <div className="function-call-details">
+                                        <FaCog className="step-icon" /> <strong>Tool Call ({item.author}):</strong> <code>{item.name}</code>
+                                        <pre>Args: {JSON.stringify(item.args, null, 2)}</pre>
+                                    </div>
+                                )}
+                                {item.type === 'functionResponse' && (
+                                    <div className="function-response-details">
+                                        <FaTerminal className="step-icon" /> <strong>Tool Response ({item.name}):</strong>
+                                        <pre>{typeof item.response?.result === 'string' ? item.response.result : JSON.stringify(item.response, null, 2)}</pre>
+                                    </div>
+                                )}
+                                 {item.type === 'raw' && (
+                                    <div className="raw-response-details">
+                                        <strong>Raw Agent Output:</strong>
+                                        <pre>{item.content}</pre>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
+             {/* Optionally, show raw response for debugging
+             {rawResponse && (
+                <div className="task-results" style={{marginTop: '10px'}}>
+                    <h5>Raw ADK Response (for debugging):</h5>
+                    <pre style={{fontSize: '0.7em', maxHeight: '150px', overflowY: 'auto'}}>{rawResponse}</pre>
+                </div>
+             )}
+             */}
         </div>
     );
 };
