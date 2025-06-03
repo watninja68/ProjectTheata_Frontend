@@ -12,7 +12,7 @@ import {
 import AudioVisualizerComponent from "./components/AudioVisualizerComponent";
 import SettingsDialog from "./components/SettingsDialog";
 import BackgroundTaskManager from "./components/BackgroundTaskManager";
-import Collapsible from "./components/Collapsible";
+import Collapsible from "./components/Collapsible"; // Import Collapsible
 import { useSettings } from "./hooks/useSettings";
 import { useGeminiAgent } from "./hooks/useGeminiAgent";
 import { useAuth } from "./hooks/useAuth";
@@ -382,7 +382,11 @@ function App() {
             </div>
             <div id="screenPreview"></div>
           </Collapsible>
-          {session && <Collapsible title="Background Tasks" startOpen={false}><BackgroundTaskManager /></Collapsible>}
+          {session && 
+            <Collapsible title="Background Tasks" startOpen={true}> {/* Changed startOpen to true as per image */}
+              <BackgroundTaskManager />
+            </Collapsible>
+          }
         </div>
       </main>
 
