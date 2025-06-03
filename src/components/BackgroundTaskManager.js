@@ -137,18 +137,15 @@ const BackgroundTaskManager = () => {
 
             const data = JSON.parse(responseText);
             
-            // ADK /run often returns an array of events or a single event object
-            // The Go backend might wrap this, check the 'adk_response' or 'content' field
-            let adkDataToProcess = data; // Default to processing the whole response data
+            let adkDataToProcess = data; 
 
-            if (data.adk_response) { // If Go backend wraps it
+            if (data.adk_response) { 
                 adkDataToProcess = data.adk_response;
             } else if (Array.isArray(data) && data.length > 0 && data[0].content) {
-                // This looks like the direct array of ADK events
                 adkDataToProcess = data;
-            } else if (data.content && data.content.parts) { // Single event object
-                adkDataToProcess = [data]; // Wrap in array for consistent processing
-            } else if (data.text) { // Simple text response from ADK (less common for complex tasks)
+            } else if (data.content && data.content.parts) { 
+                adkDataToProcess = [data]; 
+            } else if (data.text) { 
                  adkDataToProcess = [{ content: { parts: [{ text: data.text }] } }];
             }
 
@@ -224,6 +221,7 @@ const BackgroundTaskManager = () => {
 
             {taskError && <div className="task-error">Error: {taskError}</div>}
 
+            {/* This 'task-results' div will now be scrollable if content overflows */}
             {processedResults.length > 0 && (
                 <div className="task-results">
                     <h5>Agent Task Response:</h5>
@@ -258,14 +256,6 @@ const BackgroundTaskManager = () => {
                     </div>
                 </div>
             )}
-             {/* Optionally, show raw response for debugging
-             {rawResponse && (
-                <div className="task-results" style={{marginTop: '10px'}}>
-                    <h5>Raw ADK Response (for debugging):</h5>
-                    <pre style={{fontSize: '0.7em', maxHeight: '150px', overflowY: 'auto'}}>{rawResponse}</pre>
-                </div>
-             )}
-             */}
         </div>
     );
 };
