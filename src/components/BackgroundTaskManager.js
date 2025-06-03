@@ -34,9 +34,9 @@ const BackgroundTaskManager = () => {
                 if (response.ok) {
                     const data = await response.json();
                     if (data.connected) {
-                        setGmailConnectionInfo("Your Google account appears to be connected for background tasks.");
+                        setGmailConnectionInfo("Account is authenticated.");
                     } else {
-                        setGmailConnectionInfo(`Google account not connected. Reason: ${data.reason || 'Unknown'}. Use 'Connect/Refresh Google Account' to enable Gmail/Drive tools.`);
+                        setGmailConnectionInfo(`Account is not connected. Reason: ${data.reason || 'Unknown'}. Use 'Connect/Refresh Google Account' to enable Gmail/Drive tools.`);
                     }
                 } else {
                     const errorText = await response.text();
@@ -174,9 +174,9 @@ const BackgroundTaskManager = () => {
 
     return (
         <div className="background-task-manager">
-            <h4>Background Tasks (via ADK Agent)</h4>
+            <h4>Background Agent</h4>
             <div className="gmail-auth-section">
-                <h5>Google Account for Gmail/Drive Tools</h5>
+                <h5>Authenticate account for Background Agents to use Google tools</h5>
                 {gmailConnectionInfo && (
                     <p className={`auth-status ${gmailConnectionInfo.includes("Error") || gmailConnectionInfo.includes("not connected") || gmailConnectionInfo.includes("Could not verify") || gmailConnectionInfo.includes("not configured") ? 'error' : 'info'}`}>
                         {gmailConnectionInfo.includes("Error") || gmailConnectionInfo.includes("not connected") || gmailConnectionInfo.includes("Could not verify") || gmailConnectionInfo.includes("not configured") ? <FaExclamationTriangle /> : <FaInfoCircle />}
@@ -210,8 +210,7 @@ const BackgroundTaskManager = () => {
                         className="task-query-input"
                     />
                     <small>
-                        Enter a natural language instruction for the ADK agent.
-                        The Go backend will forward this. If it involves Gmail/Drive, ensure Google Account is connected.
+                        Enter your request. If it involves Google tools, ensure Google Account is connected.
                     </small>
                 </div>
                 <button onClick={handleExecuteTask} disabled={isLoading || !taskQuery.trim() || !user}>

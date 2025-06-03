@@ -7,7 +7,7 @@ import {
   FaSyncAlt, FaExclamationTriangle, FaSpinner, FaCheckCircle,
   FaTimesCircle, FaSun, FaMoon, FaGoogle, FaSignOutAlt, FaUserCircle,
   FaUserPlus, 
-  FaChevronLeft, FaChevronRight, FaBars, // FaBars for left sidebar toggle
+  FaChevronLeft, FaChevronRight, FaBars,
 } from "react-icons/fa";
 
 import AudioVisualizerComponent from "./components/AudioVisualizerComponent";
@@ -45,7 +45,7 @@ function App() {
   const profileIconRef = useRef(null);
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false); 
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false); // <-- New state for left sidebar
+  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
 
   const displayMicActive = isMicActive && !isMicSuspended;
   const canInteract = session && isConnected && !isInitializing;
@@ -70,7 +70,7 @@ function App() {
 
   const toggleProfileMenu = () => setIsProfileMenuOpen((prev) => !prev);
   const toggleRightSidebar = () => setIsRightSidebarCollapsed((prev) => !prev); 
-  const toggleLeftSidebar = () => setIsLeftSidebarCollapsed((prev) => !prev); // <-- Toggle for left sidebar
+  const toggleLeftSidebar = () => setIsLeftSidebarCollapsed((prev) => !prev);
 
 
   useEffect(() => {
@@ -295,7 +295,6 @@ function App() {
     return user.user_metadata?.full_name || user.user_metadata?.name || user.email || "User";
   }, [user]);
 
-  // Placeholder for conversation history items
   const conversationHistoryItems = [
     { id: 1, title: "CI/CD in Containers vs VMs" },
     { id: 2, title: "DigitalOcean Event Feedback" },
@@ -314,7 +313,6 @@ function App() {
     <div className="app-container">
       <div className="app-header">
         <div className="header-left">
-           {/* Left Sidebar Toggle Button */}
            <button 
             onClick={toggleLeftSidebar} 
             title={isLeftSidebarCollapsed ? "Show History" : "Hide History"} 
@@ -378,10 +376,8 @@ function App() {
       </div>
 
       <main className="main-content">
-        {/* New Left Sidebar */}
         <div className={`conversation-history-sidebar ${isLeftSidebarCollapsed ? "collapsed" : ""}`}>
             <div className="conv-history-header">
-                {/* Add a "New Chat" button or similar here if needed */}
             </div>
             <div className="conv-history-list">
                 <p className="conv-history-group-title">Previous 7 Days</p>
@@ -398,9 +394,8 @@ function App() {
                 ))}
             </div>
             <div className="conv-history-footer">
-                {/* Placeholder for "Upgrade plan" or user profile quick access */}
                 <div className="upgrade-plan-item">
-                    <FaUserCircle style={{marginRight: "8px"}}/> {/* Or other icon */}
+                    <FaUserCircle style={{marginRight: "8px"}}/>
                     <div>
                         <strong>{getUserDisplayName()}</strong>
                         <small>More access to the best models</small>
@@ -409,98 +404,100 @@ function App() {
             </div>
         </div>
 
-        {/* Central Chat Area and Right Sidebar Container */}
         <div className="center-and-right-content">
             <div className="chat-area">
-            <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
-                {!session && !authLoading && <div className="chat-message system-message">Please log in to start.</div>}
-                {authLoading && !session && <div className="chat-message system-message"><FaSpinner className="fa-spin" /> Checking auth...</div>}
-                {showConnectPrompt && (
-                <div className="connect-prompt-container">
-                    <p>Welcome, {getUserDisplayName()}!</p>
-                    <p>Connect to the main agent to start the session.</p>
-                    <button onClick={handleConnect} className="connect-prompt-button" disabled={isInitializing}>
-                    {isInitializing ? <FaSpinner className="fa-spin" /> : <FaLink />}
-                    {isInitializing ? " Connecting..." : " Connect Main Agent"}
-                    </button>
-                </div>
-                )}
-                {showConnectError && (
-                <div className="chat-message system-message error-message">
-                    <FaExclamationTriangle /> Connection failed: {agentError}<br /> Please check settings or try again.
-                    <button onClick={handleConnect} className="connect-prompt-button retry-button" disabled={isInitializing}>
-                    {isInitializing ? <FaSpinner className="fa-spin" /> : <FaSyncAlt />}
-                    {isInitializing ? " Retrying..." : " Retry Connect"}
-                    </button>
-                </div>
-                )}
-                {isConnected && messages.length === 0 && <div className="chat-message system-message">Agent connected. Say hello or use the mic!</div>}
-                {isConnected && messages.map((msg) => (
-                    <div key={msg.id} className={`chat-message ${msg.sender === "user" ? "user-message" : "model-message"} type-${msg.type || "text"} ${msg.isStreaming ? "streaming" : ""}`}>
-                    {msg.text}
-                    </div>
-                ))}
-            </div>
-            {canInteract && agent?.initialized && <AudioVisualizerComponent agent={agent} />}
+              <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
+                  {!session && !authLoading && <div className="chat-message system-message">Please log in to start.</div>}
+                  {authLoading && !session && <div className="chat-message system-message"><FaSpinner className="fa-spin" /> Checking auth...</div>}
+                  {showConnectPrompt && (
+                  <div className="connect-prompt-container">
+                      <p>Welcome, {getUserDisplayName()}!</p>
+                      <p>Connect to the main agent to start the session.</p>
+                      <button onClick={handleConnect} className="connect-prompt-button" disabled={isInitializing}>
+                      {isInitializing ? <FaSpinner className="fa-spin" /> : <FaLink />}
+                      {isInitializing ? " Connecting..." : " Connect Main Agent"}
+                      </button>
+                  </div>
+                  )}
+                  {showConnectError && (
+                  <div className="chat-message system-message error-message">
+                      <FaExclamationTriangle /> Connection failed: {agentError}<br /> Please check settings or try again.
+                      <button onClick={handleConnect} className="connect-prompt-button retry-button" disabled={isInitializing}>
+                      {isInitializing ? <FaSpinner className="fa-spin" /> : <FaSyncAlt />}
+                      {isInitializing ? " Retrying..." : " Retry Connect"}
+                      </button>
+                  </div>
+                  )}
+                  {isConnected && messages.length === 0 && <div className="chat-message system-message">Agent connected. Say hello or use the mic!</div>}
+                  {isConnected && messages.map((msg) => (
+                      <div key={msg.id} className={`chat-message ${msg.sender === "user" ? "user-message" : "model-message"} type-${msg.type || "text"} ${msg.isStreaming ? "streaming" : ""}`}>
+                      {msg.text}
+                      </div>
+                  ))}
+              </div>
+              {canInteract && agent?.initialized && <AudioVisualizerComponent agent={agent} />}
+              {/* --- MOVED CONTROLS --- */}
+              {session && ( // Only show controls if user is logged in
+                  <div className="footer-controls-stacked">
+                      <div className="floating-media-controls">
+                          <button onClick={handleToggleMic} className={`control-btn mic-btn ${displayMicActive ? "active" : ""} ${isMicSuspended && isMicActive ? "suspended" : ""}`}
+                              disabled={!canInteract || authLoading}
+                              title={!session ? "Login Required" : !isConnected ? "Connect First" : (displayMicActive ? "Mute Microphone" : "Unmute Microphone") + (isMicSuspended && isMicActive ? " (Suspended - Click to Unmute)" : "")}>
+                              <FaMicrophoneSlash />
+                              <span className="button-text">Mic</span>
+                          </button>
+                          <button onClick={handleToggleCamera} className={`control-btn cam-btn ${isCameraActive ? "active" : ""} ${cameraError ? "error" : ""}`}
+                              disabled={!canInteract || authLoading}
+                              title={!session ? "Login Required" : !isConnected ? "Connect First" : cameraError ? `Camera Error: ${cameraError}` : isCameraActive ? "Stop Camera" : "Start Camera"}>
+                              <FaVideoSlash />
+                              <span className="button-text">Cam</span>
+                          </button>
+                          <button onClick={handleToggleScreenShare} className={`control-btn screen-btn ${isScreenShareActive ? "active" : ""} ${screenError ? "error" : ""}`}
+                              disabled={!canInteract || authLoading}
+                              title={!session ? "Login Required" : !isConnected ? "Connect First" : screenError ? `Screen Share Error: ${screenError}` : isScreenShareActive ? "Stop Screen Sharing" : "Start Screen Sharing"}>
+                              <FaDesktop /> 
+                              <span className="button-text">Screen</span>
+                          </button>
+                      </div>
+                      <div className="text-input-container">
+                      <input id="messageInput" type="text"
+                          placeholder={!session ? "Please log in first" : !isConnected ? "Connect agent to chat" : displayMicActive ? "Listening..." : "Type message or turn on mic..."}
+                          disabled={!canInteract || displayMicActive || authLoading}
+                          onKeyPress={handleInputKeyPress} />
+                      <button 
+                          onClick={handleSendButtonClick} 
+                          className="send-icon-button"
+                          disabled={!canInteract || displayMicActive || authLoading || (typeof document !== 'undefined' && (!document.getElementById('messageInput') || document.getElementById('messageInput').value.trim() === ''))} 
+                          title="Send Message"
+                      >
+                          <FaPaperPlane />
+                      </button>
+                      </div>
+                  </div>
+              )}
             </div>
 
-            <div className={`sidebar ${isRightSidebarCollapsed ? "collapsed" : ""}`}> {/* Existing Right Sidebar */}
-            <Collapsible title="Media Previews" startOpen={true}>
-                <div id="cameraPreview" style={{ position: "relative" }}>
-                {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) && session && agent?.cameraManager?.stream && (
-                    <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera"><FaSyncAlt /></button>
-                )}
-                </div>
-                <div id="screenPreview"></div>
-            </Collapsible>
-            {session && 
-                <Collapsible title="Background Tasks" startOpen={true}>
-                <BackgroundTaskManager />
-                </Collapsible>
-            }
+            <div className={`sidebar ${isRightSidebarCollapsed ? "collapsed" : ""}`}>
+              <Collapsible title="Media Previews" startOpen={true}>
+                  <div id="cameraPreview" style={{ position: "relative" }}>
+                  {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) && session && agent?.cameraManager?.stream && (
+                      <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera"><FaSyncAlt /></button>
+                  )}
+                  </div>
+                  <div id="screenPreview"></div>
+              </Collapsible>
+              {session && 
+                  <Collapsible title="Background Tasks" startOpen={true}>
+                  <BackgroundTaskManager />
+                  </Collapsible>
+              }
             </div>
         </div>
       </main>
 
       <footer className="app-footer">
-        {/* Container for media controls that will sit above the text input */}
-        <div className="footer-controls-stacked">
-            <div className="floating-media-controls">
-                <button onClick={handleToggleMic} className={`control-btn mic-btn ${displayMicActive ? "active" : ""} ${isMicSuspended && isMicActive ? "suspended" : ""}`}
-                    disabled={!canInteract || authLoading}
-                    title={!session ? "Login Required" : !isConnected ? "Connect First" : (displayMicActive ? "Mute Microphone" : "Unmute Microphone") + (isMicSuspended && isMicActive ? " (Suspended - Click to Unmute)" : "")}>
-                    <FaMicrophoneSlash /> {/* Icon changes based on state in CSS logic, base is slash */}
-                    {/* Text can be hidden via CSS for smaller screens */}
-                    <span className="button-text">Mic</span>
-                </button>
-                <button onClick={handleToggleCamera} className={`control-btn cam-btn ${isCameraActive ? "active" : ""} ${cameraError ? "error" : ""}`}
-                    disabled={!canInteract || authLoading}
-                    title={!session ? "Login Required" : !isConnected ? "Connect First" : cameraError ? `Camera Error: ${cameraError}` : isCameraActive ? "Stop Camera" : "Start Camera"}>
-                    <FaVideoSlash />
-                    <span className="button-text">Cam</span>
-                </button>
-                <button onClick={handleToggleScreenShare} className={`control-btn screen-btn ${isScreenShareActive ? "active" : ""} ${screenError ? "error" : ""}`}
-                    disabled={!canInteract || authLoading}
-                    title={!session ? "Login Required" : !isConnected ? "Connect First" : screenError ? `Screen Share Error: ${screenError}` : isScreenShareActive ? "Stop Screen Sharing" : "Start Screen Sharing"}>
-                    <FaDesktop /> 
-                    <span className="button-text">Screen</span>
-                </button>
-            </div>
-            <div className="text-input-container">
-            <input id="messageInput" type="text"
-                placeholder={!session ? "Please log in first" : !isConnected ? "Connect agent to chat" : displayMicActive ? "Listening..." : "Type message or turn on mic..."}
-                disabled={!canInteract || displayMicActive || authLoading}
-                onKeyPress={handleInputKeyPress} />
-            <button 
-                onClick={handleSendButtonClick} 
-                className="send-icon-button"
-                disabled={!canInteract || displayMicActive || authLoading || (typeof document !== 'undefined' && (!document.getElementById('messageInput') || document.getElementById('messageInput').value.trim() === ''))} 
-                title="Send Message"
-            >
-                <FaPaperPlane />
-            </button>
-            </div>
-        </div>
+        {/* Content for the footer is now minimal or can be added here e.g. copyright */}
+        {/* <p>© {new Date().getFullYear()} Project Theta. All rights reserved.</p> */}
       </footer>
 
       {isSettingsOpen && (

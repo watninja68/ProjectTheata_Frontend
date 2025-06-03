@@ -180,11 +180,110 @@ body {
   height: var(--header-height); 
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
-.app-header .header-left, .app-header .header-right { display: flex; align-items: center; gap: 0.5rem;  }
-.app-header .header-left { flex: 1; justify-content: flex-start; }
-.app-header .header-right { flex: 1; justify-content: flex-end; } 
+.app-header .header-left, .app-header .header-right { display: flex; align-items: center; }
+.app-header .header-left { flex: 1; justify-content: flex-start; gap: 0.5rem; }
+.app-header .header-right { flex: 1; justify-content: flex-end; gap: 0.6rem; }
 .app-header .header-center { display: flex; justify-content: center; align-items: center; flex-shrink: 0; padding: 0 1rem; min-width: 160px; text-align: center; }
 .app-header h1 { font-size: 1.5rem;  font-weight: 700; color: var(--text-primary); margin: 0; white-space: nowrap; }
+
+/* General styling for TEXT-BASED buttons in header controls */
+.app-header .controls button:not(.profile-btn):not(.theme-toggle-btn):not([title="Settings"]):not(.sidebar-toggle-btn):not(.left-sidebar-toggle-btn),
+.app-header .controls .control-btn { 
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: none;
+  flex-shrink: 0;
+  padding: 0.6rem 0.9rem;
+  height: 38px; /* Match circular button height for alignment */
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius); /* Rectangular for these */
+  transition: all var(--transition-speed) ease;
+  font-weight: 500;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.app-header .controls button:not(.profile-btn):not(.theme-toggle-btn):not([title="Settings"]):not(.sidebar-toggle-btn):not(.left-sidebar-toggle-btn):hover:not(:disabled),
+.app-header .controls .control-btn:hover:not(:disabled) {
+  background-color: var(--bg-user-message);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.app-header .controls button:disabled,
+.app-header .controls .control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--bg-input-disabled);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Specific styles for ICON-ONLY CIRCULAR buttons in header (Theme, Settings, Profile) */
+.app-header .controls .theme-toggle-btn,
+.app-header .controls button[title="Settings"],
+.app-header .profile-btn {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary); 
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.2rem; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; 
+  box-shadow: none;
+  transition: all var(--transition-speed) ease;
+  line-height: 1; 
+  flex-shrink: 0; 
+}
+
+.app-header .controls .theme-toggle-btn:hover:not(:disabled),
+.app-header .controls button[title="Settings"]:hover:not(:disabled),
+.app-header .profile-btn:hover:not(:disabled) {
+  background-color: var(--bg-tertiary); 
+  color: var(--text-primary);       
+}
+
+.app-header .controls .theme-toggle-btn:focus-visible,
+.app-header .controls button[title="Settings"]:focus-visible,
+.app-header .profile-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--accent-glow); 
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.app-header .profile-btn .profile-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.app-header .profile-btn svg {
+  font-size: 1.6rem; 
+}
+
+.app-header .controls .sidebar-toggle-btn,
+.app-header .controls .left-sidebar-toggle-btn {
+  padding: 0.6rem; 
+  font-size: 1.1rem; 
+  background-color: var(--bg-tertiary); 
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius); 
+}
+.app-header .controls .sidebar-toggle-btn:hover:not(:disabled),
+.app-header .controls .left-sidebar-toggle-btn:hover:not(:disabled) {
+  background-color: var(--bg-user-message);
+  border-color: var(--accent-primary);
+}
 
 .left-sidebar-toggle-btn {
   background-color: transparent; 
@@ -236,7 +335,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   transform: translateX(0);
   height: 100%; 
   z-index: 50; 
-  font-family: var(--font-family); /* Ensure consistent font */
+  font-family: var(--font-family);
 }
 .conversation-history-sidebar.collapsed {
   width: 0;
@@ -261,7 +360,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   margin-top: 1rem;
   margin-bottom: 0.5rem;
   padding-left: 0.2rem;
-  font-weight: 500; /* Match other titles more closely */
+  font-weight: 500;
 }
 .conv-history-item {
   padding: 0.6rem 0.8rem;
@@ -271,7 +370,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.9rem; /* Ensure this is not too different */
+  font-size: 0.9rem;
   color: var(--text-primary);
   transition: background-color var(--transition-speed) ease;
 }
@@ -291,7 +390,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   border-radius: var(--border-radius);
   cursor: pointer;
   transition: background-color var(--transition-speed) ease;
-  font-family: var(--font-family); /* Consistent font */
+  font-family: var(--font-family);
 }
 .upgrade-plan-item:hover {
   background-color: var(--bg-tertiary);
@@ -299,7 +398,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
 .upgrade-plan-item strong {
   font-size: 0.9rem;
   color: var(--text-primary);
-  font-weight: 600; /* Ensure consistent weight */
+  font-weight: 600;
 }
 .upgrade-plan-item small {
   font-size: 0.75rem;
@@ -324,7 +423,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   position: relative; 
 }
 
-/* --- Right Sidebar Styles (existing sidebar) --- */
+/* --- Right Sidebar Styles --- */
 .sidebar { 
   width: 280px; 
   flex-shrink: 0; 
@@ -355,11 +454,10 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   transform: translateX(100%); 
 }
 
-/* Right sidebar toggle button */
 .sidebar-toggle-btn { 
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
-  border: none;
+  border: 1px solid var(--border-color); 
   padding: 0.5rem 0.7rem; 
   border-radius: var(--border-radius);
   cursor: pointer;
@@ -371,34 +469,42 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   transition: all var(--transition-speed) ease;
 }
 .sidebar-toggle-btn:hover {
-  background-color: var(--bg-user-message);
-  box-shadow: 0 0 8px var(--accent-glow);
+  background-color: var(--bg-user-message); 
+  border-color: var(--accent-primary); 
 }
 .sidebar-toggle-btn:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 1px;
 }
 
-/* --- Footer --- */
+/* --- Footer (Minimal) --- */
 .app-footer { 
   display: flex; 
   align-items: center; 
-  padding: 0.8rem 1.5rem; 
+  justify-content: center; /* Center content if any */
+  padding: 0.3rem 1rem; /* Reduced padding */
   background-color: var(--bg-header-footer); 
-  backdrop-filter: blur(var(--backdrop-blur)); 
-  -webkit-backdrop-filter: blur(var(--backdrop-blur)); 
-  border-top: 1px solid var(--border-color); 
+  /* backdrop-filter: blur(var(--backdrop-blur)); Removed */
+  /* -webkit-backdrop-filter: blur(var(--backdrop-blur)); Removed */
+  border-top: 1px solid rgba(var(--accent-primary-rgb), 0.1); /* More subtle border */
   flex-shrink: 0; 
   z-index: 90; 
   position: relative; 
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; 
+  min-height: 20px; /* Minimal height */
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
+
+/* --- Relocated Controls Styling (was footer-controls-stacked) --- */
 .footer-controls-stacked {
     display: flex;
     flex-direction: column;
     gap: 0.5rem; 
     width: 100%; 
-    flex-grow: 1; 
+    padding: 0.5rem 0; /* Padding within chat-area */
+    margin-top: 0.5rem; /* Space from visualizer or chat history */
+    flex-shrink: 0; /* Don't shrink */
 }
 
 .floating-media-controls {
@@ -470,7 +576,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   flex-grow: 1; 
   overflow-y: auto; 
   padding-right: 0.5rem; 
-  margin-bottom: 0.5rem; 
+  /* margin-bottom: 0.5rem; Removed, controls are now below */
   display: flex; 
   flex-direction: column; 
   gap: 1.2rem; 
@@ -487,11 +593,11 @@ body.theme-light .user-message { color: var(--text-primary); }
 @keyframes blink { 50% { opacity: 0; } }
 .system-message { align-self: center; background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 0.8rem 1.4rem; border-radius: var(--border-radius); margin: 1rem 0; font-style: italic; max-width: 70%; text-align: center; }
 
-/* --- Connect Prompt Button Styling (Restored) --- */
+/* --- Connect Prompt Button Styling --- */
 .connect-prompt-container { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2rem; margin: auto; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--border-radius); max-width: 400px; box-shadow: var(--shadow-sm); color: var(--text-primary); }
 .connect-prompt-container p { margin-bottom: 1rem; line-height: 1.5; font-size: 1.05rem; color: var(--text-secondary); }
 .connect-prompt-container p:first-of-type { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); margin-bottom: 0.5rem; }
-.connect-prompt-button { /* This is the key style to restore */
+.connect-prompt-button { 
   padding: 0.8rem 1.5rem; 
   font-size: 1rem; 
   font-weight: 600; 
@@ -499,11 +605,11 @@ body.theme-light .user-message { color: var(--text-primary); }
   background-color: var(--accent-primary); 
   color: #fff; 
   box-shadow: var(--shadow-sm), 0 0 0px var(--accent-glow); 
-  border: none; /* Ensure no default border */
-  border-radius: var(--border-radius); /* Ensure consistent border radius */
+  border: none; 
+  border-radius: var(--border-radius); 
   cursor: pointer;
   transition: all var(--transition-speed) ease;
-  display: inline-flex; /* For icon alignment */
+  display: inline-flex; 
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -515,7 +621,7 @@ body.theme-light .user-message { color: var(--text-primary); }
 body.theme-light .system-message.error-message { background-color: rgba(255, 77, 77, 0.1); }
 .system-message.error-message svg { margin-right: 0.5rem; vertical-align: middle; margin-bottom: 2px; }
 
-/* --- Footer Controls Redesign (Text Input Part) --- */
+/* --- Text Input (within footer-controls-stacked) --- */
 .text-input-container {
   position: relative;
   flex-grow: 1; 
@@ -577,6 +683,7 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
   cursor: not-allowed;
 }
 
+/* General Control Button Styling (used in floating-media-controls) */
 .control-btn { 
   padding: 0.7rem 1.1rem; 
   border-radius: var(--border-radius); 
@@ -614,34 +721,6 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
 .control-btn.error { background-color: var(--error-color); color: #fff; }
 .control-btn.error:hover:not(:disabled) { background-color: #ff6666; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 15px rgba(255, 77, 77, 0.6); }
 
-.app-header .controls button { background-color: var(--bg-tertiary); color: var(--text-primary); box-shadow: none; flex-shrink: 0; height: auto; }
-.app-header .controls button:hover:not(:disabled) { background-color: var(--bg-user-message); box-shadow: 0 0 10px var(--accent-glow); transform: none; }
-.app-header .controls button[title="Settings"], .app-header .controls button[title="Toggle Theme"] { padding: 0.7rem; } 
-
-/* --- Profile Icon & Dropdown (Restored/Checked) --- */
-.profile-container { position: relative; display: flex; align-items: center; }
-.profile-btn { 
-    background: none; border: none; 
-    color: var(--text-primary); 
-    font-size: 1.8rem; /* This is for the icon if no image */
-    padding: 0; 
-    width: 36px; /* Fixed size for the button */
-    height: 36px; /* Fixed size for the button */
-    margin: 0; cursor: pointer; 
-    border-radius: 50%; 
-    display: flex; align-items: center; justify-content: center; 
-    transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease; 
-    line-height: 1; overflow: hidden; 
-}
-.profile-btn:hover, .profile-btn:focus { background-color: var(--bg-tertiary); outline: none; }
-.profile-btn .profile-img { 
-    width: 100%; /* Fill the button */
-    height: 100%; /* Fill the button */
-    object-fit: cover; 
-    border-radius: 50%; /* Keep it round */
-}
-.profile-btn svg { font-size: 1.6rem; vertical-align: middle; } /* For fallback icon */
-
 .profile-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background-color: var(--bg-profile-dropdown); border: 1px solid var(--border-profile-dropdown); border-radius: var(--border-radius); box-shadow: var(--shadow-dropdown); min-width: 200px; z-index: 100; padding: 0.8rem 0; display: flex; flex-direction: column; transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; opacity: 1; transform: translateY(0); animation: fadeInDown 0.2s ease-out; }
 body.theme-light .profile-dropdown { background-color: var(--bg-secondary); border: 1px solid var(--border-color); }
 .profile-user-info { padding: 0.5rem 1.2rem; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.4; }
@@ -655,7 +734,18 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
 .user-info { display: none; } 
 
 /* --- Audio Visualizer --- */
-.visualizer { width: 100%; height: 80px; background-color: var(--bg-visualizer); border-radius: var(--border-radius); margin-top: auto; flex-shrink: 0; border: 1px solid var(--border-color); box-shadow: inset 0 0 10px rgba(0,0,0,0.1); transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; }
+.visualizer { 
+  width: 100%; 
+  height: 80px; 
+  background-color: var(--bg-visualizer); 
+  border-radius: var(--border-radius); 
+  /* margin-top: auto; Removed, positioned by flex order */
+  flex-shrink: 0; 
+  border: 1px solid var(--border-color); 
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.1); 
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; 
+  margin-bottom: 0.5rem; /* Space before controls */
+}
 
 /* --- Preview Placeholders & Switch Button --- */
 #cameraPreview, #screenPreview { 
@@ -713,7 +803,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
 .settings-group textarea { resize: vertical; min-height: 100px; }
 .settings-save-btn { display: block; width: 100%; margin-top: 2.5rem; padding: 0.9rem 1.5rem; font-size: 1.1rem; font-weight: 700; }
 
-/* --- Collapsible Component Styles (Restored) --- */
+/* --- Collapsible Component Styles --- */
 .collapsible-container {
   width: 100%; 
   margin-bottom: 0.8rem; 
@@ -722,7 +812,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   margin-bottom: 0;
 }
 
-.collapsible { /* This acts as the header for the collapsible section */
+.collapsible { 
   cursor: pointer;
   padding: 0.7rem 1rem; 
   font-weight: 600;
@@ -759,7 +849,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   transition: max-height 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), 
               padding-top 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), 
               padding-bottom 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
-              opacity 0.2s ease-out 0.1s; /* Delay opacity transition slightly */
+              opacity 0.2s ease-out 0.1s; 
   padding-top: 0;
   padding-bottom: 0;
   padding-left: 0.5rem; 
@@ -769,13 +859,11 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   opacity: 0; 
 }
 .collapsible-content.active {
-  /* max-height should be large enough to accommodate content. */
-  /* If BackgroundTaskManager can grow very tall, this needs to be sufficient. */
-  max-height: 100vh; /* Example: Large enough for most content, or use JS to set dynamically */
+  max-height: 100vh; 
   padding-top: 0.8rem; 
   padding-bottom: 0.8rem;
   opacity: 1; 
-  overflow: visible; /* Allow content within to determine scroll, if BTM itself is scrollable */
+  overflow: visible; 
 }
 
 .sidebar .collapsible-content > div, 
@@ -793,13 +881,23 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   .app-header .header-center { min-width: auto; padding: 0 0.5rem; }
   .app-header .header-left, .app-header .header-right { gap: 0.4rem; }
   .app-header h1 { font-size: 1.3rem; }
-  .app-header .controls button[title="Toggle Theme"], 
-  .sidebar-toggle-btn, .left-sidebar-toggle-btn { padding: 0.5rem; font-size: 1rem; }
+  
+  .app-header .controls button,
+  .app-header .controls .control-btn,
+  .app-header .controls .theme-toggle-btn,
+  .app-header .controls button[title="Settings"],
+  .app-header .profile-btn,
+  .app-header .controls .sidebar-toggle-btn,
+  .app-header .controls .left-sidebar-toggle-btn {
+     /* Adjust size for smaller screens if needed, maintaining proportions */
+     /* Example: width: 36px; height: 36px; font-size: 1rem; for circular */
+     /* padding: 0.5rem 0.8rem; for text buttons */
+  }
   
   .conversation-history-sidebar { width: 220px; }
-  .sidebar { width: 220px; } /* Right sidebar */
+  .sidebar { width: 220px; } 
 
-  .app-footer { padding: 0.6rem 1rem; }
+  .app-footer { padding: 0.2rem 1rem; } /* Minimal footer padding */
   .floating-media-controls .control-btn { padding: 0.4rem 0.6rem; height: 32px; }
   .floating-media-controls .control-btn svg { font-size: 1em; }
   #messageInput { height: 38px; }
@@ -819,11 +917,11 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     left: 0;
     width: 250px; 
     max-height: none; 
-    height: calc(100vh - var(--header-height)); /* Corrected height for fixed */
+    height: calc(100vh - var(--header-height)); 
     z-index: 200; 
     border-right: 1px solid var(--border-color);
     background-color: var(--bg-primary); 
-    padding: 0.8rem; /* Consistent padding */
+    padding: 0.8rem; 
   }
   .conversation-history-sidebar.collapsed {
     transform: translateX(-100%);
@@ -837,7 +935,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     margin-left: 0; 
   }
 
-  .sidebar { /* Right sidebar on mobile */
+  .sidebar { 
     width: 100%; 
     height: auto; 
     max-height: 35vh; 
@@ -845,7 +943,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     border-top: 1px solid var(--border-color); 
     transform: translateY(0); 
   }
-  .sidebar.collapsed { /* Right sidebar collapsed on mobile */
+  .sidebar.collapsed { 
     max-height: 0; 
     padding-top: 0;
     padding-bottom: 0;
@@ -856,8 +954,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   }
 
   .app-footer { 
-    padding: 0.5rem 0.8rem; 
-    gap: 0.4rem; 
+    padding: 0.2rem 0.8rem; /* Minimal footer padding */
   } 
   .floating-media-controls .control-btn .button-text { 
      display: none; 
