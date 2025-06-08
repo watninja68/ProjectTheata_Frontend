@@ -166,7 +166,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
   height: 100vh; 
-  overflow: hidden; 
 }
 #root { height: 100%; display: flex; flex-direction: column; }
 
