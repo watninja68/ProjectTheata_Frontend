@@ -270,38 +270,31 @@ body {
   font-size: 1.6rem; 
 }
 
+/* UPDATED: Icon-only sidebar toggle buttons */
 .app-header .controls .sidebar-toggle-btn,
 .app-header .controls .left-sidebar-toggle-btn {
   padding: 0.6rem; 
   font-size: 1.1rem; 
-  background-color: var(--bg-tertiary); 
+  background-color: var(--bg-secondary); /* Darker, blends with header */
+  color: var(--text-secondary); /* Ensure icon is visible */
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius); 
-}
-.app-header .controls .sidebar-toggle-btn:hover:not(:disabled),
-.app-header .controls .left-sidebar-toggle-btn:hover:not(:disabled) {
-  background-color: var(--bg-user-message);
-  border-color: var(--accent-primary);
-}
-
-.left-sidebar-toggle-btn {
-  background-color: transparent; 
-  color: var(--text-secondary);
-  border: 1px solid transparent;
-  padding: 0.4rem 0.6rem; 
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-size: 1.2rem; 
-  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-speed) ease;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 38px; /* Match circular button width */
+  height: 38px; /* Match circular button height */
 }
-.left-sidebar-toggle-btn:hover {
-  background-color: var(--bg-tertiary);
+.app-header .controls .sidebar-toggle-btn:hover:not(:disabled),
+.app-header .controls .left-sidebar-toggle-btn:hover:not(:disabled) {
+  background-color: var(--bg-tertiary); /* Lighter on hover */
   color: var(--text-primary);
+  border-color: var(--accent-primary);
 }
+
 
 .header-status { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; font-weight: 500; }
 .header-status .status { padding: 0.3rem 0.7rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; line-height: 1.4; transition: all var(--transition-speed) ease; }
@@ -321,11 +314,11 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
 
 /* --- Left Conversation History Sidebar --- */
 .conversation-history-sidebar {
-  width: 260px; 
+  width: 240px; /* UPDATED: Reduced width */
   flex-shrink: 0;
   background-color: var(--bg-secondary); 
   border-right: 1px solid var(--border-color);
-  padding: 1rem;
+  padding: 1rem; /* Maintained */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -345,40 +338,43 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   border-right: none;
 }
 .conv-history-header {
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem; /* UPDATED: Slightly reduced */
   flex-shrink: 0;
+  /* Consider adding a "New Chat" button or title here */
 }
 .conv-history-list {
   flex-grow: 1;
   overflow-y: auto; 
 }
 .conv-history-group-title {
-  font-size: 0.8rem;
+  font-size: 0.7rem; /* UPDATED: Smaller */
   color: var(--text-secondary);
+  opacity: 0.7; /* UPDATED: Reduced brightness */
   text-transform: uppercase;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
+  margin-top: 1.2rem; /* UPDATED: More spacing */
+  margin-bottom: 0.6rem; /* UPDATED */
   padding-left: 0.2rem;
-  font-weight: 500;
+  font-weight: 600; /* UPDATED: Slightly bolder for title */
 }
 .conv-history-item {
-  padding: 0.6rem 0.8rem;
-  border-radius: calc(var(--border-radius) - 4px);
-  margin-bottom: 0.3rem;
+  padding: 0.5rem 0.7rem; /* UPDATED: Slightly reduced padding */
+  border-radius: calc(var(--border-radius) - 5px); /* UPDATED: Sharper radius */
+  margin-bottom: 0.25rem; /* UPDATED: Tighter spacing */
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  transition: background-color var(--transition-speed) ease;
+  font-size: 0.82rem; /* UPDATED: Slightly smaller */
+  color: var(--text-secondary); /* UPDATED: Softer color */
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
 }
 .conv-history-item:hover {
   background-color: var(--bg-tertiary);
+  color: var(--text-primary); /* UPDATED: Brighter on hover */
 }
 .conv-history-footer {
   margin-top: auto; 
-  padding-top: 1rem;
+  padding-top: 0.8rem; /* UPDATED */
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
 }
@@ -395,13 +391,17 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   background-color: var(--bg-tertiary);
 }
 .upgrade-plan-item strong {
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  font-weight: 600;
+  font-size: 0.85rem; /* UPDATED: Slightly smaller */
+  color: var(--text-secondary); /* UPDATED: Softer */
+  font-weight: 500; /* UPDATED: Normal weight */
+}
+.upgrade-plan-item:hover strong {
+  color: var(--text-primary); /* UPDATED: Brighter on hover */
 }
 .upgrade-plan-item small {
-  font-size: 0.75rem;
+  font-size: 0.7rem; /* UPDATED: Smaller */
   color: var(--text-secondary);
+  opacity: 0.6; /* UPDATED: Softer */
 }
 
 /* Container for Chat Area and Right Sidebar */
@@ -451,29 +451,6 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   border-left: none;
   overflow: hidden; 
   transform: translateX(100%); 
-}
-
-.sidebar-toggle-btn { 
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color); 
-  padding: 0.5rem 0.7rem; 
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-size: 1.1rem; 
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-speed) ease;
-}
-.sidebar-toggle-btn:hover {
-  background-color: var(--bg-user-message); 
-  border-color: var(--accent-primary); 
-}
-.sidebar-toggle-btn:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
 }
 
 /* --- Footer (Minimal) --- */
@@ -893,7 +870,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
      /* padding: 0.5rem 0.8rem; for text buttons */
   }
   
-  .conversation-history-sidebar { width: 220px; }
+  .conversation-history-sidebar { width: 220px; } /* Adjusted */
   .sidebar { width: 220px; } 
 
   .app-footer { padding: 0.2rem 1rem; } /* Minimal footer padding */
@@ -914,7 +891,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     top: var(--header-height); 
     bottom: 0;
     left: 0;
-    width: 250px; 
+    width: 240px; /* Maintain reduced width for mobile overlay */
     max-height: none; 
     height: calc(100vh - var(--header-height)); 
     z-index: 200; 

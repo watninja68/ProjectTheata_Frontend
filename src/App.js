@@ -398,7 +398,6 @@ function App() {
                     <FaUserCircle style={{marginRight: "8px"}}/>
                     <div>
                         <strong>{getUserDisplayName()}</strong>
-                        <small>More access to the best models</small>
                     </div>
                 </div>
             </div>
