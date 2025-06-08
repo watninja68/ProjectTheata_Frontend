@@ -18,6 +18,9 @@ const LoginPage = () => {
             document.body.classList.remove('theme-light');
         }
 
+        // Ensure body scrolling is enabled for the login page
+        document.body.classList.remove('no-scroll');
+
         if (user && !loading) {
             // If user is logged in and we are on the login page,
             // redirect them. 'from' will be set by ProtectedRoute.

@@ -65,7 +65,7 @@ const LandingPage = () => {
                             <FaRocket style={{ marginLeft: "8px" }} aria-hidden="true" />
                         </Link>
                     ) : (
-                        <Link to="./app" className="cta-button">
+                        <Link to="/login" className="cta-button">
                             Login / Get Started{" "}
                             <FaSignInAlt style={{ marginLeft: "8px" }} aria-hidden="true" />
                         </Link>

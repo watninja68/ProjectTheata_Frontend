@@ -60,6 +60,17 @@ function App() {
   const showConnectError = session && agentError && !isConnected && !isInitializing && !authLoading;
   const profileImageUrl = user?.user_metadata?.avatar_url;
 
+  // Effect to manage body scrolling for the App component
+  useEffect(() => {
+    // When App component mounts, disable body scrolling
+    document.body.classList.add('no-scroll');
+
+    // When App component unmounts, re-enable body scrolling
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, []); // Empty dependency array ensures this runs only on mount and unmount
+
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     if (queryParams.get("google_auth_success") === "true") {
@@ -364,6 +375,7 @@ function App() {
             {isLeftSidebarCollapsed ? <FaBars /> : <FaChevronLeft />}
           </button>
           <FaStroopwafel style={{fontSize: "1.8rem", color: "var(--accent-primary)", marginLeft: "0.5rem"}}/>
+          &nbsp;
           <h1>Project Theta</h1>
         </div>
         <div className="header-center">

@@ -154,6 +154,13 @@ body.theme-light {
 /* --- Base Styles & Reset --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
+
+/* FIX: Moved scroll-locking styles to a specific class */
+body.no-scroll {
+  height: 100vh;
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-primary);
@@ -165,8 +172,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
-  height: 100vh; 
-  overflow: hidden; 
+  /* Removed height and overflow from general body selector */
 }
 #root { height: 100%; display: flex; flex-direction: column; }
 
@@ -272,8 +278,8 @@ body {
 }
 
 /* UPDATED: UNIFIED Icon-only sidebar toggle buttons */
-.app-header .controls .sidebar-toggle-btn,
-.app-header .controls .left-sidebar-toggle-btn {
+.app-header .sidebar-toggle-btn,
+.app-header .left-sidebar-toggle-btn {
   padding: 0; /* Remove padding for icon centering */
   font-size: 1.2rem; /* Unified icon size */
   background-color: transparent; /* Make same as other icons */
@@ -289,8 +295,8 @@ body {
   width: 38px; /* Match circular button width */
   height: 38px; /* Match circular button height */
 }
-.app-header .controls .sidebar-toggle-btn:hover:not(:disabled),
-.app-header .controls .left-sidebar-toggle-btn:hover:not(:disabled) {
+.app-header .sidebar-toggle-btn:hover:not(:disabled),
+.app-header .left-sidebar-toggle-btn:hover:not(:disabled) {
   background-color: var(--bg-tertiary); /* Lighter on hover */
   color: var(--text-primary);
 }
@@ -888,8 +894,8 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   .app-header .controls .theme-toggle-btn,
   .app-header .controls button[title="Settings"],
   .app-header .profile-btn,
-  .app-header .controls .sidebar-toggle-btn,
-  .app-header .controls .left-sidebar-toggle-btn {
+  .app-header .sidebar-toggle-btn,
+  .app-header .left-sidebar-toggle-btn {
      /* Adjust size for smaller screens if needed, maintaining proportions */
      /* Example: width: 36px; height: 36px; font-size: 1rem; for circular */
      /* padding: 0.5rem 0.8rem; for text buttons */
