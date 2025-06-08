@@ -166,6 +166,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
   height: 100vh; 
+  overflow: hidden; 
 }
 #root { height: 100%; display: flex; flex-direction: column; }
 
@@ -267,18 +268,18 @@ body {
   object-fit: cover;
 }
 .app-header .profile-btn svg {
-  font-size: 1.6rem; 
+  font-size: 1.2rem; /* UNIFIED ICON SIZE */
 }
 
-/* UPDATED: Icon-only sidebar toggle buttons */
+/* UPDATED: UNIFIED Icon-only sidebar toggle buttons */
 .app-header .controls .sidebar-toggle-btn,
 .app-header .controls .left-sidebar-toggle-btn {
-  padding: 0.6rem; 
-  font-size: 1.1rem; 
-  background-color: var(--bg-secondary); /* Darker, blends with header */
+  padding: 0; /* Remove padding for icon centering */
+  font-size: 1.2rem; /* Unified icon size */
+  background-color: transparent; /* Make same as other icons */
   color: var(--text-secondary); /* Ensure icon is visible */
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius); 
+  border: 1px solid transparent; /* Make same as other icons */
+  border-radius: 50%; /* Make circular */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,7 +293,6 @@ body {
 .app-header .controls .left-sidebar-toggle-btn:hover:not(:disabled) {
   background-color: var(--bg-tertiary); /* Lighter on hover */
   color: var(--text-primary);
-  border-color: var(--accent-primary);
 }
 
 
@@ -311,6 +311,13 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   overflow: hidden; 
   min-height: 0; 
 }
+/* For disabling text selection during resize */
+.main-content.resizing {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
 
 /* --- Left Conversation History Sidebar --- */
 .conversation-history-sidebar {
@@ -420,38 +427,56 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   overflow: hidden; 
   padding: 1.5rem; 
   position: relative; 
+  min-width: 0; /* Important for flex containers */
 }
 
-/* --- Right Sidebar Styles --- */
+/* --- Right Sidebar Styles (Updated for Resizing) --- */
+.sidebar-resizer {
+  flex-shrink: 0;
+  width: 5px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color var(--transition-speed) ease;
+  z-index: 45; /* Position between chat and sidebar */
+}
+.sidebar-resizer:hover {
+  background-color: var(--accent-primary);
+}
+.main-content.resizing .sidebar-resizer {
+  background-color: var(--accent-primary);
+}
+
 .sidebar { 
-  width: 280px; 
+  /* width is now controlled by inline style in App.js */
   flex-shrink: 0; 
   background-color: var(--bg-sidebar); 
   backdrop-filter: blur(5px); 
   -webkit-backdrop-filter: blur(5px); 
-  border-left: 1px solid var(--border-color); 
+  border-left: 1px solid var(--border-color); /* This is set conditionally now */
   padding: 1rem; 
-  overflow-y: auto; 
+  overflow: hidden; /* Changed from auto to hidden to prevent scrollbars during resize */
   position: relative; 
   display: flex; 
   flex-direction: column; 
   gap: 0; 
-  transition: width var(--transition-speed) ease, padding var(--transition-speed) ease, opacity var(--transition-speed) ease, transform var(--transition-speed) ease, background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; 
-  opacity: 1;
-  transform: translateX(0);
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; 
   height: 100%; 
   z-index: 40; 
 }
+/* Transition for width is now conditional via inline style if resizing */
+.sidebar.toggle-transition {
+    transition: width var(--transition-speed) ease, padding var(--transition-speed) ease;
+}
+.sidebar-content-wrapper {
+  overflow-y: auto; /* Scroll is on this inner wrapper */
+  height: 100%;
+}
+/* When sidebar is collapsed (width: 0), hide its children */
+.sidebar[style*="width: 0px"] > * {
+  display: none;
+}
 .sidebar > p { display: none; } 
 
-.sidebar.collapsed { 
-  width: 0;
-  padding: 1rem 0; 
-  opacity: 0;
-  border-left: none;
-  overflow: hidden; 
-  transform: translateX(100%); 
-}
 
 /* --- Footer (Minimal) --- */
 .app-footer { 
@@ -501,7 +526,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
 
 /* --- Generic Scrollbar Styling --- */
 .chat-history::-webkit-scrollbar,
-.sidebar::-webkit-scrollbar, 
+.sidebar-content-wrapper::-webkit-scrollbar, /* UPDATED: Target inner wrapper */
 .conversation-history-sidebar::-webkit-scrollbar, 
 .settings-dialog::-webkit-scrollbar,
 .task-results::-webkit-scrollbar, 
@@ -512,7 +537,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   width: 8px; 
 }
 .chat-history::-webkit-scrollbar-track,
-.sidebar::-webkit-scrollbar-track,
+.sidebar-content-wrapper::-webkit-scrollbar-track, /* UPDATED: Target inner wrapper */
 .conversation-history-sidebar::-webkit-scrollbar-track,
 .settings-dialog::-webkit-scrollbar-track,
 .task-results::-webkit-scrollbar-track,
@@ -523,7 +548,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   background: transparent; 
 }
 .chat-history::-webkit-scrollbar-thumb,
-.sidebar::-webkit-scrollbar-thumb,
+.sidebar-content-wrapper::-webkit-scrollbar-thumb, /* UPDATED: Target inner wrapper */
 .conversation-history-sidebar::-webkit-scrollbar-thumb,
 .settings-dialog::-webkit-scrollbar-thumb,
 .task-results::-webkit-scrollbar-thumb,
@@ -535,7 +560,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   border-radius: 4px; 
 }
 .chat-history::-webkit-scrollbar-thumb:hover,
-.sidebar::-webkit-scrollbar-thumb:hover,
+.sidebar-content-wrapper::-webkit-scrollbar-thumb:hover, /* UPDATED: Target inner wrapper */
 .conversation-history-sidebar::-webkit-scrollbar-thumb:hover,
 .settings-dialog::-webkit-scrollbar-thumb:hover,
 .task-results::-webkit-scrollbar-thumb:hover,
@@ -871,7 +896,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   }
   
   .conversation-history-sidebar { width: 220px; } /* Adjusted */
-  .sidebar { width: 220px; } 
+  /* .sidebar { width: 220px; }  REMOVED fixed width for resizable */
 
   .app-footer { padding: 0.2rem 1rem; } /* Minimal footer padding */
   .floating-media-controls .control-btn { padding: 0.4rem 0.6rem; height: 32px; }
@@ -906,28 +931,31 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     border-right: none;
   }
 
+  /* On mobile, stack right sidebar below chat area */
   .center-and-right-content {
-    flex-direction: column-reverse; 
-    margin-left: 0; 
+    flex-direction: column; 
   }
+  .sidebar-resizer { display: none; } /* Hide resizer on mobile */
 
   .sidebar { 
-    width: 100%; 
+    width: 100% !important; /* Override inline style for mobile full-width */
     height: auto; 
-    max-height: 35vh; 
+    max-height: 40vh; /* Give it more space on mobile */
     border-left: none; 
     border-top: 1px solid var(--border-color); 
-    transform: translateY(0); 
+    overflow-y: auto; /* Allow scrolling within the sidebar itself */
   }
-  .sidebar.collapsed { 
-    max-height: 0; 
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    border-top: none;
-    overflow: hidden;
-    transform: translateY(100%); 
+  /* On mobile, collapse sets height to 0 */
+  .sidebar[style*="width: 0px"] {
+      max-height: 0;
+      height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-top: none;
+      overflow: hidden;
   }
+  .sidebar-content-wrapper { overflow-y: visible; } /* No double scrollbar */
+
 
   .app-footer { 
     padding: 0.2rem 0.8rem; /* Minimal footer padding */

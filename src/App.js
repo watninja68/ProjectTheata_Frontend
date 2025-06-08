@@ -44,8 +44,14 @@ function App() {
   const profileMenuRef = useRef(null);
   const profileIconRef = useRef(null);
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false); 
+
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+
+  // --- Resizable Sidebar State ---
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(280);
+  const [preCollapseWidth, setPreCollapseWidth] = useState(280);
+  const [isResizing, setIsResizing] = useState(false);
+  const mainContentRef = useRef(null);
 
   const displayMicActive = isMicActive && !isMicSuspended;
   const canInteract = session && isConnected && !isInitializing;
@@ -63,14 +69,52 @@ function App() {
     }
     if (queryParams.get("google_auth_success") || queryParams.get("error")) {
         setTimeout(() => setGoogleAuthMessage(""), 7000);
-        const newUrl = window.location.pathname + window.location.hash; 
+        // Clean URL without reloading the page
+        const newUrl = window.location.pathname; // Just the path, remove all query params
         window.history.replaceState({}, document.title, newUrl);
     }
   }, []);
 
   const toggleProfileMenu = () => setIsProfileMenuOpen((prev) => !prev);
-  const toggleRightSidebar = () => setIsRightSidebarCollapsed((prev) => !prev); 
-  const toggleLeftSidebar = () => setIsLeftSidebarCollapsed((prev) => !prev);
+  const toggleLeftSidebar = () => setIsLeftSidebarCollapsed((prev) => !prev); 
+
+  // --- Right Sidebar Logic ---
+  const toggleRightSidebar = () => {
+    if (rightSidebarWidth > 0) {
+      setPreCollapseWidth(rightSidebarWidth); // Save current width
+      setRightSidebarWidth(0); // Collapse
+    } else {
+      setRightSidebarWidth(preCollapseWidth > 50 ? preCollapseWidth : 280); // Restore
+    }
+  };
+  
+  const startResizing = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((mouseMoveEvent) => {
+    if (isResizing && mainContentRef.current) {
+        const newWidth = mainContentRef.current.getBoundingClientRect().right - mouseMoveEvent.clientX;
+        // Clamp width between min and max
+        if (newWidth >= 220 && newWidth <= 600) {
+            setRightSidebarWidth(newWidth);
+        }
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+        window.removeEventListener('mousemove', resize);
+        window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
+  // --- End Right Sidebar Logic ---
 
 
   useEffect(() => {
@@ -305,7 +349,6 @@ function App() {
     { id: 7, title: "Chennai Restaurant Recomme..." },
     { id: 8, title: "Fixing List Index Error" },
     { id: 9, title: "JSON Question Generation" },
-    { id: 10, title: "LLM Model Fine-tuning Guida..." },
   ];
 
 
@@ -336,20 +379,24 @@ function App() {
           </div>
         </div>
         <div className="header-right controls">
-          <button 
-            onClick={toggleRightSidebar} 
-            title={isRightSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"} 
-            className="sidebar-toggle-btn"
-            style={{marginRight: '0.5rem'}} 
-          >
-            {isRightSidebarCollapsed ? <FaChevronLeft /> : <FaChevronRight />}
-          </button>
+          {session && (
+            <button 
+              onClick={toggleRightSidebar} 
+              title={rightSidebarWidth === 0 ? "Show Sidebar" : "Hide Sidebar"} 
+              className="sidebar-toggle-btn"
+              style={{marginRight: '0.5rem'}} 
+            >
+              {rightSidebarWidth === 0 ? <FaChevronLeft /> : <FaChevronRight />}
+            </button>
+          )}
 
           {showAuthSpinner && <FaSpinner className="fa-spin" title="Loading Authentication..." style={{fontSize: '1.5rem'}}/>}
           {!session && !authLoading && <button onClick={signInWithGoogle} title="Login with Google (Supabase)"><FaGoogle /> <span className="button-text">Login</span></button>}
           {session && !isConnected && !isInitializing && agentError && <button onClick={handleConnect} title="Retry Connection" className="control-btn error"><FaSyncAlt/> <span className="button-text">Retry</span></button>}
           {isConnected && session && <button onClick={handleDisconnect} title="Disconnect Agent"><FaUnlink /> <span className="button-text">Disconnect</span></button>}
+          
           <button onClick={toggleTheme} title="Toggle Theme" className="theme-toggle-btn">{theme === "dark" ? <FaSun /> : <FaMoon />}</button>
+          
           {session && (
             <div className="profile-container">
               <button ref={profileIconRef} onClick={toggleProfileMenu} className="profile-btn" title="User Profile" aria-haspopup="true" aria-expanded={isProfileMenuOpen}>
@@ -371,11 +418,12 @@ function App() {
               )}
             </div>
           )}
+
           <button onClick={openSettings} disabled={isInitializing || isConnected || authLoading} title="Settings"><FaCog /></button>
         </div>
       </div>
 
-      <main className="main-content">
+      <main className={`main-content ${isResizing ? 'resizing' : ''}`} ref={mainContentRef}>
         <div className={`conversation-history-sidebar ${isLeftSidebarCollapsed ? "collapsed" : ""}`}>
             <div className="conv-history-header">
             </div>
@@ -387,7 +435,7 @@ function App() {
                     </div>
                 ))}
                 <p className="conv-history-group-title">Previous 30 Days</p>
-                 {conversationHistoryItems.slice(5).map(item => (
+                 {conversationHistoryItems.slice(5, 9).map(item => (
                     <div key={item.id} className="conv-history-item" title={item.title}>
                         {item.title}
                     </div>
@@ -435,8 +483,7 @@ function App() {
                   ))}
               </div>
               {canInteract && agent?.initialized && <AudioVisualizerComponent agent={agent} />}
-              {/* --- MOVED CONTROLS --- */}
-              {session && ( // Only show controls if user is logged in
+              {session && (
                   <div className="footer-controls-stacked">
                       <div className="floating-media-controls">
                           <button onClick={handleToggleMic} className={`control-btn mic-btn ${displayMicActive ? "active" : ""} ${isMicSuspended && isMicActive ? "suspended" : ""}`}
@@ -475,28 +522,42 @@ function App() {
                   </div>
               )}
             </div>
-
-            <div className={`sidebar ${isRightSidebarCollapsed ? "collapsed" : ""}`}>
-              <Collapsible title="Media Previews" startOpen={true}>
-                  <div id="cameraPreview" style={{ position: "relative" }}>
-                  {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) && session && agent?.cameraManager?.stream && (
-                      <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera"><FaSyncAlt /></button>
-                  )}
-                  </div>
-                  <div id="screenPreview"></div>
-              </Collapsible>
-              {session && 
-                  <Collapsible title="Background Tasks" startOpen={true}>
-                  <BackgroundTaskManager />
-                  </Collapsible>
-              }
+            
+            <div
+                className="sidebar-resizer"
+                onMouseDown={startResizing}
+                title="Resize Sidebar"
+            />
+            <div 
+                className={`sidebar ${!isResizing ? 'toggle-transition' : ''}`}
+                style={{
+                    width: `${rightSidebarWidth}px`,
+                    padding: rightSidebarWidth > 10 ? '1rem' : '0',
+                    borderLeft: rightSidebarWidth > 10 ? '1px solid var(--border-color)' : 'none',
+                }}
+            >
+              {rightSidebarWidth > 50 && (
+                <div className="sidebar-content-wrapper">
+                    <Collapsible title="Media Previews" startOpen={true}>
+                        <div id="cameraPreview" style={{ position: "relative" }}>
+                        {isCameraActive && /Mobi|Android/i.test(navigator.userAgent) && session && agent?.cameraManager?.stream && (
+                            <button onClick={handleSwitchCamera} className="switch-camera-btn" title="Switch Camera"><FaSyncAlt /></button>
+                        )}
+                        </div>
+                        <div id="screenPreview"></div>
+                    </Collapsible>
+                    {session && 
+                        <Collapsible title="Background Tasks" startOpen={true}>
+                        <BackgroundTaskManager />
+                        </Collapsible>
+                    }
+                </div>
+              )}
             </div>
         </div>
       </main>
 
       <footer className="app-footer">
-        {/* Content for the footer is now minimal or can be added here e.g. copyright */}
-        {/* <p>© {new Date().getFullYear()} Project Theta. All rights reserved.</p> */}
       </footer>
 
       {isSettingsOpen && (
