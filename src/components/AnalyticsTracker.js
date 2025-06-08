@@ -13,7 +13,6 @@ const AnalyticsTracker = () => {
       // Check if already initialized (e.g., due to strict mode double invoke in dev)
       if (!ReactGA4.isInitialized) {
         ReactGA4.initialize(GA_MEASUREMENT_ID);
-        console.log("Google Analytics initialized with ID:", GA_MEASUREMENT_ID);
       }
     } else {
       console.warn(

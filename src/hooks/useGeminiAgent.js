@@ -68,7 +68,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     }
 
     const connectSSE = () => {
-      const url = `${settings.backendBaseUrl.replace(/\/$/, "")}/sse`; // /events endpoint
+      const url = `${settings.backendBaseUrl.replace(/\/$/, "")}/api/agent/events `; // /events endpoint
 
       console.log(
         `[SSE] Connecting to ${url} (attempt ${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`,
