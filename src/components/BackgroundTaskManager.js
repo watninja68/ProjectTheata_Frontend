@@ -1,53 +1,50 @@
-// FILE: watninja68-projecttheata_frontend/src/components/BackgroundTaskManager.js
 import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
-import { FaGoogle, FaExclamationTriangle, FaInfoCircle, FaRobot, FaCog, FaTerminal } from 'react-icons/fa'; // Added new icons
+import { FaGoogle, FaExclamationTriangle, FaInfoCircle, FaRobot, FaCog, FaTerminal } from 'react-icons/fa';
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
-    // Store results as an array of processed events or a structured object
     const [processedResults, setProcessedResults] = useState([]);
-    const [rawResponse, setRawResponse] = useState(null); // For debugging or raw view
+    const [rawResponse, setRawResponse] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [taskError, setTaskError] = useState(null);
     const { user } = useAuth();
     const { settings } = useSettings();
-    const [gmailConnectionInfo, setGmailConnectionInfo] = useState("Verifying Google connection...");
+    const [gmailConnectionStatus, setGmailConnectionStatus] = useState({ loading: true, message: "Verifying Google connection..." });
+
+    const checkBackendGoogleTokenStatus = async () => {
+        if (!user || !user.id) {
+            setGmailConnectionStatus({ loading: false, message: "Log in to connect your Google account for background tasks." });
+            return;
+        }
+        if (!settings.backendBaseUrl) {
+            console.error("BackgroundTaskManager: backendBaseUrl is not set in settings.");
+            setGmailConnectionStatus({ loading: false, message: "Backend URL not configured. Cannot check Google connection status." });
+            return;
+        }
+        setGmailConnectionStatus({ loading: true, message: "Verifying Google connection..." });
+        try {
+            const statusUrl = `${settings.backendBaseUrl}/api/auth/google/status?supabase_user_id=${user.id}`;
+            const response = await fetch(statusUrl);
+            const data = await response.json();
+            if (response.ok) {
+                if (data.connected) {
+                    setGmailConnectionStatus({ loading: false, message: "Account is authenticated.", connected: true });
+                } else {
+                    setGmailConnectionStatus({ loading: false, message: `Account not connected. Reason: ${data.reason || 'Unknown'}.`, connected: false });
+                }
+            } else {
+                setGmailConnectionStatus({ loading: false, message: `Could not verify connection (Status: ${response.status}).`, connected: false });
+            }
+        } catch (e) {
+            console.error("Error checking backend Google token status:", e);
+            setGmailConnectionStatus({ loading: false, message: "Error checking connection. Ensure backend is running.", connected: false });
+        }
+    };
 
     useEffect(() => {
-        const checkBackendGoogleTokenStatus = async () => {
-            if (!user || !user.id) {
-                setGmailConnectionInfo("Log in to connect your Google account for background tasks.");
-                return;
-            }
-            if (!settings.backendBaseUrl) {
-                console.error("BackgroundTaskManager: backendBaseUrl is not set in settings.");
-                setGmailConnectionInfo("Backend URL not configured. Cannot check Google connection status.");
-                return;
-            }
-
-            try {
-                const statusUrl = `${settings.backendBaseUrl}/api/auth/google/status?supabase_user_id=${user.id}`;
-                const response = await fetch(statusUrl);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.connected) {
-                        setGmailConnectionInfo("Account is authenticated.");
-                    } else {
-                        setGmailConnectionInfo(`Account is not connected. Reason: ${data.reason || 'Unknown'}. Use 'Connect/Refresh Google Account' to enable Gmail/Drive tools.`);
-                    }
-                } else {
-                    const errorText = await response.text();
-                    console.error("Failed to fetch Google auth status:", response.status, errorText);
-                    setGmailConnectionInfo(`Could not verify Google account connection (Status: ${response.status}). Try connecting again.`);
-                }
-            } catch (e) {
-                console.error("Error checking backend Google token status:", e);
-                setGmailConnectionInfo("Error checking Google connection. Ensure backend is running.");
-            }
-        };
         checkBackendGoogleTokenStatus();
     }, [user, settings.backendBaseUrl]);
 
@@ -70,7 +67,7 @@ const BackgroundTaskManager = () => {
                         } else if (part.functionResponse) {
                             processed.push({
                                 type: 'functionResponse',
-                                author: event.author || 'Tool', // Or determine based on context
+                                author: event.author || 'Tool',
                                 name: part.functionResponse.name,
                                 response: part.functionResponse.response,
                                 id: part.functionResponse.id,
@@ -79,19 +76,17 @@ const BackgroundTaskManager = () => {
                     });
                 }
             });
-        } else if (responseData && responseData.text) { // Simple text response
+        } else if (responseData && responseData.text) {
              processed.push({ type: 'text', author: 'Agent', content: responseData.text.trim() });
-        } else if (typeof responseData === 'string') { // Raw string response
+        } else if (typeof responseData === 'string') {
             processed.push({ type: 'text', author: 'Agent', content: responseData });
         }
         
-        // If nothing was processed but we have a response, show raw
         if (processed.length === 0 && responseData) {
             processed.push({ type: 'raw', content: JSON.stringify(responseData, null, 2) });
         }
         return processed;
     };
-
 
     const handleExecuteTask = async () => {
         if (!taskQuery.trim()) {
@@ -100,7 +95,7 @@ const BackgroundTaskManager = () => {
         }
         setIsLoading(true);
         setTaskError(null);
-        setProcessedResults([]); // Clear previous results
+        setProcessedResults([]);
         setRawResponse(null);
 
         if (!settings.backendBaseUrl) {
@@ -111,7 +106,7 @@ const BackgroundTaskManager = () => {
 
         const goBackendPayload = {
             user_id: user ? user.id : "",
-            text: taskQuery, // This is the natural language instruction
+            text: taskQuery,
         };
 
         try {
@@ -123,20 +118,19 @@ const BackgroundTaskManager = () => {
             });
 
             const responseText = await response.text();
-            setRawResponse(responseText); // Store raw response for debugging
+            setRawResponse(responseText);
 
             if (!response.ok) {
-                let errorDetail = `Task execution via Go backend failed (Status: ${response.status}).`;
+                let errorDetail = `Task execution failed (Status: ${response.status}).`;
                 try {
                     const errorJson = JSON.parse(responseText);
                     errorDetail = errorJson.error?.message || errorJson.error || errorJson.detail || errorDetail;
                 } catch (e) { /* Ignore if not JSON */ }
-                errorDetail += ` Response: ${responseText.substring(0, 300)}`;
                 throw new Error(errorDetail);
             }
 
             const data = JSON.parse(responseText);
-            
+
             let adkDataToProcess = data; 
 
             if (data.adk_response) { 
@@ -148,7 +142,6 @@ const BackgroundTaskManager = () => {
             } else if (data.text) { 
                  adkDataToProcess = [{ content: { parts: [{ text: data.text }] } }];
             }
-
 
             setProcessedResults(processAdkResponse(adkDataToProcess));
 
@@ -176,25 +169,26 @@ const BackgroundTaskManager = () => {
         <div className="background-task-manager">
             <h4>Background Agent</h4>
             <div className="gmail-auth-section">
-                <h5>Authenticate account for Background Agents to use Google tools</h5>
-                {gmailConnectionInfo && (
-                    <p className={`auth-status ${gmailConnectionInfo.includes("Error") || gmailConnectionInfo.includes("not connected") || gmailConnectionInfo.includes("Could not verify") || gmailConnectionInfo.includes("not configured") ? 'error' : 'info'}`}>
-                        {gmailConnectionInfo.includes("Error") || gmailConnectionInfo.includes("not connected") || gmailConnectionInfo.includes("Could not verify") || gmailConnectionInfo.includes("not configured") ? <FaExclamationTriangle /> : <FaInfoCircle />}
-                        {gmailConnectionInfo}
+                <h5>Authenticate with Google</h5>
+                {gmailConnectionStatus.loading ? (
+                    <p className="auth-status info"><FaInfoCircle /> Verifying status...</p>
+                ) : (
+                    <p className={`auth-status ${gmailConnectionStatus.connected ? 'success' : 'error'}`}>
+                        {gmailConnectionStatus.connected ? <FaInfoCircle /> : <FaExclamationTriangle />}
+                        {gmailConnectionStatus.message}
                     </p>
                 )}
                 <button
                     onClick={handleInitiateGoogleAuthViaGo}
                     className="gmail-auth-button"
-                    disabled={!user || !settings.backendBaseUrl}
+                    disabled={!user || !settings.backendBaseUrl || gmailConnectionStatus.loading}
                     title={!user ? "Log in first" : !settings.backendBaseUrl ? "Backend URL not set" : "Connect or Refresh Google Account"}
                 >
                     <FaGoogle style={{ marginRight: '8px' }} />
-                    Connect/Refresh Google Account
+                    {gmailConnectionStatus.connected ? "Refresh Google Connection" : "Connect Google Account"}
                 </button>
                  <p><small>
-                    For tasks involving Gmail or Google Drive, your Google account needs to be connected via the application.
-                    This allows the background agent to use your permissions securely.
+                    For tasks involving Gmail or Google Drive, your Google account needs to be connected.
                  </small></p>
             </div>
 
@@ -220,7 +214,6 @@ const BackgroundTaskManager = () => {
 
             {taskError && <div className="task-error">Error: {taskError}</div>}
 
-            {/* This 'task-results' div will now be scrollable if content overflows */}
             {processedResults.length > 0 && (
                 <div className="task-results">
                     <h5>Agent Task Response:</h5>

@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 import {
@@ -324,15 +323,16 @@ function App() {
     if (isConnected) handleDisconnect();
   }, [signOut, isConnected, handleDisconnect]);
 
-  const handleConnectGoogleAccount = () => { 
+  const handleConnectGoogleAccount = () => {
     if (user && user.id && settings.backendBaseUrl) {
+      // Redirect to the Go backend's login endpoint
       const googleLoginUrl = `${settings.backendBaseUrl}/api/auth/google/login?supabase_user_id=${user.id}`;
       window.location.href = googleLoginUrl;
     } else if (user && user.id && !settings.backendBaseUrl) {
         alert("Backend URL is not configured. Cannot connect Google Account.");
         console.error("Backend URL missing in settings for Google Auth.");
     } else {
-      alert("Please log in to your Supabase account first to connect Google.");
+      alert("Please log in to your main account first to connect Google.");
     }
   };
 
