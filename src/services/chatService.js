@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:8080";
 
 class ChatService {
   /**
@@ -8,15 +9,17 @@ class ChatService {
    * @returns {Promise<Object>} Chat list response
    */
   async getChats(userId, options = {}) {
+    console.log(userId);
     const params = new URLSearchParams({
       user_id: userId.toString(),
-      ...options
+      ...options,
     });
 
     const response = await fetch(`${API_BASE_URL}/api/chats?${params}`);
+    console.log(response);
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch chats');
+      throw new Error(error.error || "Failed to fetch chats");
     }
     return response.json();
   }
@@ -28,16 +31,16 @@ class ChatService {
    */
   async createChat(chatData) {
     const response = await fetch(`${API_BASE_URL}/api/chats/create`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(chatData),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to create chat');
+      throw new Error(error.error || "Failed to create chat");
     }
     return response.json();
   }
@@ -49,17 +52,20 @@ class ChatService {
    * @returns {Promise<Object>} Updated chat response
    */
   async updateChat(chatId, updateData) {
-    const response = await fetch(`${API_BASE_URL}/api/chats/update?chat_id=${chatId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${API_BASE_URL}/api/chats/update?chat_id=${chatId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
       },
-      body: JSON.stringify(updateData),
-    });
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to update chat');
+      throw new Error(error.error || "Failed to update chat");
     }
     return response.json();
   }
@@ -71,13 +77,16 @@ class ChatService {
    * @returns {Promise<Object>} Delete response
    */
   async deleteChat(chatId, userId) {
-    const response = await fetch(`${API_BASE_URL}/api/chats/delete?chat_id=${chatId}&user_id=${userId}`, {
-      method: 'DELETE',
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/chats/delete?chat_id=${chatId}&user_id=${userId}`,
+      {
+        method: "DELETE",
+      },
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to delete chat');
+      throw new Error(error.error || "Failed to delete chat");
     }
     return response.json();
   }
@@ -93,13 +102,13 @@ class ChatService {
     const params = new URLSearchParams({
       chat_id: chatId.toString(),
       user_id: userId.toString(),
-      ...options
+      ...options,
     });
 
     const response = await fetch(`${API_BASE_URL}/api/chat/history?${params}`);
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch chat history');
+      throw new Error(error.error || "Failed to fetch chat history");
     }
     return response.json();
   }
@@ -111,17 +120,20 @@ class ChatService {
    * @returns {Promise<Object>} Add participant response
    */
   async addParticipant(chatId, participantData) {
-    const response = await fetch(`${API_BASE_URL}/api/chats/${chatId}/participants`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${API_BASE_URL}/api/chats/${chatId}/participants`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(participantData),
       },
-      body: JSON.stringify(participantData),
-    });
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to add participant');
+      throw new Error(error.error || "Failed to add participant");
     }
     return response.json();
   }
@@ -137,13 +149,13 @@ class ChatService {
     const response = await fetch(
       `${API_BASE_URL}/api/chats/${chatId}/participants/${participantId}?requesting_user_id=${requestingUserId}`,
       {
-        method: 'DELETE',
-      }
+        method: "DELETE",
+      },
     );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to remove participant');
+      throw new Error(error.error || "Failed to remove participant");
     }
     return response.json();
   }

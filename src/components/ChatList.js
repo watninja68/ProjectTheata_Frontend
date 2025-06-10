@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { FaPlus, FaUsers, FaCrown, FaTrash, FaEdit, FaSpinner } from 'react-icons/fa';
-import ChatService from '../services/chatService';
-import { useAuth } from '../hooks/useAuth';
-import './ChatList.css';
+import React, { useState, useEffect } from "react";
+import {
+  FaPlus,
+  FaUsers,
+  FaCrown,
+  FaTrash,
+  FaEdit,
+  FaSpinner,
+} from "react-icons/fa";
+import ChatService from "../services/chatService";
+import { useAuth } from "../hooks/useAuth";
+import "./ChatList.css";
 
 const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
   const { user } = useAuth();
@@ -10,7 +17,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingChat, setEditingChat] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
+  const [editTitle, setEditTitle] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -24,11 +31,12 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
       setError(null);
       const response = await ChatService.getChats(user.id, {
         include_preview: true,
-        limit: 50
+        limit: 50,
       });
+      console.log(response);
       setChats(response.chats || []);
     } catch (err) {
-      console.error('Failed to load chats:', err);
+      console.error("Failed to load chats:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -37,7 +45,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
 
   const handleDeleteChat = async (chatId, event) => {
     event.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this chat?')) {
+    if (!window.confirm("Are you sure you want to delete this chat?")) {
       return;
     }
 
@@ -48,7 +56,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
         onChatSelect(null); // Clear selection if deleted chat was selected
       }
     } catch (err) {
-      console.error('Failed to delete chat:', err);
+      console.error("Failed to delete chat:", err);
       alert(`Failed to delete chat: ${err.message}`);
     }
   };
@@ -63,12 +71,12 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
     try {
       await ChatService.updateChat(chatId, {
         title: editTitle,
-        user_id: user.id
+        user_id: user.id,
       });
       await loadChats(); // Refresh the list
       setEditingChat(null);
     } catch (err) {
-      console.error('Failed to update chat:', err);
+      console.error("Failed to update chat:", err);
       alert(`Failed to update chat: ${err.message}`);
     }
   };
@@ -81,21 +89,25 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
 
   const cancelEditing = () => {
     setEditingChat(null);
-    setEditTitle('');
+    setEditTitle("");
   };
 
   const formatLastMessageTime = (timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp) return "";
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = (now - date) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 168) { // 7 days
-      return date.toLocaleDateString([], { weekday: 'short' });
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else if (diffInHours < 168) {
+      // 7 days
+      return date.toLocaleDateString([], { weekday: "short" });
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString([], { month: "short", day: "numeric" });
     }
   };
 
@@ -143,7 +155,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
           <FaPlus />
         </button>
       </div>
-      
+
       <div className="chat-list">
         {chats.length === 0 ? (
           <div className="empty-chat-list">
@@ -156,7 +168,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
           chats.map((chat) => (
             <div
               key={chat.id}
-              className={`chat-item ${selectedChatId === chat.id ? 'selected' : ''}`}
+              className={`chat-item ${selectedChatId === chat.id ? "selected" : ""}`}
               onClick={() => onChatSelect(chat)}
             >
               <div className="chat-item-main">
@@ -166,11 +178,15 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      onBlur={() => handleEditChat(chat.id, { stopPropagation: () => {} })}
+                      onBlur={() =>
+                        handleEditChat(chat.id, { stopPropagation: () => {} })
+                      }
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleEditChat(chat.id, { stopPropagation: () => {} });
-                        } else if (e.key === 'Escape') {
+                        if (e.key === "Enter") {
+                          handleEditChat(chat.id, {
+                            stopPropagation: () => {},
+                          });
+                        } else if (e.key === "Escape") {
                           cancelEditing();
                         }
                       }}
@@ -181,10 +197,13 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
                   ) : (
                     <h4 className="chat-title">{chat.title}</h4>
                   )}
-                  
+
                   <div className="chat-item-actions">
-                    {chat.user_role === 'owner' && (
-                      <FaCrown className="owner-icon" title="You own this chat" />
+                    {chat.user_role === "owner" && (
+                      <FaCrown
+                        className="owner-icon"
+                        title="You own this chat"
+                      />
                     )}
                     <button
                       className="chat-action-btn edit-btn"
@@ -193,7 +212,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
                     >
                       <FaEdit />
                     </button>
-                    {chat.user_role === 'owner' && (
+                    {chat.user_role === "owner" && (
                       <button
                         className="chat-action-btn delete-btn"
                         onClick={(e) => handleDeleteChat(chat.id, e)}
