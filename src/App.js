@@ -72,416 +72,348 @@ const App = () => {
   } = useChatHistory(currentChatId);
 
   // UI State
-  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
-  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(300);
-  const [isResizing, setIsResizing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  // Audio/Video State
-  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
-  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-
-  // Input State
-  const [inputValue, setInputValue] = useState("");
-  const messageInputRef = useRef(null);
-
-  // Refs for resizer
-  const resizerRef = useRef(null);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(300);
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // Gemini Agent Integration
-  // ────────────────────────────────────────────────────────────────────────────
-
+  // Gemini Agent
   const {
-    agent,
     isConnected,
-    isInitializing,
-    isMicActive,
-    isMicSuspended,
-    isCameraActive,
-    isScreenShareActive,
-    error: agentError,
-    connectAgent,
-    disconnectAgent,
-    sendMessage: sendAgentMessage,
-    toggleMicrophone,
-    toggleCamera,
-    startScreenShare,
-    stopScreenShare,
-  } = useGeminiAgent({
-    settings,
-    onTranscription: (text) => {
-      if (currentChatId && text.trim()) {
-        addMessage({
-          type: "assistant",
-          content: text,
-          timestamp: new Date().toISOString(),
-          chatId: currentChatId,
-        });
-      }
-    },
-    onUserTranscription: (text) => {
-      if (currentChatId && text.trim()) {
-        addMessage({
-          type: "user",
-          content: text,
-          timestamp: new Date().toISOString(),
-          chatId: currentChatId,
-          source: "voice",
-        });
-      }
-    },
-    onTextSent: (text) => {
-      if (currentChatId && text.trim()) {
-        addMessage({
-          type: "user",
-          content: text,
-          timestamp: new Date().toISOString(),
-          chatId: currentChatId,
-          source: "text",
-        });
-      }
-    },
-    onError: (error) => {
-      console.error("Gemini Agent Error:", error);
-    },
-    onMicStateChanged: (state) => {
-      console.log("Mic state changed:", state);
-    },
-  });
+    isConnecting,
+    connectionError,
+    isVoiceActive,
+    isVideoActive,
+    isScreenSharing,
+    connect,
+    disconnect,
+    toggleVoice,
+    toggleVideo,
+    toggleScreenShare,
+    sendMessage: sendGeminiMessage,
+  } = useGeminiAgent();
+
+  // Refs
+  const messageInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const profileDropdownRef = useRef(null);
+  const resizerRef = useRef(null);
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Theme Management
+  // Effects
   // ────────────────────────────────────────────────────────────────────────────
 
+  // Theme Effect
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    document.body.className = `theme-${theme}`;
   }, [theme]);
 
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    updateSettings({ theme: newTheme });
-  }, [theme, updateSettings]);
+  // Load chats on mount
+  useEffect(() => {
+    loadChats();
+  }, [user]);
+
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Handle click outside profile dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        profileDropdownRef.current &&
+        !profileDropdownRef.current.contains(event.target)
+      ) {
+        setShowProfileDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Chat Management Functions
+  // Handlers
   // ────────────────────────────────────────────────────────────────────────────
 
-  // Load user's chats
-  const loadChats = useCallback(async () => {
+  const loadChats = async () => {
     if (!user) return;
 
     setChatLoading(true);
     setChatError(null);
 
     try {
-      const userChats = await ChatService.getUserChats(user.id);
-      setChats(userChats || []);
+      const userChats = await ChatService.getUserChats(user.uid);
+      setChats(userChats);
 
-      // If no current chat selected and we have chats, select the first one
-      if (!currentChatId && userChats?.length > 0) {
+      if (userChats.length > 0 && !currentChatId) {
         setCurrentChatId(userChats[0].id);
       }
     } catch (error) {
-      console.error("Failed to load chats:", error);
+      console.error("Error loading chats:", error);
       setChatError("Failed to load chats");
     } finally {
       setChatLoading(false);
     }
-  }, [user, currentChatId]);
+  };
 
-  // Load chats when user changes
-  useEffect(() => {
-    loadChats();
-  }, [loadChats]);
+  const handleCreateChat = async (chatData) => {
+    if (!user) return;
 
-  // Create new chat
-  const handleCreateChat = useCallback(
-    async (chatData) => {
-      try {
-        const newChat = await ChatService.createChat({
-          ...chatData,
-          user_id: user.id,
-        });
+    try {
+      const newChat = await ChatService.createChat({
+        ...chatData,
+        userId: user.uid,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-        setChats((prevChats) => [newChat, ...prevChats]);
-        setCurrentChatId(newChat.id);
-        setShowCreateChatModal(false);
+      setChats((prev) => [newChat, ...prev]);
+      setCurrentChatId(newChat.id);
+      setShowCreateChatModal(false);
+    } catch (error) {
+      console.error("Error creating chat:", error);
+      setChatError("Failed to create chat");
+    }
+  };
 
-        // If there's an initial message, send it
-        if (chatData.initial_message?.trim()) {
-          setTimeout(() => {
-            handleSendMessage(chatData.initial_message.trim());
-          }, 100);
-        }
-      } catch (error) {
-        console.error("Failed to create chat:", error);
-        setChatError("Failed to create chat");
+  const handleDeleteChat = async (chatId) => {
+    try {
+      await ChatService.deleteChat(chatId);
+      setChats((prev) => prev.filter((chat) => chat.id !== chatId));
+
+      if (currentChatId === chatId) {
+        const remainingChats = chats.filter((chat) => chat.id !== chatId);
+        setCurrentChatId(
+          remainingChats.length > 0 ? remainingChats[0].id : null,
+        );
       }
-    },
-    [user],
-  );
-
-  // Select chat
-  const handleChatSelect = useCallback(
-    (chatId) => {
-      if (chatId !== currentChatId) {
-        setCurrentChatId(chatId);
-        clearMessages(); // Clear current messages before loading new chat
-      }
-    },
-    [currentChatId, clearMessages],
-  );
-
-  // Delete chat
-  const handleDeleteChat = useCallback(
-    async (chatId) => {
-      if (!window.confirm("Are you sure you want to delete this chat?")) {
-        return;
-      }
-
-      try {
-        await ChatService.deleteChat(chatId);
-        setChats((prevChats) => prevChats.filter((chat) => chat.id !== chatId));
-
-        // If we deleted the current chat, select another one or clear
-        if (chatId === currentChatId) {
-          const remainingChats = chats.filter((chat) => chat.id !== chatId);
-          if (remainingChats.length > 0) {
-            setCurrentChatId(remainingChats[0].id);
-          } else {
-            setCurrentChatId(null);
-            clearMessages();
-          }
-        }
-      } catch (error) {
-        console.error("Failed to delete chat:", error);
-        setChatError("Failed to delete chat");
-      }
-    },
-    [currentChatId, chats, clearMessages],
-  );
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // Message Handling
-  // ────────────────────────────────────────────────────────────────────────────
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+      setChatError("Failed to delete chat");
+    }
+  };
 
   const handleSendMessage = useCallback(
-    async (messageText = null) => {
-      const text = messageText || inputValue.trim();
-      if (!text || !currentChatId) return;
+    async (e) => {
+      e?.preventDefault();
 
-      // Clear input if using input value
-      if (!messageText) {
-        setInputValue("");
-      }
+      if (!message.trim() || !currentChatId) return;
 
-      // Add user message to chat history
+      const messageToSend = message.trim();
+      setMessage("");
+
+      // Add user message to chat
       const userMessage = {
-        type: "user",
-        content: text,
-        timestamp: new Date().toISOString(),
-        chatId: currentChatId,
-        source: "text",
+        id: Date.now().toString(),
+        role: "user",
+        content: messageToSend,
+        timestamp: new Date(),
       };
 
       addMessage(userMessage);
 
-      // Send to Gemini agent if connected
-      if (isConnected && agent) {
-        try {
-          await sendAgentMessage(text);
-        } catch (error) {
-          console.error("Failed to send message to agent:", error);
-          // Add error message to chat
-          addMessage({
-            type: "system",
-            content:
-              "Failed to send message to AI agent. Please check your connection.",
-            timestamp: new Date().toISOString(),
-            chatId: currentChatId,
-          });
+      try {
+        // Send to Gemini if connected
+        if (isConnected) {
+          await sendGeminiMessage(messageToSend);
         }
-      } else {
-        // If agent not connected, add a system message
-        addMessage({
-          type: "system",
+
+        // Save to database
+        await ChatService.addMessage(currentChatId, userMessage);
+      } catch (error) {
+        console.error("Error sending message:", error);
+        // Add error message to chat
+        const errorMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
           content:
-            "AI agent is not connected. Please connect the agent to get responses.",
-          timestamp: new Date().toISOString(),
-          chatId: currentChatId,
-        });
+            "Sorry, I encountered an error while processing your message.",
+          timestamp: new Date(),
+          isError: true,
+        };
+        addMessage(errorMessage);
+      }
+
+      // Focus back on input
+      if (messageInputRef.current) {
+        messageInputRef.current.focus();
       }
     },
-    [
-      inputValue,
-      currentChatId,
-      isConnected,
-      agent,
-      sendAgentMessage,
-      addMessage,
-    ],
+    [message, currentChatId, isConnected, sendGeminiMessage, addMessage],
   );
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // Input Handlers
-  // ────────────────────────────────────────────────────────────────────────────
+  const handleThemeToggle = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    updateSettings({ theme: newTheme });
+  };
 
-  const handleInputKeyPress = useCallback(
-    (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
-    },
-    [handleSendMessage],
-  );
-
-  const handleSendButtonClick = useCallback(
-    (e) => {
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
-    },
-    [handleSendMessage],
-  );
+    }
+  };
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // Sidebar Resizing
-  // ────────────────────────────────────────────────────────────────────────────
+  const toggleLeftSidebar = () => {
+    setIsLeftSidebarOpen(!isLeftSidebarOpen);
+  };
 
-  const handleMouseDown = useCallback(
-    (e) => {
-      setIsResizing(true);
-      startXRef.current = e.clientX;
-      startWidthRef.current = sidebarWidth;
+  const toggleRightSidebar = () => {
+    setIsRightSidebarOpen(!isRightSidebarOpen);
+  };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      e.preventDefault();
-    },
-    [sidebarWidth],
-  );
+  // Sidebar resizing logic
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, []);
 
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!isResizing) return;
-
-      const deltaX = startXRef.current - e.clientX;
-      const newWidth = Math.min(
-        Math.max(startWidthRef.current + deltaX, 250),
-        600,
-      );
-      setSidebarWidth(newWidth);
-    },
-    [isResizing],
-  );
+  const handleMouseMove = useCallback((e) => {
+    const containerRect = document
+      .querySelector(".app-container")
+      .getBoundingClientRect();
+    const newWidth = containerRect.right - e.clientX;
+    setRightSidebarWidth(Math.max(200, Math.min(600, newWidth)));
+  }, []);
 
   const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
   }, [handleMouseMove]);
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Permission Handlers
+  // Render Helpers
   // ────────────────────────────────────────────────────────────────────────────
 
-  const requestMicrophonePermission = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicPermissionGranted(true);
-      stream.getTracks().forEach((track) => track.stop());
-    } catch (error) {
-      console.error("Microphone permission denied:", error);
-      setMicPermissionGranted(false);
+  const renderConnectionStatus = () => {
+    if (isConnecting) {
+      return (
+        <div className="connection-status connecting">
+          <FaSpinner className="spinning" />
+          <span>Connecting...</span>
+        </div>
+      );
     }
-  }, []);
 
-  const requestCameraPermission = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setCameraPermissionGranted(true);
-      stream.getTracks().forEach((track) => track.stop());
-    } catch (error) {
-      console.error("Camera permission denied:", error);
-      setCameraPermissionGranted(false);
+    if (isConnected) {
+      return (
+        <div className="connection-status connected">
+          <FaCheckCircle />
+          <span>Connected</span>
+        </div>
+      );
     }
-  }, []);
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // Computed Values
-  // ────────────────────────────────────────────────────────────────────────────
+    if (connectionError) {
+      return (
+        <div className="connection-status error">
+          <FaTimesCircle />
+          <span>Connection Error</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="connection-status disconnected">
+        <FaTimesCircle />
+        <span>Disconnected</span>
+      </div>
+    );
+  };
+
+  const renderMessage = (msg, index) => (
+    <div
+      key={msg.id || index}
+      className={`message ${msg.role} ${msg.isError ? "error" : ""}`}
+    >
+      <div className="message-content">{msg.content}</div>
+      <div className="message-timestamp">
+        {new Date(msg.timestamp).toLocaleTimeString()}
+      </div>
+    </div>
+  );
+
+  const renderProfileDropdown = () => (
+    <div
+      className={`profile-dropdown ${showProfileDropdown ? "visible" : ""}`}
+      ref={profileDropdownRef}
+    >
+      <div className="profile-info">
+        <img
+          src={user?.photoURL || "/default-avatar.png"}
+          alt="Profile"
+          className="profile-avatar-small"
+        />
+        <div className="profile-text">
+          <div className="profile-name">{user?.displayName}</div>
+          <div className="profile-email">{user?.email}</div>
+        </div>
+      </div>
+      <div className="profile-divider"></div>
+      <button className="profile-action-btn logout-btn" onClick={signOut}>
+        <FaSignOutAlt />
+        Sign Out
+      </button>
+    </div>
+  );
 
   const currentChat = chats.find((chat) => chat.id === currentChatId);
-  const canInteract = user && !authLoading;
-  const displayMicActive = isMicActive && !isMicSuspended;
-  const hasError = agentError || chatError || messagesError;
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Render
+  // Render Main Component
   // ────────────────────────────────────────────────────────────────────────────
 
   if (authLoading) {
     return (
-      <div className="app loading">
-        <div className="loading-spinner">
-          <FaSpinner className="fa-spin" />
-          <p>Loading...</p>
-        </div>
+      <div className="loading-container">
+        <FaSpinner className="spinning" />
+        <span>Loading...</span>
       </div>
     );
   }
 
   return (
-    <div className="app">
+    <div className="app-container">
       {/* Header */}
       <header className="app-header">
         <div className="header-left">
           <button
-            className="left-sidebar-toggle-btn"
-            onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-            title="Toggle Chat List"
+            className="sidebar-toggle-btn"
+            onClick={toggleLeftSidebar}
+            title="Toggle Chat History"
           >
             <FaBars />
           </button>
-
-          {user && (
-            <button
-              className="control-btn"
-              onClick={() => setShowCreateChatModal(true)}
-              title="New Chat"
-              disabled={!canInteract}
-            >
-              <FaPlus />
-            </button>
-          )}
+          <h1>Project Theata</h1>
         </div>
 
         <div className="header-center">
-          <h1>
-            <FaStroopwafel className="app-icon" />
-            Gemini Live Agent
-          </h1>
           {currentChat && (
-            <div className="current-chat-title">{currentChat.title}</div>
+            <div className="current-chat-info">
+              <span className="chat-title">{currentChat.title}</span>
+              {renderConnectionStatus()}
+            </div>
           )}
         </div>
 
         <div className="header-right">
           <div className="controls">
-            {/* Agent Connection */}
+            {/* Connection Controls */}
             <button
               className={`control-btn ${isConnected ? "connected" : ""}`}
-              onClick={isConnected ? disconnectAgent : connectAgent}
-              disabled={isInitializing || !canInteract}
-              title={isConnected ? "Disconnect Agent" : "Connect Agent"}
+              onClick={isConnected ? disconnect : connect}
+              title={isConnected ? "Disconnect" : "Connect to Gemini"}
+              disabled={isConnecting}
             >
-              {isInitializing ? (
-                <FaSpinner className="fa-spin" />
+              {isConnecting ? (
+                <FaSpinner className="spinning" />
               ) : isConnected ? (
                 <FaUnlink />
               ) : (
@@ -489,38 +421,41 @@ const App = () => {
               )}
             </button>
 
-            {/* Microphone */}
+            {/* Media Controls */}
             <button
-              className={`control-btn ${displayMicActive ? "active" : ""}`}
-              onClick={toggleMicrophone}
-              disabled={!isConnected || !canInteract}
-              title={
-                displayMicActive ? "Turn off microphone" : "Turn on microphone"
-              }
+              className={`control-btn ${isVoiceActive ? "active" : ""}`}
+              onClick={toggleVoice}
+              title="Toggle Voice"
+              disabled={!isConnected}
             >
-              {displayMicActive ? <FaMicrophone /> : <FaMicrophoneSlash />}
+              {isVoiceActive ? <FaMicrophone /> : <FaMicrophoneSlash />}
             </button>
 
-            {/* Camera */}
             <button
-              className={`control-btn ${isCameraActive ? "active" : ""}`}
-              onClick={toggleCamera}
-              disabled={!isConnected || !canInteract}
-              title={isCameraActive ? "Turn off camera" : "Turn on camera"}
+              className={`control-btn ${isVideoActive ? "active" : ""}`}
+              onClick={toggleVideo}
+              title="Toggle Video"
+              disabled={!isConnected}
             >
-              {isCameraActive ? <FaVideo /> : <FaVideoSlash />}
+              {isVideoActive ? <FaVideo /> : <FaVideoSlash />}
             </button>
 
-            {/* Screen Share */}
             <button
-              className={`control-btn ${isScreenShareActive ? "active" : ""}`}
-              onClick={isScreenShareActive ? stopScreenShare : startScreenShare}
-              disabled={!isConnected || !canInteract}
-              title={
-                isScreenShareActive ? "Stop sharing screen" : "Share screen"
-              }
+              className={`control-btn ${isScreenSharing ? "active" : ""}`}
+              onClick={toggleScreenShare}
+              title="Toggle Screen Share"
+              disabled={!isConnected}
             >
-              {isScreenShareActive ? <FaStopCircle /> : <FaDesktop />}
+              {isScreenSharing ? <FaStopCircle /> : <FaDesktop />}
+            </button>
+
+            {/* Theme Toggle */}
+            <button
+              className="theme-toggle-btn"
+              onClick={handleThemeToggle}
+              title="Toggle Theme"
+            >
+              {theme === "light" ? <FaMoon /> : <FaSun />}
             </button>
 
             {/* Settings */}
@@ -531,385 +466,259 @@ const App = () => {
             >
               <FaCog />
             </button>
-
-            {/* Theme Toggle */}
-            <button
-              className="theme-toggle-btn"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-            >
-              {theme === "light" ? <FaMoon /> : <FaSun />}
-            </button>
-
-            {/* Auth */}
-            {user ? (
-              <div className="user-profile">
-                <button className="profile-btn" title={user.email}>
-                  {user.user_metadata?.avatar_url ? (
-                    <img
-                      src={user.user_metadata.avatar_url}
-                      alt="Profile"
-                      className="profile-image"
-                    />
-                  ) : (
-                    <FaUserCircle />
-                  )}
-                </button>
-                <button
-                  className="control-btn"
-                  onClick={signOut}
-                  title="Sign Out"
-                >
-                  <FaSignOutAlt />
-                </button>
-              </div>
-            ) : (
-              <button
-                className="control-btn auth-btn"
-                onClick={signInWithGoogle}
-                disabled={authLoading}
-                title="Sign in with Google"
-              >
-                {authLoading ? <FaSpinner className="fa-spin" /> : <FaGoogle />}
-              </button>
-            )}
           </div>
+
+          {/* Profile Button */}
+          <div className="profile-section">
+            <button
+              className="profile-btn"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              title="Profile Menu"
+            >
+              {user?.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt="Profile"
+                  className="profile-avatar"
+                />
+              ) : (
+                <FaUserCircle />
+              )}
+            </button>
+            {renderProfileDropdown()}
+          </div>
+
+          {/* Right Sidebar Toggle */}
+          <button
+            className="sidebar-toggle-btn"
+            onClick={toggleRightSidebar}
+            title="Toggle Right Sidebar"
+          >
+            {isRightSidebarOpen ? <FaChevronRight /> : <FaChevronLeft />}
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="app-main">
-        {/* Left Sidebar - Chat List */}
-        {user && (
-          <div
-            className={`conversation-history-sidebar ${leftSidebarCollapsed ? "collapsed" : ""}`}
-          >
-            <div className="sidebar-header">
-              <h3>Conversations</h3>
-              <button
-                className="control-btn"
-                onClick={() => setShowCreateChatModal(true)}
-                title="New Chat"
-                disabled={!canInteract}
-              >
-                <FaPlus />
-              </button>
-            </div>
-
-            <div className="chat-list-container">
-              {chatLoading ? (
-                <div className="loading-state">
-                  <FaSpinner className="fa-spin" />
-                  <span>Loading chats...</span>
-                </div>
-              ) : chatError ? (
-                <div className="error-state">
-                  <FaExclamationTriangle />
-                  <span>{chatError}</span>
-                  <button onClick={loadChats} className="retry-btn">
-                    <FaSyncAlt />
-                  </button>
-                </div>
-              ) : (
-                <ChatList
-                  chats={chats}
-                  currentChatId={currentChatId}
-                  onChatSelect={handleChatSelect}
-                  onChatDelete={handleDeleteChat}
-                />
-              )}
-            </div>
+      <div className="app-main">
+        {/* Left Sidebar - Chat History */}
+        <aside
+          className={`conversation-history-sidebar ${isLeftSidebarOpen ? "" : "collapsed"}`}
+        >
+          <div className="sidebar-header">
+            <h3>Conversations</h3>
+            <button
+              className="create-chat-btn"
+              onClick={() => setShowCreateChatModal(true)}
+              title="Create New Chat"
+            >
+              <FaPlus />
+            </button>
           </div>
-        )}
+
+          <div className="sidebar-content">
+            {chatLoading ? (
+              <div className="loading-state">
+                <FaSpinner className="spinning" />
+                <span>Loading chats...</span>
+              </div>
+            ) : chatError ? (
+              <div className="error-state">
+                <FaExclamationTriangle />
+                <span>{chatError}</span>
+                <button onClick={loadChats} className="retry-btn">
+                  <FaSyncAlt /> Retry
+                </button>
+              </div>
+            ) : (
+              <ChatList
+                chats={chats}
+                currentChatId={currentChatId}
+                onChatSelect={setCurrentChatId}
+                onChatDelete={handleDeleteChat}
+              />
+            )}
+          </div>
+        </aside>
 
         {/* Center and Right Content */}
         <div className="center-and-right-content">
           {/* Chat Area */}
-          <div className="chat-container">
-            {!user ? (
-              <div className="welcome-screen">
-                <div className="welcome-content">
-                  <FaStroopwafel className="welcome-icon" />
-                  <h2>Welcome to Gemini Live Agent</h2>
-                  <p>Sign in with Google to start chatting with AI</p>
-                  <button
-                    className="auth-btn primary"
-                    onClick={signInWithGoogle}
-                    disabled={authLoading}
-                  >
-                    {authLoading ? (
-                      <FaSpinner className="fa-spin" />
-                    ) : (
-                      <FaGoogle />
-                    )}
-                    Sign in with Google
-                  </button>
-                </div>
-              </div>
-            ) : !currentChatId ? (
-              <div className="no-chat-screen">
-                <div className="no-chat-content">
-                  <FaStroopwafel className="welcome-icon" />
-                  <h2>No Chat Selected</h2>
-                  <p>
-                    Create a new chat or select an existing one to get started
-                  </p>
-                  <button
-                    className="control-btn primary"
-                    onClick={() => setShowCreateChatModal(true)}
-                  >
-                    <FaPlus />
-                    Create New Chat
-                  </button>
-                </div>
-              </div>
-            ) : (
+          <main className="chat-area">
+            {currentChatId ? (
               <>
-                {/* Messages Area */}
+                {/* Messages */}
                 <div className="messages-container">
-                  {messagesLoading ? (
-                    <div className="loading-state">
-                      <FaSpinner className="fa-spin" />
-                      <span>Loading messages...</span>
-                    </div>
-                  ) : messagesError ? (
-                    <div className="error-state">
-                      <FaExclamationTriangle />
-                      <span>Failed to load messages</span>
-                    </div>
-                  ) : messages.length === 0 ? (
+                  {messages.length === 0 ? (
                     <div className="empty-chat">
-                      <p>Start a conversation...</p>
+                      <FaStroopwafel className="empty-icon" />
+                      <h3>Start a conversation</h3>
+                      <p>Send a message to begin chatting with Gemini</p>
                     </div>
                   ) : (
-                    <div className="messages-list">
-                      {messages.map((message, index) => (
-                        <div
-                          key={`${message.id || index}-${message.timestamp}`}
-                          className={`message ${message.type}`}
-                        >
-                          <div className="message-content">
-                            {message.content}
-                          </div>
-                          <div className="message-meta">
-                            {message.source && (
-                              <span className="message-source">
-                                {message.source}
-                              </span>
-                            )}
-                            <span className="message-time">
-                              {new Date(message.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    messages.map(renderMessage)
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
+
+                {/* Audio Visualizer */}
+                {isVoiceActive && (
+                  <div className="audio-visualizer-container">
+                    <AudioVisualizerComponent />
+                  </div>
+                )}
 
                 {/* Input Area */}
                 <div className="input-container">
-                  {hasError && (
-                    <div className="error-banner">
-                      <FaExclamationTriangle />
-                      <span>{agentError || chatError || messagesError}</span>
-                    </div>
-                  )}
-
-                  <div className="input-row">
-                    <input
+                  <form onSubmit={handleSendMessage} className="message-form">
+                    <textarea
                       ref={messageInputRef}
-                      type="text"
                       id="messageInput"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      placeholder={
-                        !user
-                          ? "Please log in first"
-                          : !isConnected
-                            ? "Connect agent to chat"
-                            : displayMicActive
-                              ? "Listening..."
-                              : "Type message or turn on mic..."
-                      }
-                      disabled={!canInteract || displayMicActive || authLoading}
-                      onKeyPress={handleInputKeyPress}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type your message..."
+                      rows={1}
+                      disabled={!currentChatId || messagesLoading}
                     />
                     <button
-                      onClick={handleSendButtonClick}
-                      className="send-icon-button"
-                      disabled={
-                        !canInteract ||
-                        displayMicActive ||
-                        authLoading ||
-                        !inputValue.trim()
-                      }
-                      title="Send Message"
+                      type="submit"
+                      className="send-button"
+                      disabled={!message.trim() || messagesLoading}
                     >
-                      <FaPaperPlane />
+                      {messagesLoading ? (
+                        <FaSpinner className="spinning" />
+                      ) : (
+                        <FaPaperPlane />
+                      )}
                     </button>
-                  </div>
+                  </form>
                 </div>
               </>
-            )}
-          </div>
-
-          {/* Right Sidebar */}
-          <div
-            className={`sidebar ${rightSidebarCollapsed ? "collapsed" : ""}`}
-            style={{
-              width: rightSidebarCollapsed ? "0px" : `${sidebarWidth}px`,
-            }}
-          >
-            <div className="sidebar-content-wrapper">
-              <div className="sidebar-header">
-                <h3>Tools & Status</h3>
+            ) : (
+              <div className="no-chat-selected">
+                <FaStroopwafel className="empty-icon" />
+                <h3>No chat selected</h3>
+                <p>Select a chat from the sidebar or create a new one</p>
                 <button
-                  className="sidebar-toggle-btn"
-                  onClick={() =>
-                    setRightSidebarCollapsed(!rightSidebarCollapsed)
-                  }
-                  title="Toggle Sidebar"
+                  className="create-chat-cta"
+                  onClick={() => setShowCreateChatModal(true)}
                 >
-                  {rightSidebarCollapsed ? (
-                    <FaChevronLeft />
-                  ) : (
-                    <FaChevronRight />
-                  )}
+                  <FaPlus /> Create New Chat
                 </button>
               </div>
+            )}
+          </main>
 
+          {/* Right Sidebar */}
+          <aside
+            className={`sidebar ${isRightSidebarOpen ? "" : "collapsed"}`}
+            style={{
+              width: isRightSidebarOpen ? `${rightSidebarWidth}px` : "0px",
+            }}
+          >
+            {/* Sidebar Resizer */}
+            <div
+              className="sidebar-resizer"
+              ref={resizerRef}
+              onMouseDown={handleMouseDown}
+            />
+
+            <div className="sidebar-content-wrapper">
               <div className="sidebar-content">
-                {/* Connection Status */}
-                <Collapsible title="Connection Status" defaultOpen={true}>
-                  <div className="status-section">
-                    <div
-                      className={`status-item ${isConnected ? "connected" : "disconnected"}`}
-                    >
-                      <span className="status-label">Agent:</span>
-                      <span className="status-value">
-                        {isInitializing
-                          ? "Connecting..."
-                          : isConnected
-                            ? "Connected"
-                            : "Disconnected"}
-                      </span>
-                      {isConnected ? <FaCheckCircle /> : <FaTimesCircle />}
-                    </div>
+                {/* Background Tasks */}
+                <Collapsible
+                  title="Background Tasks"
+                  isOpen={true}
+                  icon={<FaSyncAlt />}
+                >
+                  <BackgroundTaskManager />
+                </Collapsible>
 
-                    <div
-                      className={`status-item ${displayMicActive ? "active" : "inactive"}`}
-                    >
-                      <span className="status-label">Microphone:</span>
-                      <span className="status-value">
-                        {displayMicActive ? "Active" : "Inactive"}
-                      </span>
-                      {displayMicActive ? (
-                        <FaMicrophone />
-                      ) : (
-                        <FaMicrophoneSlash />
-                      )}
-                    </div>
-
-                    <div
-                      className={`status-item ${isCameraActive ? "active" : "inactive"}`}
-                    >
-                      <span className="status-label">Camera:</span>
-                      <span className="status-value">
-                        {isCameraActive ? "Active" : "Inactive"}
-                      </span>
-                      {isCameraActive ? <FaVideo /> : <FaVideoSlash />}
-                    </div>
-
-                    {isScreenShareActive && (
-                      <div className="status-item active">
-                        <span className="status-label">Screen Share:</span>
-                        <span className="status-value">Active</span>
-                        <FaDesktop />
+                {/* Connection Info */}
+                <Collapsible
+                  title="Connection Status"
+                  isOpen={false}
+                  icon={<FaLink />}
+                >
+                  <div className="connection-details">
+                    {renderConnectionStatus()}
+                    {connectionError && (
+                      <div className="error-details">
+                        <p>{connectionError}</p>
+                        <button
+                          onClick={connect}
+                          className="retry-connection-btn"
+                        >
+                          <FaSyncAlt /> Retry Connection
+                        </button>
                       </div>
                     )}
                   </div>
                 </Collapsible>
 
-                {/* Audio Visualizer */}
-                {displayMicActive && (
-                  <Collapsible title="Audio Level" defaultOpen={true}>
-                    <AudioVisualizerComponent
-                      audioLevel={audioLevel}
-                      isActive={displayMicActive}
-                    />
-                  </Collapsible>
-                )}
-
-                {/* Background Tasks */}
-                <Collapsible title="Background Tasks" defaultOpen={false}>
-                  <BackgroundTaskManager />
-                </Collapsible>
-
-                {/* Chat Info */}
+                {/* Chat Settings */}
                 {currentChat && (
-                  <Collapsible title="Chat Information" defaultOpen={false}>
-                    <div className="chat-info">
-                      <div className="info-item">
-                        <span className="info-label">Title:</span>
-                        <span className="info-value">{currentChat.title}</span>
+                  <Collapsible
+                    title="Chat Settings"
+                    isOpen={false}
+                    icon={<FaCog />}
+                  >
+                    <div className="chat-settings">
+                      <div className="setting-item">
+                        <label>Chat Title:</label>
+                        <input type="text" value={currentChat.title} readOnly />
                       </div>
-                      <div className="info-item">
-                        <span className="info-label">Created:</span>
-                        <span className="info-value">
-                          {new Date(
-                            currentChat.created_at,
-                          ).toLocaleDateString()}
+                      <div className="setting-item">
+                        <label>Created:</label>
+                        <span>
+                          {new Date(currentChat.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="info-item">
-                        <span className="info-label">Messages:</span>
-                        <span className="info-value">{messages.length}</span>
+                      <div className="setting-item">
+                        <label>Messages:</label>
+                        <span>{messages.length}</span>
                       </div>
+                      <button
+                        className="danger-btn"
+                        onClick={() => handleDeleteChat(currentChat.id)}
+                      >
+                        <FaTrash /> Delete Chat
+                      </button>
                     </div>
                   </Collapsible>
                 )}
               </div>
             </div>
-
-            {/* Sidebar Resizer */}
-            {!rightSidebarCollapsed && (
-              <div
-                ref={resizerRef}
-                className="sidebar-resizer"
-                onMouseDown={handleMouseDown}
-              />
-            )}
-          </div>
+          </aside>
         </div>
-      </main>
+      </div>
 
       {/* Footer */}
       <footer className="app-footer">
         <div className="footer-content">
-          <span>Gemini Live Agent</span>
-          {isConnected && (
-            <span className="connection-indicator">
-              <FaCheckCircle />
-              Connected
-            </span>
-          )}
+          <span>Project Theata © 2024</span>
+          <div className="footer-links">
+            <button onClick={() => setShowSettings(true)}>Settings</button>
+          </div>
         </div>
       </footer>
 
       {/* Modals */}
-      <CreateChatModal
-        isOpen={showCreateChatModal}
-        onClose={() => setShowCreateChatModal(false)}
-        onChatCreated={handleCreateChat}
-      />
+      {showCreateChatModal && (
+        <CreateChatModal
+          onClose={() => setShowCreateChatModal(false)}
+          onCreate={handleCreateChat}
+        />
+      )}
 
-      <SettingsDialog
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        onSettingsUpdate={updateSettings}
-      />
+      {showSettings && (
+        <SettingsDialog
+          onClose={() => setShowSettings(false)}
+          settings={settings}
+          onSettingsUpdate={updateSettings}
+        />
+      )}
     </div>
   );
 };
