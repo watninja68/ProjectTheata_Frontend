@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaPlus,
@@ -21,21 +21,20 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
   const [editingChat, setEditingChat] = useState(null);
   const [editTitle, setEditTitle] = useState("");
 
-  useEffect(() => {
-    if (user) {
-      loadChats();
+  const loadChats = useCallback(async () => {
+    if (!user) {
+      setChats([]); // Clear chats if user logs out
+      setLoading(false);
+      return;
     }
-  }, [user]);
 
-  const loadChats = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
       const response = await ChatService.getChats(user.id, {
         include_preview: true,
         limit: 50,
       });
-      console.log(response);
       setChats(response.chats || []);
     } catch (err) {
       console.error("Failed to load chats:", err);
@@ -43,7 +42,11 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]); // Now depends on the user object
+
+  useEffect(() => {
+    loadChats();
+  }, [loadChats, selectedChatId]); // Reloads when user changes or selected chat changes
 
   const handleDeleteChat = async (chatId, event) => {
     event.stopPropagation();
@@ -66,7 +69,8 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
   const handleEditChat = async (chatId, event) => {
     event.stopPropagation();
     if (!editTitle.trim()) {
-      setEditingChat(null);
+      // If the title is empty, cancel the edit instead of saving an empty title
+      cancelEditing(event);
       return;
     }
 
@@ -76,7 +80,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
         user_id: user.id,
       });
       await loadChats(); // Refresh the list
-      setEditingChat(null);
+      setEditingChat(null); // Exit edit mode
     } catch (err) {
       console.error("Failed to update chat:", err);
       alert(`Failed to update chat: ${err.message}`);
@@ -89,7 +93,8 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
     setEditTitle(chat.title);
   };
 
-  const cancelEditing = () => {
+  const cancelEditing = (event) => {
+    if (event) event.stopPropagation();
     setEditingChat(null);
     setEditTitle("");
   };
@@ -135,7 +140,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
       <div className="chat-list-container">
         <div className="chat-list-header">
           <h3>Chats</h3>
-          <button className="create-chat-btn" onClick={onCreateChat}>
+          <button className="create-chat-btn" onClick={onCreateChat} disabled={!user}>
             <FaPlus />
           </button>
         </div>
@@ -153,7 +158,11 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
     <div className="chat-list-container">
       <div className="chat-list-header">
         <h3>Chats</h3>
-        <button className="create-chat-btn" onClick={onCreateChat}>
+        <button
+          className="create-chat-btn"
+          onClick={onCreateChat}
+          disabled={!user}
+        >
           <FaPlus />
         </button>
       </div>
@@ -161,17 +170,23 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
       <div className="chat-list">
         {chats.length === 0 ? (
           <div className="empty-chat-list">
-            <p>No chats yet</p>
-            <button onClick={onCreateChat} className="create-first-chat-btn">
-              Create your first chat
-            </button>
+            <p>{user ? "No chats yet" : "Please log in to see your chats"}</p>
+            {user && (
+              <button onClick={onCreateChat} className="create-first-chat-btn">
+                Create your first chat
+              </button>
+            )}
           </div>
         ) : (
           chats.map((chat) => (
             <div
               key={chat.id}
-              className={`chat-item ${selectedChatId === chat.id ? "selected" : ""}`}
-              onClick={() => navigate(`/app/chat/${chat.id}`)}
+              className={`chat-item ${
+                selectedChatId === chat.id ? "selected" : ""
+              }`}
+              onClick={() => {
+                if (editingChat !== chat.id) navigate(`/app/chat/${chat.id}`);
+              }}
             >
               <div className="chat-item-main">
                 <div className="chat-item-header">
@@ -180,16 +195,13 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      onBlur={() =>
-                        handleEditChat(chat.id, { stopPropagation: () => {} })
-                      }
-                      onKeyPress={(e) => {
+                      onBlur={(e) => handleEditChat(chat.id, e)}
+                      onKeyDown={(e) => {
+                        // Using onKeyDown for better 'Escape' key handling
                         if (e.key === "Enter") {
-                          handleEditChat(chat.id, {
-                            stopPropagation: () => {},
-                          });
+                          handleEditChat(chat.id, e);
                         } else if (e.key === "Escape") {
-                          cancelEditing();
+                          cancelEditing(e);
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
