@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   FaStroopwafel,
   FaCog,
@@ -19,7 +19,6 @@ import {
   FaBars,
   FaPlus,
 } from "react-icons/fa";
-import useChatHistory from "./hooks/useChatHistory";
 import ChatList from "./components/ChatList";
 import ChatView from "./components/ChatView";
 import SettingsDialog from "./components/SettingsDialog";
@@ -31,6 +30,7 @@ import { useAuth } from "./hooks/useAuth";
 function App() {
   const { chatId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     session,
@@ -78,7 +78,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
+    const queryParams = new URLSearchParams(location.search);
     if (queryParams.get("google_auth_success") === "true") {
       setGoogleAuthMessage("Google account connected successfully!");
     } else if (queryParams.get("error")) {
@@ -86,12 +86,13 @@ function App() {
         `Google connection failed: ${queryParams.get("error_description") || queryParams.get("error")}`,
       );
     }
+    // Clean up URL after processing auth callback params
     if (queryParams.get("google_auth_success") || queryParams.get("error")) {
       setTimeout(() => setGoogleAuthMessage(""), 7000);
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
+      // Use navigate from react-router-dom to clean URL state without reload
+      navigate(location.pathname, { replace: true });
     }
-  }, []);
+  }, [location.search, navigate]);
 
   const toggleProfileMenu = () => setIsProfileMenuOpen((prev) => !prev);
   const toggleLeftSidebar = () => setIsLeftSidebarCollapsed((prev) => !prev);
@@ -203,7 +204,8 @@ function App() {
   const handleLogout = useCallback(() => {
     setIsProfileMenuOpen(false);
     signOut();
-  }, [signOut]);
+    navigate('/login'); // Redirect to login after sign out
+  }, [signOut, navigate]);
 
   const handleConnectGoogleAccount = () => {
     if (user && user.id && settings.backendBaseUrl) {
@@ -218,6 +220,10 @@ function App() {
   };
 
   const handleCreateChat = async () => {
+    if (!user?.id) {
+        alert("You must be logged in to create a chat.");
+        return;
+    }
     console.log("Creating new chat...");
     try {
       const res = await fetch(`${settings.backendBaseUrl}/api/chats/create`, {
@@ -239,6 +245,21 @@ function App() {
       }
     } catch (error) {
       console.error("Create chat error", error);
+      alert(`Error creating chat: ${error.message}`);
+    }
+  };
+
+  /**
+   * FIX: This function handles chat selection from the ChatList component.
+   * It receives a chat object and navigates to the correct URL.
+   * @param {object | null} chat - The selected chat object or null.
+   */
+  const handleSelectChat = (chat) => {
+    if (chat && chat.id) {
+      navigate(`/app/chat/${chat.id}`);
+    } else {
+      // If chat is null (e.g., last chat deleted), navigate to base app page
+      navigate('/app');
     }
   };
 
@@ -323,8 +344,8 @@ function App() {
 
           {!session && !authLoading && (
             <button
-              onClick={signInWithGoogle}
-              title="Login with Google (Supabase)"
+              onClick={() => navigate('/login')}
+              title="Login"
             >
               <FaGoogle /> <span className="button-text">Login</span>
             </button>
@@ -411,6 +432,7 @@ function App() {
         <ChatList
           selectedChatId={chatId ? parseInt(chatId, 10) : null}
           onCreateChat={handleCreateChat}
+          onChatSelect={handleSelectChat}
           isCollapsed={isLeftSidebarCollapsed}
         />
         
@@ -439,7 +461,7 @@ function App() {
               getGeminiConfig={getGeminiConfig}
               getWebsocketUrl={getWebsocketUrl}
               onConnectionChange={setIsConnected}
-              chatId={chatId}
+              chatId={parseInt(chatId, 10)}
             />
           ) : (
             <div className="chat-area">
