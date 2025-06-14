@@ -178,7 +178,7 @@ const ChatView = ({
   const sendTranscriptToBackend = useCallback(
     async (speaker, transcript) => {
       if (!transcript || transcript.trim() === "" || !chatId) return;
-      const backendUrl = `${settings.REACT_APP_BACKEND_URL }/api/text`;
+      const backendUrl = `${settings.bakcendBaseUrl}/api/text`;
       try {
         const payload = {
           speaker,
