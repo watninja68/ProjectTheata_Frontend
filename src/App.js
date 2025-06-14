@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   FaStroopwafel,
   FaCog,
@@ -16,6 +17,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaBars,
+  FaPlus,
 } from "react-icons/fa";
 import useChatHistory from "./hooks/useChatHistory";
 import ChatList from "./components/ChatList";
@@ -27,6 +29,9 @@ import { useSettings } from "./hooks/useSettings";
 import { useAuth } from "./hooks/useAuth";
 
 function App() {
+  const { chatId } = useParams();
+  const navigate = useNavigate();
+
   const {
     session,
     user,
@@ -53,7 +58,6 @@ function App() {
   const profileIconRef = useRef(null);
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState(1);
   const [isConnected, setIsConnected] = useState(false);
 
   // --- Resizable Sidebar State ---
@@ -213,12 +217,8 @@ function App() {
     }
   };
 
-  const handleChatSelect = (chatId) => {
-    setSelectedChatId(chatId);
-  };
-
   const handleCreateChat = async () => {
-    console.log("Create chat");
+    console.log("Creating new chat...");
     try {
       const res = await fetch(`${settings.backendBaseUrl}/api/chats/create`, {
         method: "POST",
@@ -235,10 +235,10 @@ function App() {
       const data = await res.json();
       console.log("Create chat response", data);
       if (data.id) {
-        setSelectedChatId(data.id);
+        navigate(`/app/chat/${data.id}`);
       }
     } catch (error) {
-      console.log("Create chat error", error);
+      console.error("Create chat error", error);
     }
   };
 
@@ -260,7 +260,7 @@ function App() {
               marginLeft: "0.5rem",
             }}
           />
-          &nbsp;
+           
           <h1>Project Theta</h1>
         </div>
 
@@ -409,8 +409,7 @@ function App() {
         ref={mainContentRef}
       >
         <ChatList
-          onChatSelect={handleChatSelect}
-          selectedChatId={selectedChatId}
+          selectedChatId={chatId ? parseInt(chatId, 10) : null}
           onCreateChat={handleCreateChat}
           isCollapsed={isLeftSidebarCollapsed}
         />
@@ -432,7 +431,7 @@ function App() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : chatId ? (
             <ChatView
               user={user}
               session={session}
@@ -440,8 +439,24 @@ function App() {
               getGeminiConfig={getGeminiConfig}
               getWebsocketUrl={getWebsocketUrl}
               onConnectionChange={setIsConnected}
-              chatId={selectedChatId}
+              chatId={chatId}
             />
+          ) : (
+            <div className="chat-area">
+                <div className="chat-history">
+                    <div className="connect-prompt-container" style={{ margin: 'auto' }}>
+                        <h3>Welcome, {getUserDisplayName()}!</h3>
+                        <p>Select a chat from the sidebar to continue, or create a new one to get started.</p>
+                        <button
+                            onClick={handleCreateChat}
+                            className="connect-prompt-button"
+                        >
+                            <FaPlus style={{ marginRight: '8px' }} />
+                            Create New Chat
+                        </button>
+                    </div>
+                </div>
+            </div>
           )}
 
           <div
