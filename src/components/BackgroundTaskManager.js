@@ -168,6 +168,8 @@ const BackgroundTaskManager = () => {
     return (
         <div className="background-task-manager">
             <h4>Background Agent</h4>
+
+
             <div className="gmail-auth-section">
                 <h5>Authenticate with Google</h5>
                 {gmailConnectionStatus.loading ? (
