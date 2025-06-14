@@ -179,8 +179,6 @@ const ChatView = ({
     async (speaker, transcript) => {
       if (!transcript || transcript.trim() === "" || !chatId) return;
       const backendUrl = `${settings.backendBaseUrl}/api/text`;
-      console.log("---------------------")
-      console.log(backendUrl)
       try {
         const payload = {
           speaker,
