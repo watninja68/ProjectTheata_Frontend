@@ -11,9 +11,8 @@ import ChatService from "../services/chatService";
 import { useAuth } from "../hooks/useAuth";
 import "./ChatList.css";
 
-const ChatList = ({ selectedChatId, onCreateChat }) => {
+const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +58,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
 
   const handleDeleteChat = async (chatId, event) => {
     event.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
+    if (!window.confirm("Are you sure you want to delete this chat?")) {
       return;
     }
 
@@ -79,8 +78,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
   const handleEditChat = async (chatId, event) => {
     event.stopPropagation();
     if (!editTitle.trim()) {
-      // If the title is empty, cancel the edit instead of saving an empty title
-      cancelEditing(event);
+      setEditingChat(null);
       return;
     }
 
@@ -103,8 +101,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
     setEditTitle(chat.title);
   };
 
-  const cancelEditing = (event) => {
-    if (event) event.stopPropagation();
+  const cancelEditing = () => {
     setEditingChat(null);
     setEditTitle("");
   };
@@ -150,7 +147,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
       <div className="chat-list-container">
         <div className="chat-list-header">
           <h3>Chats</h3>
-          <button className="create-chat-btn" onClick={onCreateChat} disabled={!user}>
+          <button className="create-chat-btn" onClick={onCreateChat}>
             <FaPlus />
           </button>
         </div>
@@ -168,11 +165,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
     <div className="chat-list-container">
       <div className="chat-list-header">
         <h3>Chats</h3>
-        <button
-          className="create-chat-btn"
-          onClick={onCreateChat}
-          disabled={!user}
-        >
+        <button className="create-chat-btn" onClick={onCreateChat}>
           <FaPlus />
         </button>
       </div>
@@ -199,13 +192,16 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      onBlur={(e) => handleEditChat(chat.id, e)}
-                      onKeyDown={(e) => {
-                        // Using onKeyDown for better 'Escape' key handling
+                      onBlur={() =>
+                        handleEditChat(chat.id, { stopPropagation: () => {} })
+                      }
+                      onKeyPress={(e) => {
                         if (e.key === "Enter") {
-                          handleEditChat(chat.id, e);
+                          handleEditChat(chat.id, {
+                            stopPropagation: () => {},
+                          });
                         } else if (e.key === "Escape") {
-                          cancelEditing(e);
+                          cancelEditing();
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
@@ -230,7 +226,6 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
                     >
                       <FaEdit />
                     </button>
-                    {/* *** THIS IS THE CORRECTED PART *** */}
                     {chat.user_role === "owner" && (
                       <button
                         className="chat-action-btn delete-btn"
