@@ -17,6 +17,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaBars,
+  FaPlus,
 } from "react-icons/fa";
 import useChatHistory from "./hooks/useChatHistory";
 import ChatList from "./components/ChatList";
@@ -430,7 +431,7 @@ function App() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : chatId ? (
             <ChatView
               user={user}
               session={session}
@@ -440,6 +441,22 @@ function App() {
               onConnectionChange={setIsConnected}
               chatId={chatId}
             />
+          ) : (
+            <div className="chat-area">
+                <div className="chat-history">
+                    <div className="connect-prompt-container" style={{ margin: 'auto' }}>
+                        <h3>Welcome, {getUserDisplayName()}!</h3>
+                        <p>Select a chat from the sidebar to continue, or create a new one to get started.</p>
+                        <button
+                            onClick={handleCreateChat}
+                            className="connect-prompt-button"
+                        >
+                            <FaPlus style={{ marginRight: '8px' }} />
+                            Create New Chat
+                        </button>
+                    </div>
+                </div>
+            </div>
           )}
 
           <div

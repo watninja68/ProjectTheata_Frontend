@@ -50,15 +50,16 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
 
   const handleDeleteChat = async (chatId, event) => {
     event.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this chat?")) {
+    if (!window.confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
       return;
     }
 
     try {
       await ChatService.deleteChat(chatId, user.id);
       await loadChats(); // Refresh the list
+      // If the currently viewed chat is deleted, navigate away
       if (selectedChatId === chatId) {
-        navigate("/app"); // Navigate away from the deleted chat
+        navigate("/app");
       }
     } catch (err) {
       console.error("Failed to delete chat:", err);
@@ -226,6 +227,7 @@ const ChatList = ({ selectedChatId, onCreateChat }) => {
                     >
                       <FaEdit />
                     </button>
+                    {/* *** THIS IS THE CORRECTED PART *** */}
                     {chat.user_role === "owner" && (
                       <button
                         className="chat-action-btn delete-btn"

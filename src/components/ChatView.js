@@ -154,6 +154,10 @@ const ChatView = ({
   const sendTranscriptToBackend = useCallback(
     async (speaker, transcript) => {
       if (!transcript || transcript.trim() === "") return;
+      if (!chatId) {
+        console.warn("sendTranscriptToBackend called without a chatId. Skipping log.");
+        return;
+      }
       const backendUrl = `${settings.backendBaseUrl || "http://localhost:8080"}/api/text`;
       console.log(
         `Sending to Go backend (for main agent log): Speaker=${speaker}, Text=${transcript.substring(0, 50)}... via ${backendUrl}`,
@@ -165,7 +169,7 @@ const ChatView = ({
           text: transcript,
           timestamp: new Date().toISOString(),
           session_id: "main_gemini_session",
-          ChatId: chatId || 2,
+          ChatId: chatId,
           UserId: user?.id || 1,
         };
 
