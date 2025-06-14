@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   FaStroopwafel,
   FaCog,
@@ -27,6 +28,9 @@ import { useSettings } from "./hooks/useSettings";
 import { useAuth } from "./hooks/useAuth";
 
 function App() {
+  const { chatId } = useParams();
+  const navigate = useNavigate();
+
   const {
     session,
     user,
@@ -53,7 +57,6 @@ function App() {
   const profileIconRef = useRef(null);
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState(1);
   const [isConnected, setIsConnected] = useState(false);
 
   // --- Resizable Sidebar State ---
@@ -213,12 +216,12 @@ function App() {
     }
   };
 
-  const handleChatSelect = (chatId) => {
-    setSelectedChatId(chatId);
+  const handleChatSelect = (chat) => {
+    navigate(`/app/chat/${chat.id}`);
   };
 
   const handleCreateChat = async () => {
-    console.log("Create chat");
+    console.log("Creating new chat...");
     try {
       const res = await fetch(`${settings.backendBaseUrl}/api/chats/create`, {
         method: "POST",
@@ -235,10 +238,10 @@ function App() {
       const data = await res.json();
       console.log("Create chat response", data);
       if (data.id) {
-        setSelectedChatId(data.id);
+        navigate(`/app/chat/${data.id}`);
       }
     } catch (error) {
-      console.log("Create chat error", error);
+      console.error("Create chat error", error);
     }
   };
 
@@ -260,7 +263,7 @@ function App() {
               marginLeft: "0.5rem",
             }}
           />
-          &nbsp;
+           
           <h1>Project Theta</h1>
         </div>
 
@@ -410,7 +413,7 @@ function App() {
       >
         <ChatList
           onChatSelect={handleChatSelect}
-          selectedChatId={selectedChatId}
+          selectedChatId={Number(chatId)}
           onCreateChat={handleCreateChat}
           isCollapsed={isLeftSidebarCollapsed}
         />
@@ -440,7 +443,7 @@ function App() {
               getGeminiConfig={getGeminiConfig}
               getWebsocketUrl={getWebsocketUrl}
               onConnectionChange={setIsConnected}
-              chatId={selectedChatId}
+              chatId={chatId}
             />
           )}
 
