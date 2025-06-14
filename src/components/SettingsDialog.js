@@ -68,8 +68,9 @@ const SettingsDialog = ({ isOpen, onClose, initialSettings, onSave, thresholds }
                 <h2 id="settings-title" style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--text-primary)' }}>Settings</h2>
 
                 {/* API Keys Section */}
-                <Collapsible title="API Keys & Connection" startOpen={true}>
-                     {/* Display Hardcoded Key Status */}
+{/*
+<Collapsible title="API Keys & Connection" startOpen={true}>
+                     {/* Display Hardcoded Key Status }
                      <div className="settings-group">
                          <label>Gemini API Key Status</label>
                          <input type="text" value="Using hardcoded key from code" readOnly disabled style={{ fontStyle: 'italic', color: 'var(--text-secondary)'}} />
@@ -78,7 +79,7 @@ const SettingsDialog = ({ isOpen, onClose, initialSettings, onSave, thresholds }
                         <label htmlFor="deepgramApiKey">Deepgram API Key (Optional)</label>
                         <input type="password" id="deepgramApiKey" placeholder="Enter your Deepgram API key" value={settings.deepgramApiKey || ''} onChange={handleChange} />
                      </div>
-                     {/* Add checkboxes for transcription toggles */}
+                     {/* Add checkboxes for transcription toggles }
                       <div className="settings-group checkbox-group">
                          <input type="checkbox" id="transcribeModelsSpeech" checked={settings.transcribeModelsSpeech || true} onChange={handleChange} />
                          <label htmlFor="transcribeModelsSpeech">Transcribe Model's Speech (via Deepgram)</label>
@@ -88,7 +89,7 @@ const SettingsDialog = ({ isOpen, onClose, initialSettings, onSave, thresholds }
                          <label htmlFor="transcribeUsersSpeech">Transcribe User's Speech (via Deepgram)</label>
                      </div>
                 </Collapsible>
-
+*/}
                  {/* Voice & Audio */}
                  <Collapsible title="Voice & Audio">
                      <div className="settings-group">
