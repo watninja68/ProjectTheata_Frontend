@@ -63,14 +63,8 @@ root.render(
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />{" "}
           {/* Add LoginPage route */}
-          <Route
-            path="/app/*" // For routes like /app, /app/settings etc.
-            element={
-              <ProtectedRoute>
-                <App />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/app" element={<ProtectedRoute><App /></ProtectedRoute>} />
+          <Route path="/app/chat/:chatId" element={<ProtectedRoute><App /></ProtectedRoute>} />
           {/* Catch-all for undefined routes, redirect to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
