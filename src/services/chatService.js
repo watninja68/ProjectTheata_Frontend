@@ -1,22 +1,23 @@
 const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL || "http://localhost:8080";
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
 
 class ChatService {
   /**
    * Get user's chat list
-   * @param {number} userId - User ID
+   * @param {string} userId - User ID (UUID string)
    * @param {Object} options - Optional parameters
    * @returns {Promise<Object>} Chat list response
    */
   async getChats(userId, options = {}) {
-    console.log(userId);
+    if (!userId) {
+        return Promise.reject(new Error("User ID is required to fetch chats."));
+    }
     const params = new URLSearchParams({
-      user_id: userId.toString(),
+      user_id: userId,
       ...options,
     });
 
     const response = await fetch(`${API_BASE_URL}/api/chats?${params}`);
-    console.log(response);
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || "Failed to fetch chats");
@@ -73,7 +74,7 @@ class ChatService {
   /**
    * Delete a chat
    * @param {number} chatId - Chat ID
-   * @param {number} userId - User ID
+   * @param {string} userId - User ID (UUID string)
    * @returns {Promise<Object>} Delete response
    */
   async deleteChat(chatId, userId) {
@@ -94,21 +95,16 @@ class ChatService {
   /**
    * Get chat message history
    * @param {number} chatId - Chat ID
-   * @param {number} userId - User ID
-   * @param {Object} options - Optional parameters
-   * @returns {Promise<Object>} Chat history response
+   * @returns {Promise<Array>} A list of chat messages
    */
-  async getChatHistory(chatId, userId, options = {}) {
-    const params = new URLSearchParams({
-      chat_id: chatId.toString(),
-      user_id: userId.toString(),
-      ...options,
-    });
-
-    const response = await fetch(`${API_BASE_URL}/api/chat/history?${params}`);
+  async getChatHistory(chatId) {
+    if (!chatId) {
+      return Promise.resolve([]);
+    }
+    const response = await fetch(`${API_BASE_URL}/api/chat/history?chat_id=${chatId}`);
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Failed to fetch chat history");
+      const errorData = await response.json().catch(() => ({ error: 'Failed to fetch history and parse error' }));
+      throw new Error(errorData.error || "Failed to fetch chat history");
     }
     return response.json();
   }
@@ -142,7 +138,7 @@ class ChatService {
    * Remove participant from chat
    * @param {number} chatId - Chat ID
    * @param {number} participantId - Participant ID to remove
-   * @param {number} requestingUserId - ID of user making the request
+   * @param {string} requestingUserId - ID of user making the request (UUID string)
    * @returns {Promise<Object>} Remove participant response
    */
   async removeParticipant(chatId, participantId, requestingUserId) {

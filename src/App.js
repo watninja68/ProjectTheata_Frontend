@@ -281,7 +281,7 @@ function App() {
               marginLeft: "0.5rem",
             }}
           />
-           
+          &nbsp;
           <h1>Project Theta</h1>
         </div>
 
@@ -455,6 +455,7 @@ function App() {
             </div>
           ) : chatId ? (
             <ChatView
+              key={chatId} // Force re-mount on chatId change to reset state
               user={user}
               session={session}
               settings={settings}
