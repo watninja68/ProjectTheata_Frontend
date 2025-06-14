@@ -281,7 +281,7 @@ function App() {
               marginLeft: "0.5rem",
             }}
           />
-          &nbsp;
+           
           <h1>Project Theta</h1>
         </div>
 
@@ -430,7 +430,7 @@ function App() {
         ref={mainContentRef}
       >
         <ChatList
-          selectedChatId={chatId ? parseInt(chatId, 10) : null}
+          selectedChatId={chatId || null}
           onCreateChat={handleCreateChat}
           onChatSelect={handleSelectChat}
           isCollapsed={isLeftSidebarCollapsed}
@@ -462,7 +462,7 @@ function App() {
               getGeminiConfig={getGeminiConfig}
               getWebsocketUrl={getWebsocketUrl}
               onConnectionChange={setIsConnected}
-              chatId={parseInt(chatId, 10)}
+              chatId={chatId}
             />
           ) : (
             <div className="chat-area">
