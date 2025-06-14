@@ -216,10 +216,6 @@ function App() {
     }
   };
 
-  const handleChatSelect = (chat) => {
-    navigate(`/app/chat/${chat.id}`);
-  };
-
   const handleCreateChat = async () => {
     console.log("Creating new chat...");
     try {
@@ -412,8 +408,7 @@ function App() {
         ref={mainContentRef}
       >
         <ChatList
-          onChatSelect={handleChatSelect}
-          selectedChatId={Number(chatId)}
+          selectedChatId={chatId ? parseInt(chatId, 10) : null}
           onCreateChat={handleCreateChat}
           isCollapsed={isLeftSidebarCollapsed}
         />

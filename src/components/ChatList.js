@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FaPlus,
   FaUsers,
@@ -11,8 +12,9 @@ import ChatService from "../services/chatService";
 import { useAuth } from "../hooks/useAuth";
 import "./ChatList.css";
 
-const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
+const ChatList = ({ selectedChatId, onCreateChat }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,7 +55,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
       await ChatService.deleteChat(chatId, user.id);
       await loadChats(); // Refresh the list
       if (selectedChatId === chatId) {
-        onChatSelect(null); // Clear selection if deleted chat was selected
+        navigate("/app"); // Navigate away from the deleted chat
       }
     } catch (err) {
       console.error("Failed to delete chat:", err);
@@ -169,7 +171,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
             <div
               key={chat.id}
               className={`chat-item ${selectedChatId === chat.id ? "selected" : ""}`}
-              onClick={() => onChatSelect(chat)}
+              onClick={() => navigate(`/app/chat/${chat.id}`)}
             >
               <div className="chat-item-main">
                 <div className="chat-item-header">
