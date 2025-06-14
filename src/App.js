@@ -284,12 +284,16 @@ function App() {
       log.Printf(
         `Sending to Go backend (for main agent log): Speaker=${speaker}, Text=${transcript.substring(0, 50)}... via ${backendUrl}`,
       );
+      var chat_id = 2;
+      var user_id = 1;
       try {
         const payload = {
           speaker,
           text: transcript,
           timestamp: new Date().toISOString(),
           session_id: "main_gemini_session",
+          ChatId: chat_id,
+          UserId: user_id,
         };
         const response = await fetch(backendUrl, {
           method: "POST",
@@ -795,9 +799,33 @@ function App() {
             console.log("Chat selected: ");
           }}
           selectedChatId={1 || null}
-          onCreateChat={() => console.log("Create chat")}
+          onCreateChat={async () => {
+            // Add 'async' here
+            console.log("Create chat");
+            try {
+              const res = await fetch(
+                `${settings.backendBaseUrl}/api/chats/create`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    // Fixed: Added opening parenthesis here
+                    title: "New Chat",
+                    user_id: user.id,
+                  }), // Fixed: Added closing parenthesis and brace here
+                },
+              );
+              if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed to create chat");
+              }
+              const data = res.json();
+              console.log("Create chat response", data);
+            } catch (error) {
+              console.log("Create chat error", error);
+            }
+          }}
         />
-
         <div className="center-and-right-content">
           <div className="chat-area">
             <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
