@@ -1,18 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 import {
-  FaLink,
-  FaUnlink,
   FaStroopwafel,
   FaCog,
-  FaPaperPlane,
-  FaMicrophone,
-  FaMicrophoneSlash,
-  FaVideo,
-  FaVideoSlash,
-  FaDesktop,
-  FaStopCircle,
-  FaSyncAlt,
   FaExclamationTriangle,
   FaSpinner,
   FaCheckCircle,
@@ -29,14 +19,13 @@ import {
 } from "react-icons/fa";
 import useChatHistory from "./hooks/useChatHistory";
 import ChatList from "./components/ChatList";
-import AudioVisualizerComponent from "./components/AudioVisualizerComponent";
+import ChatView from "./components/ChatView";
 import SettingsDialog from "./components/SettingsDialog";
 import BackgroundTaskManager from "./components/BackgroundTaskManager";
 import Collapsible from "./components/Collapsible";
 import { useSettings } from "./hooks/useSettings";
-import { useGeminiAgent } from "./hooks/useGeminiAgent";
 import { useAuth } from "./hooks/useAuth";
-import CreateChatModal from "./components/CreateChatModal";
+
 function App() {
   const {
     session,
@@ -45,6 +34,7 @@ function App() {
     signInWithGoogle,
     signOut,
   } = useAuth();
+
   const {
     settings,
     isSettingsOpen,
@@ -57,48 +47,14 @@ function App() {
     theme,
     toggleTheme,
   } = useSettings();
-  const {
-    agent,
-    isConnected,
-    isInitializing,
-    isMicActive,
-    isMicSuspended,
-    isCameraActive,
-    isScreenShareActive,
-    error: agentError,
-    connectAgent,
-    disconnectAgent,
-    sendText,
-    toggleMic,
-    startCamera,
-    stopCamera,
-    startScreenShare,
-    stopScreenShare,
-    onTranscriptionRef,
-    onTextSentRef,
-    onInterruptedRef,
-    onTurnCompleteRef,
-    onScreenShareStoppedRef,
-    onUserTranscriptionRef,
-    onTranscriptForBackendRef,
-    onMicStateChangedRef,
-    onCameraStartedRef,
-    onCameraStoppedRef,
-    onScreenShareStartedRef,
-  } = useGeminiAgent(settings, getGeminiConfig, getWebsocketUrl);
 
-  const [messages, setMessages] = useState([]);
-  const [currentTranscript, setCurrentTranscript] = useState("");
-  const streamingMessageRef = useRef(null);
-  const chatHistoryRef = useRef(null);
-  const [cameraError, setCameraError] = useState(null);
-  const [screenError, setScreenError] = useState(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const profileIconRef = useRef(null);
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
-
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+  const [selectedChatId, setSelectedChatId] = useState(1);
+  const [isConnected, setIsConnected] = useState(false);
 
   // --- Resizable Sidebar State ---
   const [rightSidebarWidth, setRightSidebarWidth] = useState(280);
@@ -106,25 +62,16 @@ function App() {
   const [isResizing, setIsResizing] = useState(false);
   const mainContentRef = useRef(null);
 
-  const displayMicActive = isMicActive && !isMicSuspended;
-  const canInteract = session && isConnected && !isInitializing;
   const showAuthSpinner = authLoading && !session;
-  const showConnectPrompt =
-    session && !isConnected && !isInitializing && !authLoading && !agentError;
-  const showConnectError =
-    session && agentError && !isConnected && !isInitializing && !authLoading;
   const profileImageUrl = user?.user_metadata?.avatar_url;
 
   // Effect to manage body scrolling for the App component
   useEffect(() => {
-    // When App component mounts, disable body scrolling
     document.body.classList.add("no-scroll");
-
-    // When App component unmounts, re-enable body scrolling
     return () => {
       document.body.classList.remove("no-scroll");
     };
-  }, []); // Empty dependency array ensures this runs only on mount and unmount
+  }, []);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -137,8 +84,7 @@ function App() {
     }
     if (queryParams.get("google_auth_success") || queryParams.get("error")) {
       setTimeout(() => setGoogleAuthMessage(""), 7000);
-      // Clean URL without reloading the page
-      const newUrl = window.location.pathname; // Just the path, remove all query params
+      const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
   }, []);
@@ -149,10 +95,10 @@ function App() {
   // --- Right Sidebar Logic ---
   const toggleRightSidebar = () => {
     if (rightSidebarWidth > 0) {
-      setPreCollapseWidth(rightSidebarWidth); // Save current width
-      setRightSidebarWidth(0); // Collapse
+      setPreCollapseWidth(rightSidebarWidth);
+      setRightSidebarWidth(0);
     } else {
-      setRightSidebarWidth(preCollapseWidth > 50 ? preCollapseWidth : 280); // Restore
+      setRightSidebarWidth(preCollapseWidth > 50 ? preCollapseWidth : 280);
     }
   };
 
@@ -170,7 +116,6 @@ function App() {
         const newWidth =
           mainContentRef.current.getBoundingClientRect().right -
           mouseMoveEvent.clientX;
-        // Clamp width between min and max
         if (newWidth >= 220 && newWidth <= 600) {
           setRightSidebarWidth(newWidth);
         }
@@ -187,7 +132,6 @@ function App() {
       window.removeEventListener("mouseup", stopResizing);
     };
   }, [resize, stopResizing]);
-  // --- End Right Sidebar Logic ---
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -201,352 +145,14 @@ function App() {
         setIsProfileMenuOpen(false);
       }
     };
-    if (isProfileMenuOpen)
+    if (isProfileMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isProfileMenuOpen]);
 
-  const addMessage = useCallback(
-    (sender, text, isStreaming = false, type = "text") => {
-      setMessages((prev) => {
-        const newMessage = {
-          id: Date.now() + Math.random(),
-          sender,
-          text,
-          isStreaming,
-          type,
-        };
-        if (sender === "model" && isStreaming)
-          streamingMessageRef.current = newMessage.id;
-        const filteredPrev = prev.filter(
-          (msg) =>
-            !(msg.type === "audio_input_placeholder" && sender === "model"),
-        );
-        return [...filteredPrev, newMessage];
-      });
-      if (sender === "model" && isStreaming) setCurrentTranscript(text);
-    },
-    [],
-  );
-
-  const addUserAudioPlaceholder = useCallback(() => {
-    setMessages((prev) => {
-      const lastMsg = prev[prev.length - 1];
-      if (lastMsg?.type === "audio_input_placeholder") return prev;
-      return [
-        ...prev,
-        {
-          id: "placeholder-" + Date.now(),
-          sender: "user",
-          text: "Listening...",
-          type: "audio_input_placeholder",
-          isStreaming: false,
-        },
-      ];
-    });
-  }, []);
-
-  const updateStreamingMessage = useCallback((transcriptChunk) => {
-    setCurrentTranscript((prevTranscript) => {
-      const newFullTranscript = (prevTranscript + transcriptChunk).trimStart();
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === streamingMessageRef.current
-            ? { ...msg, text: newFullTranscript, isStreaming: true }
-            : msg,
-        ),
-      );
-      return newFullTranscript;
-    });
-  }, []);
-
-  const finalizeStreamingMessage = useCallback(() => {
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === streamingMessageRef.current
-          ? { ...msg, isStreaming: false }
-          : msg,
-      ),
-    );
-    streamingMessageRef.current = null;
-    setCurrentTranscript("");
-  }, []);
-
-  useEffect(() => {
-    if (chatHistoryRef.current)
-      chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
-  }, [messages]);
-
-  const sendTranscriptToBackend = useCallback(
-    async (speaker, transcript) => {
-      if (!transcript || transcript.trim() === "") return;
-      const backendUrl = `${settings.backendBaseUrl || "http://localhost:8080"}/api/text`;
-      log.Printf(
-        `Sending to Go backend (for main agent log): Speaker=${speaker}, Text=${transcript.substring(0, 50)}... via ${backendUrl}`,
-      );
-      var chat_id = 2;
-      var user_id = 1;
-      try {
-        const payload = {
-          speaker,
-          text: transcript,
-          timestamp: new Date().toISOString(),
-          session_id: "main_gemini_session",
-          ChatId: chat_id,
-          UserId: user_id,
-        };
-        const response = await fetch(backendUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const errorData = await response.text();
-          console.error(
-            `Go Backend Logging Error (${response.status}): ${errorData}`,
-          );
-        }
-      } catch (error) {
-        console.error(
-          `Network Error logging transcript for ${speaker}:`,
-          error,
-        );
-      }
-    },
-    [settings.backendBaseUrl],
-  );
-
-  useEffect(() => {
-    onTranscriptionRef.current = (transcript) => {
-      if (!streamingMessageRef.current) addMessage("model", transcript, true);
-      else updateStreamingMessage(" " + transcript);
-    };
-    onUserTranscriptionRef.current = (transcript) => {
-      setMessages((prev) => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg?.type === "audio_input_placeholder") {
-          return prev.map((msg) =>
-            msg.id === lastMsg.id ? { ...msg, text: ` ${transcript}` } : msg,
-          );
-        } else if (
-          !prev.some((msg) => msg.type === "audio_input_placeholder") &&
-          displayMicActive
-        ) {
-          return [
-            ...prev,
-            {
-              id: "placeholder-" + Date.now(),
-              sender: "user",
-              text: ` ${transcript}`,
-              type: "audio_input_placeholder",
-              isStreaming: false,
-            },
-          ];
-        }
-        return prev;
-      });
-    };
-    onTranscriptForBackendRef.current = sendTranscriptToBackend;
-    onTextSentRef.current = (text) => {
-      finalizeStreamingMessage();
-      addMessage("user", text, false, "text");
-    };
-    onInterruptedRef.current = () => {
-      finalizeStreamingMessage();
-      if (displayMicActive) addUserAudioPlaceholder();
-    };
-    onTurnCompleteRef.current = finalizeStreamingMessage;
-    onScreenShareStoppedRef.current = () => {
-      log.Printf("Screen share stopped (event received in App)");
-      setScreenError(null);
-    };
-    onMicStateChangedRef.current = (state) => {
-      if (state.active && !state.suspended) addUserAudioPlaceholder();
-      else
-        setMessages((prev) =>
-          prev.filter((msg) => msg.type !== "audio_input_placeholder"),
-        );
-    };
-    onCameraStartedRef.current = () => {
-      log.Printf("App: Camera Started");
-      setCameraError(null);
-    };
-    onCameraStoppedRef.current = () => {
-      log.Printf("App: Camera Stopped");
-    };
-    onScreenShareStartedRef.current = () => {
-      log.Printf("App: Screen Share Started");
-      setScreenError(null);
-    };
-  }, [
-    addMessage,
-    updateStreamingMessage,
-    finalizeStreamingMessage,
-    addUserAudioPlaceholder,
-    displayMicActive,
-    sendTranscriptToBackend,
-  ]);
-
-  const handleConnect = useCallback(() => {
-    if (!session) {
-      alert("Please log in first to connect.");
-      return;
-    }
-    if (!isConnected && !isInitializing) {
-      setCameraError(null);
-      setScreenError(null);
-      setMessages([]);
-      connectAgent().catch((err) =>
-        console.error("App: Connection failed", err),
-      );
-    }
-  }, [session, isConnected, isInitializing, connectAgent]);
-
-  const handleDisconnect = useCallback(() => {
-    if (isConnected) {
-      disconnectAgent();
-      setMessages([]);
-      setCurrentTranscript("");
-      streamingMessageRef.current = null;
-      setCameraError(null);
-      setScreenError(null);
-    }
-  }, [isConnected, disconnectAgent]);
-
-  const handleSendMessage = useCallback(
-    (text) => {
-      const trimmedText = text.trim();
-      if (trimmedText && agent && isConnected && session) {
-        finalizeStreamingMessage();
-        setMessages((prev) =>
-          prev.filter((msg) => msg.type !== "audio_input_placeholder"),
-        );
-        sendText(trimmedText);
-      }
-    },
-    [agent, isConnected, session, finalizeStreamingMessage, sendText],
-  );
-
-  const handleToggleMic = useCallback(() => {
-    if (agent && isConnected && session) {
-      toggleMic().catch((err) => {
-        console.error("App: Toggle mic error", err);
-        alert(`Mic error: ${err.message}`);
-      });
-    } else if (!session) alert("Please log in to use the microphone.");
-    else if (!isConnected) alert("Please connect the agent first.");
-  }, [agent, isConnected, session, toggleMic]);
-
-  const handleToggleCamera = useCallback(async () => {
-    if (!agent || !isConnected || !session) {
-      if (!session) alert("Please log in to use the camera.");
-      else if (!isConnected) alert("Please connect the agent first.");
-      return;
-    }
-    setCameraError(null);
-    const preview = document.getElementById("cameraPreview");
-    try {
-      if (isCameraActive) {
-        await stopCamera();
-        if (preview) preview.style.display = "none";
-      } else {
-        await startCamera();
-        if (preview) preview.style.display = "block";
-      }
-    } catch (error) {
-      console.error("App: Camera toggle error:", error);
-      setCameraError(error.message);
-      if (preview) preview.style.display = "none";
-    }
-  }, [agent, isConnected, session, isCameraActive, startCamera, stopCamera]);
-
-  const handleToggleScreenShare = useCallback(async () => {
-    if (!agent || !isConnected || !session) {
-      if (!session) alert("Please log in to use screen sharing.");
-      else if (!isConnected) alert("Please connect the agent first.");
-      return;
-    }
-    setScreenError(null);
-    const preview = document.getElementById("screenPreview");
-    try {
-      if (isScreenShareActive) {
-        await stopScreenShare();
-        if (preview) preview.style.display = "none";
-      } else {
-        await startScreenShare();
-        if (preview) preview.style.display = "block";
-      }
-    } catch (error) {
-      console.error("App: Screen share toggle error:", error);
-      setScreenError(error.message);
-      if (preview) preview.style.display = "none";
-    }
-  }, [
-    agent,
-    isConnected,
-    session,
-    isScreenShareActive,
-    startScreenShare,
-    stopScreenShare,
-  ]);
-
-  const handleSwitchCamera = useCallback(async () => {
-    if (
-      agent?.cameraManager &&
-      isCameraActive &&
-      session &&
-      /Mobi|Android/i.test(navigator.userAgent)
-    ) {
-      try {
-        setCameraError(null);
-        await agent.cameraManager.switchCamera();
-        log.Printf("App: Switched camera");
-      } catch (e) {
-        console.error("App: Error switching camera:", e);
-        setCameraError(`Switch failed: ${e.message}`);
-      }
-    }
-  }, [agent, isCameraActive, session]);
-
-  const handleInputKeyPress = useCallback(
-    (e) => {
-      if (e.key === "Enter" && e.target.value.trim()) {
-        handleSendMessage(e.target.value);
-        e.target.value = "";
-      }
-    },
-    [handleSendMessage],
-  );
-
-  const handleSendButtonClick = useCallback(() => {
-    const input = document.getElementById("messageInput");
-    if (input && input.value.trim()) {
-      handleSendMessage(input.value);
-      input.value = "";
-    }
-  }, [handleSendMessage]);
-
-  const handleLogout = useCallback(() => {
-    setIsProfileMenuOpen(false);
-    signOut();
-    if (isConnected) handleDisconnect();
-  }, [signOut, isConnected, handleDisconnect]);
-
-  const handleConnectGoogleAccount = () => {
-    if (user && user.id && settings.backendBaseUrl) {
-      // Redirect to the Go backend's login endpoint
-      const googleLoginUrl = `${settings.backendBaseUrl}/api/auth/google/login?supabase_user_id=${user.id}`;
-      window.location.href = googleLoginUrl;
-    } else if (user && user.id && !settings.backendBaseUrl) {
-      alert("Backend URL is not configured. Cannot connect Google Account.");
-      console.error("Backend URL missing in settings for Google Auth.");
-    } else {
-      alert("Please log in to your main account first to connect Google.");
-    }
-  };
-
   const renderStatus = useCallback(() => {
-    if (!session && !authLoading)
+    if (!session && !authLoading) {
       return (
         <span
           className="status status-disconnected"
@@ -555,30 +161,21 @@ function App() {
           <FaTimesCircle /> Not Logged In
         </span>
       );
-    if (authLoading)
+    }
+    if (authLoading) {
       return (
         <span className="status status-initializing">
           <FaSpinner className="fa-spin" /> Auth...
         </span>
       );
-    if (agentError && !isConnected)
-      return (
-        <span className="status status-error" title={agentError}>
-          <FaTimesCircle /> Agent Err
-        </span>
-      );
-    if (isInitializing)
-      return (
-        <span className="status status-initializing">
-          <FaSpinner className="fa-spin" /> Connecting...
-        </span>
-      );
-    if (isConnected)
+    }
+    if (isConnected) {
       return (
         <span className="status status-connected">
           <FaCheckCircle /> Connected
         </span>
       );
+    }
     return (
       <span
         className="status status-disconnected"
@@ -587,7 +184,7 @@ function App() {
         <FaTimesCircle /> Disconnected
       </span>
     );
-  }, [session, authLoading, agentError, isInitializing, isConnected]);
+  }, [session, authLoading, isConnected]);
 
   const getUserDisplayName = useCallback(() => {
     if (!user) return "Guest";
@@ -599,17 +196,51 @@ function App() {
     );
   }, [user]);
 
-  const conversationHistoryItems = [
-    { id: 1, title: "CI/CD in Containers vs VMs" },
-    { id: 2, title: "DigitalOcean Event Feedback" },
-    { id: 3, title: "WooCommerce KNET Integrat..." },
-    { id: 4, title: "Negotiation Training Game" },
-    { id: 5, title: "Unsloth LLaMA Fine-Tuning" },
-    { id: 6, title: "Chennai Restaurant Recomme..." },
-    { id: 7, title: "Chennai Restaurant Recomme..." },
-    { id: 8, title: "Fixing List Index Error" },
-    { id: 9, title: "JSON Question Generation" },
-  ];
+  const handleLogout = useCallback(() => {
+    setIsProfileMenuOpen(false);
+    signOut();
+  }, [signOut]);
+
+  const handleConnectGoogleAccount = () => {
+    if (user && user.id && settings.backendBaseUrl) {
+      const googleLoginUrl = `${settings.backendBaseUrl}/api/auth/google/login?supabase_user_id=${user.id}`;
+      window.location.href = googleLoginUrl;
+    } else if (user && user.id && !settings.backendBaseUrl) {
+      alert("Backend URL is not configured. Cannot connect Google Account.");
+      console.error("Backend URL missing in settings for Google Auth.");
+    } else {
+      alert("Please log in to your main account first to connect Google.");
+    }
+  };
+
+  const handleChatSelect = (chatId) => {
+    setSelectedChatId(chatId);
+  };
+
+  const handleCreateChat = async () => {
+    console.log("Create chat");
+    try {
+      const res = await fetch(`${settings.backendBaseUrl}/api/chats/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "New Chat",
+          user_id: user.id,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to create chat");
+      }
+      const data = await res.json();
+      console.log("Create chat response", data);
+      if (data.id) {
+        setSelectedChatId(data.id);
+      }
+    } catch (error) {
+      console.log("Create chat error", error);
+    }
+  };
 
   return (
     <div className="app-container">
@@ -632,28 +263,17 @@ function App() {
           &nbsp;
           <h1>Project Theta</h1>
         </div>
+
         <div className="header-center">
           <div className="header-status">
             {renderStatus()}
-            {canInteract && cameraError && (
-              <span
-                className="status status-warning"
-                title={`Camera Error: ${cameraError}`}
-              >
-                <FaVideoSlash /> Cam Err
-              </span>
-            )}
-            {canInteract && screenError && (
-              <span
-                className="status status-warning"
-                title={`Screen Share Error: ${screenError}`}
-              >
-                <FaDesktop /> Screen Err
-              </span>
-            )}
             {googleAuthMessage && (
               <span
-                className={`status ${googleAuthMessage.includes("failed") ? "status-error" : "status-info"}`}
+                className={`status ${
+                  googleAuthMessage.includes("failed")
+                    ? "status-error"
+                    : "status-info"
+                }`}
                 style={{
                   maxWidth: "150px",
                   overflow: "hidden",
@@ -674,15 +294,22 @@ function App() {
             )}
           </div>
         </div>
+
         <div className="header-right controls">
           {session && (
             <button
               onClick={toggleRightSidebar}
-              title={rightSidebarWidth === 0 ? "Show Sidebar" : "Hide Sidebar"}
+              title={
+                rightSidebarWidth === 0 ? "Show Sidebar" : "Hide Sidebar"
+              }
               className="sidebar-toggle-btn"
               style={{ marginRight: "0.5rem" }}
             >
-              {rightSidebarWidth === 0 ? <FaChevronLeft /> : <FaChevronRight />}
+              {rightSidebarWidth === 0 ? (
+                <FaChevronLeft />
+              ) : (
+                <FaChevronRight />
+              )}
             </button>
           )}
 
@@ -693,26 +320,13 @@ function App() {
               style={{ fontSize: "1.5rem" }}
             />
           )}
+
           {!session && !authLoading && (
             <button
               onClick={signInWithGoogle}
               title="Login with Google (Supabase)"
             >
               <FaGoogle /> <span className="button-text">Login</span>
-            </button>
-          )}
-          {session && !isConnected && !isInitializing && agentError && (
-            <button
-              onClick={handleConnect}
-              title="Retry Connection"
-              className="control-btn error"
-            >
-              <FaSyncAlt /> <span className="button-text">Retry</span>
-            </button>
-          )}
-          {isConnected && session && (
-            <button onClick={handleDisconnect} title="Disconnect Agent">
-              <FaUnlink /> <span className="button-text">Disconnect</span>
             </button>
           )}
 
@@ -782,7 +396,7 @@ function App() {
 
           <button
             onClick={openSettings}
-            disabled={isInitializing || isConnected || authLoading}
+            disabled={authLoading}
             title="Settings"
           >
             <FaCog />
@@ -795,209 +409,47 @@ function App() {
         ref={mainContentRef}
       >
         <ChatList
-          onChatSelect={() => {
-            console.log("Chat selected: ");
-          }}
-          selectedChatId={1 || null}
-          onCreateChat={async () => {
-            // Add 'async' here
-            console.log("Create chat");
-            try {
-              const res = await fetch(
-                `${settings.backendBaseUrl}/api/chats/create`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    // Fixed: Added opening parenthesis here
-                    title: "New Chat",
-                    user_id: user.id,
-                  }), // Fixed: Added closing parenthesis and brace here
-                },
-              );
-              if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || "Failed to create chat");
-              }
-              const data = res.json();
-              console.log("Create chat response", data);
-            } catch (error) {
-              console.log("Create chat error", error);
-            }
-          }}
+          onChatSelect={handleChatSelect}
+          selectedChatId={selectedChatId}
+          onCreateChat={handleCreateChat}
+          isCollapsed={isLeftSidebarCollapsed}
         />
+        
         <div className="center-and-right-content">
-          <div className="chat-area">
-            <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
-              {!session && !authLoading && (
+          {!session && !authLoading ? (
+            <div className="chat-area">
+              <div className="chat-history">
                 <div className="chat-message system-message">
                   Please log in to start.
                 </div>
-              )}
-              {authLoading && !session && (
+              </div>
+            </div>
+          ) : authLoading && !session ? (
+            <div className="chat-area">
+              <div className="chat-history">
                 <div className="chat-message system-message">
                   <FaSpinner className="fa-spin" /> Checking auth...
                 </div>
-              )}
-              {showConnectPrompt && (
-                <div className="connect-prompt-container">
-                  <p>Welcome, {getUserDisplayName()}!</p>
-                  <p>Connect to the main agent to start the session.</p>
-                  <button
-                    onClick={handleConnect}
-                    className="connect-prompt-button"
-                    disabled={isInitializing}
-                  >
-                    {isInitializing ? (
-                      <FaSpinner className="fa-spin" />
-                    ) : (
-                      <FaLink />
-                    )}
-                    {isInitializing ? " Connecting..." : " Connect Main Agent"}
-                  </button>
-                </div>
-              )}
-              {showConnectError && (
-                <div className="chat-message system-message error-message">
-                  <FaExclamationTriangle /> Connection failed: {agentError}
-                  <br /> Please check settings or try again.
-                  <button
-                    onClick={handleConnect}
-                    className="connect-prompt-button retry-button"
-                    disabled={isInitializing}
-                  >
-                    {isInitializing ? (
-                      <FaSpinner className="fa-spin" />
-                    ) : (
-                      <FaSyncAlt />
-                    )}
-                    {isInitializing ? " Retrying..." : " Retry Connect"}
-                  </button>
-                </div>
-              )}
-              {isConnected && messages.length === 0 && (
-                <div className="chat-message system-message">
-                  Agent connected. Say hello or use the mic!
-                </div>
-              )}
-              {isConnected &&
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`chat-message ${msg.sender === "user" ? "user-message" : "model-message"} type-${msg.type || "text"} ${msg.isStreaming ? "streaming" : ""}`}
-                  >
-                    {msg.text}
-                  </div>
-                ))}
-            </div>
-            {canInteract && agent?.initialized && (
-              <AudioVisualizerComponent agent={agent} />
-            )}
-            {session && (
-              <div className="footer-controls-stacked">
-                <div className="floating-media-controls">
-                  <button
-                    onClick={handleToggleMic}
-                    className={`control-btn mic-btn ${displayMicActive ? "active" : ""} ${isMicSuspended && isMicActive ? "suspended" : ""}`}
-                    disabled={!canInteract || authLoading}
-                    title={
-                      !session
-                        ? "Login Required"
-                        : !isConnected
-                          ? "Connect First"
-                          : (displayMicActive
-                              ? "Mute Microphone"
-                              : "Unmute Microphone") +
-                            (isMicSuspended && isMicActive
-                              ? " (Suspended - Click to Unmute)"
-                              : "")
-                    }
-                  >
-                    <FaMicrophoneSlash />
-                    <span className="button-text">Mic</span>
-                  </button>
-                  <button
-                    onClick={handleToggleCamera}
-                    className={`control-btn cam-btn ${isCameraActive ? "active" : ""} ${cameraError ? "error" : ""}`}
-                    disabled={!canInteract || authLoading}
-                    title={
-                      !session
-                        ? "Login Required"
-                        : !isConnected
-                          ? "Connect First"
-                          : cameraError
-                            ? `Camera Error: ${cameraError}`
-                            : isCameraActive
-                              ? "Stop Camera"
-                              : "Start Camera"
-                    }
-                  >
-                    <FaVideoSlash />
-                    <span className="button-text">Cam</span>
-                  </button>
-                  <button
-                    onClick={handleToggleScreenShare}
-                    className={`control-btn screen-btn ${isScreenShareActive ? "active" : ""} ${screenError ? "error" : ""}`}
-                    disabled={!canInteract || authLoading}
-                    title={
-                      !session
-                        ? "Login Required"
-                        : !isConnected
-                          ? "Connect First"
-                          : screenError
-                            ? `Screen Share Error: ${screenError}`
-                            : isScreenShareActive
-                              ? "Stop Screen Sharing"
-                              : "Start Screen Sharing"
-                    }
-                  >
-                    <FaDesktop />
-                    <span className="button-text">Screen</span>
-                  </button>
-                </div>
-                <div className="text-input-container">
-                  <input
-                    id="messageInput"
-                    type="text"
-                    placeholder={
-                      !session
-                        ? "Please log in first"
-                        : !isConnected
-                          ? "Connect agent to chat"
-                          : displayMicActive
-                            ? "Listening..."
-                            : "Type message or turn on mic..."
-                    }
-                    disabled={!canInteract || displayMicActive || authLoading}
-                    onKeyPress={handleInputKeyPress}
-                  />
-                  <button
-                    onClick={handleSendButtonClick}
-                    className="send-icon-button"
-                    disabled={
-                      !canInteract ||
-                      displayMicActive ||
-                      authLoading ||
-                      (typeof document !== "undefined" &&
-                        (!document.getElementById("messageInput") ||
-                          document
-                            .getElementById("messageInput")
-                            .value.trim() === ""))
-                    }
-                    title="Send Message"
-                  >
-                    <FaPaperPlane />
-                  </button>
-                </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <ChatView
+              user={user}
+              session={session}
+              settings={settings}
+              getGeminiConfig={getGeminiConfig}
+              getWebsocketUrl={getWebsocketUrl}
+              onConnectionChange={setIsConnected}
+              chatId={selectedChatId}
+            />
+          )}
 
           <div
             className="sidebar-resizer"
             onMouseDown={startResizing}
             title="Resize Sidebar"
           />
+
           <div
             className={`sidebar ${!isResizing ? "toggle-transition" : ""}`}
             style={{
@@ -1012,21 +464,8 @@ function App() {
             {rightSidebarWidth > 50 && (
               <div className="sidebar-content-wrapper">
                 <Collapsible title="Media Previews" startOpen={true}>
-                  <div id="cameraPreview" style={{ position: "relative" }}>
-                    {isCameraActive &&
-                      /Mobi|Android/i.test(navigator.userAgent) &&
-                      session &&
-                      agent?.cameraManager?.stream && (
-                        <button
-                          onClick={handleSwitchCamera}
-                          className="switch-camera-btn"
-                          title="Switch Camera"
-                        >
-                          <FaSyncAlt />
-                        </button>
-                      )}
-                  </div>
-                  <div id="screenPreview"></div>
+                  <div id="cameraPreview" style={{ position: "relative" }} />
+                  <div id="screenPreview" />
                 </Collapsible>
                 {session && (
                   <Collapsible title="Background Tasks" startOpen={true}>
@@ -1039,7 +478,7 @@ function App() {
         </div>
       </main>
 
-      <footer className="app-footer"></footer>
+      <footer className="app-footer" />
 
       {isSettingsOpen && (
         <SettingsDialog
@@ -1053,9 +492,5 @@ function App() {
     </div>
   );
 }
-
-const log = {
-  Printf: (message, ...args) => console.log(message, ...args),
-};
 
 export default App;
