@@ -68,14 +68,12 @@ const ChatView = ({
   const showConnectPrompt = session && !isConnected && !isInitializing && !agentError;
   const showConnectError = session && agentError && !isConnected && !isInitializing;
 
-  // Notify parent of connection changes
   useEffect(() => {
     if (onConnectionChange) {
       onConnectionChange(isConnected);
     }
   }, [isConnected, onConnectionChange]);
 
-  // Auto-scroll chat history
   useEffect(() => {
     if (chatHistoryRef.current) {
       chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
@@ -153,10 +151,10 @@ const ChatView = ({
 
   const sendTranscriptToBackend = useCallback(
     async (speaker, transcript) => {
-      if (!transcript || transcript.trim() === "") return;
+      if (!transcript || transcript.trim() === "" || !chatId) return; // Also check for chatId
       const backendUrl = `${settings.backendBaseUrl || "http://localhost:8080"}/api/text`;
       console.log(
-        `Sending to Go backend (for main agent log): Speaker=${speaker}, Text=${transcript.substring(0, 50)}... via ${backendUrl}`,
+        `Sending to Go backend: ChatID=${chatId}, Speaker=${speaker}, Text=${transcript.substring(0, 50)}...`,
       );
 
       try {
@@ -164,9 +162,7 @@ const ChatView = ({
           speaker,
           text: transcript,
           timestamp: new Date().toISOString(),
-          session_id: "main_gemini_session",
-          ChatId: chatId || 2,
-          UserId: user?.id || 1,
+          chat_id: chatId, // *** FIX: Use correct key 'chat_id' and pass the real chatId ***
         };
 
         const response = await fetch(backendUrl, {
@@ -191,7 +187,7 @@ const ChatView = ({
     [settings.backendBaseUrl, chatId, user?.id],
   );
 
-  // Set up agent callbacks
+  // Set up agent callbacks (no changes here)
   useEffect(() => {
     onTranscriptionRef.current = (transcript) => {
       if (!streamingMessageRef.current) {
@@ -228,26 +224,21 @@ const ChatView = ({
     };
 
     onTranscriptForBackendRef.current = sendTranscriptToBackend;
-
     onTextSentRef.current = (text) => {
       finalizeStreamingMessage();
       addMessage("user", text, false, "text");
     };
-
     onInterruptedRef.current = () => {
       finalizeStreamingMessage();
       if (displayMicActive) {
         addUserAudioPlaceholder();
       }
     };
-
     onTurnCompleteRef.current = finalizeStreamingMessage;
-
     onScreenShareStoppedRef.current = () => {
       console.log("Screen share stopped (event received in ChatView)");
       setScreenError(null);
     };
-
     onMicStateChangedRef.current = (state) => {
       if (state.active && !state.suspended) {
         addUserAudioPlaceholder();
@@ -257,16 +248,13 @@ const ChatView = ({
         );
       }
     };
-
     onCameraStartedRef.current = () => {
       console.log("ChatView: Camera Started");
       setCameraError(null);
     };
-
     onCameraStoppedRef.current = () => {
       console.log("ChatView: Camera Stopped");
     };
-
     onScreenShareStartedRef.current = () => {
       console.log("ChatView: Screen Share Started");
       setScreenError(null);
@@ -280,6 +268,7 @@ const ChatView = ({
     sendTranscriptToBackend,
   ]);
 
+  // Other component logic remains unchanged
   const handleConnect = useCallback(() => {
     if (!session) {
       alert("Please log in first to connect.");
@@ -607,7 +596,6 @@ const ChatView = ({
         </div>
       )}
 
-      {/* Camera Switch Button for Mobile */}
       {isCameraActive &&
         /Mobi|Android/i.test(navigator.userAgent) &&
         session &&

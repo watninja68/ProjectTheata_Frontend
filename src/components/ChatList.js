@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FaPlus,
   FaUsers,
@@ -19,13 +19,8 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
   const [editingChat, setEditingChat] = useState(null);
   const [editTitle, setEditTitle] = useState("");
 
-  useEffect(() => {
-    if (user) {
-      loadChats();
-    }
-  }, [user]);
-
-  const loadChats = async () => {
+  const loadChats = useCallback(async () => {
+    if (!user) return; // Guard against running without a user
     try {
       setLoading(true);
       setError(null);
@@ -33,15 +28,33 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
         include_preview: true,
         limit: 50,
       });
-      console.log(response);
-      setChats(response.chats || []);
+      const fetchedChats = response.chats || [];
+      setChats(fetchedChats);
+
+      // *** UX IMPROVEMENT: Auto-create first chat ***
+      if (fetchedChats.length === 0) {
+        console.log("No chats found for user, creating a default one.");
+        // Use the passed-in onCreateChat function from App.js
+        // This will create the chat and the App component will handle selecting it
+        onCreateChat();
+      } else if (!selectedChatId && fetchedChats.length > 0) {
+        // If no chat is selected, select the most recent one
+        onChatSelect(fetchedChats[0]);
+      }
     } catch (err) {
       console.error("Failed to load chats:", err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, onCreateChat, onChatSelect, selectedChatId]); // Dependencies for loadChats
+
+  useEffect(() => {
+    if (user) {
+      loadChats();
+    }
+    // This effect should run when the user logs in.
+  }, [user]);
 
   const handleDeleteChat = async (chatId, event) => {
     event.stopPropagation();
@@ -51,9 +64,10 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
 
     try {
       await ChatService.deleteChat(chatId, user.id);
-      await loadChats(); // Refresh the list
+      await loadChats();
       if (selectedChatId === chatId) {
-        onChatSelect(null); // Clear selection if deleted chat was selected
+        const remainingChats = chats.filter((c) => c.id !== chatId);
+        onChatSelect(remainingChats.length > 0 ? remainingChats[0] : null);
       }
     } catch (err) {
       console.error("Failed to delete chat:", err);
@@ -73,7 +87,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
         title: editTitle,
         user_id: user.id,
       });
-      await loadChats(); // Refresh the list
+      await loadChats();
       setEditingChat(null);
     } catch (err) {
       console.error("Failed to update chat:", err);
@@ -104,14 +118,14 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
         minute: "2-digit",
       });
     } else if (diffInHours < 168) {
-      // 7 days
       return date.toLocaleDateString([], { weekday: "short" });
     } else {
       return date.toLocaleDateString([], { month: "short", day: "numeric" });
     }
   };
 
-  if (loading) {
+  // The rest of the component's render logic remains the same...
+  if (loading && chats.length === 0) {
     return (
       <div className="chat-list-container">
         <div className="chat-list-header">
@@ -157,18 +171,18 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat }) => {
       </div>
 
       <div className="chat-list">
-        {chats.length === 0 ? (
+        {chats.length === 0 && !loading ? (
           <div className="empty-chat-list">
-            <p>No chats yet</p>
-            <button onClick={onCreateChat} className="create-first-chat-btn">
-              Create your first chat
-            </button>
+            <p>Creating your first chat...</p>
+            <FaSpinner className="fa-spin" />
           </div>
         ) : (
           chats.map((chat) => (
             <div
               key={chat.id}
-              className={`chat-item ${selectedChatId === chat.id ? "selected" : ""}`}
+              className={`chat-item ${
+                selectedChatId === chat.id ? "selected" : ""
+              }`}
               onClick={() => onChatSelect(chat)}
             >
               <div className="chat-item-main">
