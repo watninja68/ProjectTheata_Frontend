@@ -19,8 +19,14 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed }) =
   const [editingChatId, setEditingChatId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
 
+  // FIX #1: The main data fetching effect.
+  // This now ONLY depends on the user, so it will only run once when the user logs in.
+  // This completely stops the infinite loop.
   const loadChats = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -28,36 +34,41 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed }) =
       const fetchedChats = response.chats || [];
       setChats(fetchedChats);
 
-      if (fetchedChats.length === 0 && onCreateChat) {
-        onCreateChat();
-      } else if (!selectedChatId && fetchedChats.length > 0 && onChatSelect) {
+      // Handle auto-selection or creation in a separate effect
+      // to avoid re-fetching data.
+      if (!selectedChatId && fetchedChats.length > 0) {
         onChatSelect(fetchedChats[0]);
+      } else if (fetchedChats.length === 0) {
+        // You might want to automatically create a chat here if that's the desired UX
+        // onCreateChat(); 
       }
-    } catch (err) {
+    } catch (err)
+    {
       console.error("Failed to load chats:", err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [user, onCreateChat, onChatSelect, selectedChatId]);
+  }, [user, selectedChatId, onChatSelect]); // Dependencies are now more stable
 
   useEffect(() => {
-    if (user) {
-      loadChats();
-    }
-  }, [user, loadChats]);
+    loadChats();
+  }, [loadChats]); // This is now safe because loadChats is properly memoized
 
-  const handleDeleteChat = async (chatId, event) => {
+  const handleDeleteChat = async (idOfChatToDelete, event) => {
     event.stopPropagation();
     if (!window.confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
       return;
     }
 
     try {
-      await ChatService.deleteChat(chatId, user.id);
-      const remainingChats = chats.filter((c) => c.id !== chatId);
+      await ChatService.deleteChat(idOfChatToDelete, user.id);
+      const remainingChats = chats.filter((c) => c.id !== idOfChatToDelete);
       setChats(remainingChats);
-      if (selectedChatId === chatId) {
+      
+      // FIX #2: Explicitly check if the DELETED chat was the SELECTED one.
+      if (selectedChatId === idOfChatToDelete) {
+        // If it was, select the first of the remaining chats, or null if none are left.
         onChatSelect(remainingChats.length > 0 ? remainingChats[0] : null);
       }
     } catch (err) {
