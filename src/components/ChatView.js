@@ -63,6 +63,8 @@ const ChatView = ({
   const userTranscriptBufferRef = useRef('');
   // NEW: Track if we've already sent the current user transcript
   const userTranscriptSentRef = useRef(false);
+  // Add a lock to prevent concurrent sends
+  const userTranscriptLockRef = useRef(false);
   const chatHistoryRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
   const [screenError, setScreenError] = useState(null);
@@ -166,16 +168,31 @@ const ChatView = ({
     }
   }, [settings.backendBaseUrl, chatId]);
 
-  // IMPROVED: Send user buffer only if it hasn't been sent yet
+  // IMPROVED: More robust buffer management
   const sendAndClearUserBuffer = useCallback(() => {
-    if (userTranscriptBufferRef.current.trim() && !userTranscriptSentRef.current) {
-      sendTranscriptToBackend('user', userTranscriptBufferRef.current);
-      userTranscriptSentRef.current = true; // Mark as sent
-      console.log('User transcript sent to backend:', userTranscriptBufferRef.current);
+    // Prevent concurrent execution
+    if (userTranscriptLockRef.current) {
+      return;
     }
-    // Always clear the buffer and reset the sent flag when clearing
-    userTranscriptBufferRef.current = '';
-    userTranscriptSentRef.current = false;
+    
+    userTranscriptLockRef.current = true;
+    
+    try {
+      const currentTranscript = userTranscriptBufferRef.current.trim();
+      const hasBeenSent = userTranscriptSentRef.current;
+      
+      if (currentTranscript && !hasBeenSent) {
+        console.log('Sending user transcript to backend:', currentTranscript);
+        sendTranscriptToBackend('user', currentTranscript);
+        userTranscriptSentRef.current = true;
+      }
+      
+      // Clear buffer and reset flags
+      userTranscriptBufferRef.current = '';
+      userTranscriptSentRef.current = false;
+    } finally {
+      userTranscriptLockRef.current = false;
+    }
   }, [sendTranscriptToBackend]);
 
   // NEW: Function to start a new user transcript session
@@ -184,11 +201,13 @@ const ChatView = ({
     userTranscriptSentRef.current = false;
   }, []);
 
+  // IMPROVED: Better transcript update logic
   useEffect(() => {
     onTranscriptionRef.current = (transcript) => {
-      // The agent is starting to speak, so the user's turn is officially over.
-      // Send the complete buffered user transcript now.
-      sendAndClearUserBuffer();
+      // IMPROVED: Add small delay to ensure user transcript is complete
+      setTimeout(() => {
+        sendAndClearUserBuffer();
+      }, 100);
 
       if (!streamingMessageRef.current) {
         agentTextBufferRef.current = transcript;
@@ -198,16 +217,17 @@ const ChatView = ({
         updateStreamingMessage(transcript);
       }
     };
-
-    // FIXED: This now properly accumulates the COMPLETE user transcript
+    
+    // FIXED: Only update buffer if not currently being sent
     onTranscriptForBackendRef.current = (speaker, transcript) => {
-      if (speaker === 'user') {
-        // Update the buffer with the latest COMPLETE transcript from the speech recognition
-        // This gives us the full sentence as it's being built up
-        userTranscriptBufferRef.current = transcript;
-        // Reset the sent flag since we have new content
-        userTranscriptSentRef.current = false;
-        console.log('User transcript updated:', transcript);
+      if (speaker === 'user' && !userTranscriptLockRef.current) {
+        // Only update if we have a longer/newer transcript
+        const currentBuffer = userTranscriptBufferRef.current;
+        if (transcript.length >= currentBuffer.length) {
+          userTranscriptBufferRef.current = transcript;
+          userTranscriptSentRef.current = false;
+          console.log('User transcript updated:', transcript);
+        }
       }
     };
 
@@ -219,25 +239,30 @@ const ChatView = ({
       finalizeStreamingMessageUI();
     };
     
+    // IMPROVED: Handle interruptions more carefully
     const handleInterruption = () => {
-        // Send any pending user transcript before handling agent interruption
+      // Give a moment for any final transcript updates
+      setTimeout(() => {
         sendAndClearUserBuffer();
         handleTurnComplete();
         if (displayMicActive) {
           addUserAudioPlaceholder();
-          startNewUserTranscript(); // Start fresh for the new user turn
+          startNewUserTranscript();
         }
+      }, 150);
     };
     
     onTurnCompleteRef.current = handleTurnComplete;
     onInterruptedRef.current = handleInterruption;
     
+    // IMPROVED: Better mic state handling
     onMicStateChangedRef.current = (state) => {
       if (!state.active && !state.suspended) {
-        // Mic was just turned off, which ends the user's turn.
-        sendAndClearUserBuffer();
+        // Add delay to ensure final transcript is captured
+        setTimeout(() => {
+          sendAndClearUserBuffer();
+        }, 200);
       } else if (state.active && !state.suspended) {
-        // Mic was just turned on, start a new transcript session
         startNewUserTranscript();
         addUserAudioPlaceholder();
       } else {
@@ -295,14 +320,17 @@ const ChatView = ({
     }
   }, [isConnected, disconnectAgent, sendAndClearUserBuffer]);
   
+  // IMPROVED: Better message sending
   const handleSendMessage = useCallback((text) => {
     const trimmedText = text.trim();
     if (trimmedText && agent && isConnected && session) {
-      // Send any pending user transcript before sending text message
-      sendAndClearUserBuffer();
-      onInterruptedRef.current?.();
-      setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
-      sendText(trimmedText);
+      // Ensure any pending transcript is sent first
+      setTimeout(() => {
+        sendAndClearUserBuffer();
+        onInterruptedRef.current?.();
+        setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
+        sendText(trimmedText);
+      }, 100);
     }
   }, [agent, isConnected, session, sendText, sendAndClearUserBuffer]);
 

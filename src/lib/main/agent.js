@@ -237,20 +237,17 @@ export class GeminiAgent extends EventEmitter {
 
     this.client.on("inputTranscription", (transcript) => {
       if (transcript && transcript.trim().length > 0) {
-        // Use a more specific event for user transcription
         this.emit("user_transcription", transcript);
-
-        console.log("user speech transcription:", transcript);
-        console.debug("user speech transcription:", transcript);
+/*        console.log("user speech transcription:", transcript);*/
+        /*console.debug("user speech transcription:", transcript);*/
       }
     });
     this.client.on("outputTranscription", (transcript) => {
       if (transcript && transcript.trim().length > 0) {
         // Use a more specific event for model transcription
         this.emit("transcription", transcript);
-
-        console.log("Model speech transcription:", transcript);
-        console.debug("Model speech transcription:", transcript);
+  /*      console.log("Model speech transcription:", transcript);*/
+        /*console.debug("Model speech transcription:", transcript);*/
       }
     });
     this.client.on("interrupted", () => {
