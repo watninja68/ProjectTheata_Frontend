@@ -104,9 +104,12 @@ const BackgroundTaskManager = () => {
             return;
         }
 
+        const clientDateTime = new Date().toISOString(); // Get current time in ISO format
+
         const goBackendPayload = {
             user_id: user ? user.id : "",
             text: taskQuery,
+            client_datetime: clientDateTime, // Add the user's local time to the request
         };
 
         try {
