@@ -733,7 +733,6 @@ export class GeminiAgent extends EventEmitter {
       if (this.modelsKeepAliveInterval)
         clearInterval(this.modelsKeepAliveInterval);
       this.modelsKeepAliveInterval = null;
-      // TODO: Implement reconnection logic?
     });
 
     // Connect and wait for setup
@@ -815,7 +814,6 @@ export class GeminiAgent extends EventEmitter {
       console.warn(`${this.name}: User speech transcriber disconnected.`);
       if (this.userKeepAliveInterval) clearInterval(this.userKeepAliveInterval);
       this.userKeepAliveInterval = null;
-      // TODO: Implement reconnection logic?
     });
 
     try {

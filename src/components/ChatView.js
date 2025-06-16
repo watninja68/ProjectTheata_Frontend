@@ -58,7 +58,9 @@ const ChatView = ({
   const [messages, setMessages] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
-  const streamingMessageRef = useRef(null);
+  const streamingMessageRef = useRef(null); // Tracks the ID of the streaming message for UI updates
+  // --- CHANGE 1: Add a ref to buffer the complete text of the agent's response ---
+  const streamingTextBufferRef = useRef('');
   const chatHistoryRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
   const [screenError, setScreenError] = useState(null);
@@ -162,7 +164,7 @@ const ChatView = ({
       );
   }, []);
 
-  const finalizeStreamingMessage = useCallback(() => {
+  const finalizeStreamingMessageUI = useCallback(() => {
     if (streamingMessageRef.current) {
         setMessages((prev) =>
           prev.map((msg) =>
@@ -178,6 +180,7 @@ const ChatView = ({
   const sendTranscriptToBackend = useCallback(
     async (speaker, transcript) => {
       if (!transcript || transcript.trim() === "" || !chatId) return;
+      console.log(`Sending to backend: [${speaker}] - "${transcript}"`); // For debugging
       const backendUrl = `${settings.backendBaseUrl}/api/text`;
       try {
         const payload = {
@@ -203,20 +206,50 @@ const ChatView = ({
   );
 
   useEffect(() => {
+    // --- CHANGE 2: onTranscriptionRef now populates our buffer ref ---
     onTranscriptionRef.current = (transcript) => {
       if (!streamingMessageRef.current) {
+        // This is the first token of a new response.
+        streamingTextBufferRef.current = transcript; // Start the buffer.
         addMessage("model", transcript, true);
       } else {
-        updateStreamingMessage(transcript);
+        // This is a subsequent token.
+        streamingTextBufferRef.current += transcript; // Append to buffer.
+        updateStreamingMessage(transcript); // Update UI.
       }
     };
-    onTranscriptForBackendRef.current = sendTranscriptToBackend;
-    onTextSentRef.current = (text) => addMessage("user", text, false, "text");
-    onInterruptedRef.current = () => {
-      finalizeStreamingMessage();
-      if (displayMicActive) addUserAudioPlaceholder();
+
+    // This remains the same. It only handles user speech-to-text.
+    onTranscriptForBackendRef.current = (speaker, transcript) => {
+      if (speaker === 'user') {
+        sendTranscriptToBackend(speaker, transcript);
+      }
     };
-    onTurnCompleteRef.current = finalizeStreamingMessage;
+
+    // --- CHANGE 3: The logic for turn completion is now robust ---
+    const handleTurnComplete = () => {
+      // Check if there is buffered text from the agent.
+      if (streamingTextBufferRef.current.trim()) {
+        // Send the complete, buffered string to the backend.
+        sendTranscriptToBackend('model', streamingTextBufferRef.current);
+      }
+      // Reset the buffer for the next turn.
+      streamingTextBufferRef.current = '';
+      // Finalize the message in the UI (stop the streaming animation).
+      finalizeStreamingMessageUI();
+    };
+    
+    const handleInterruption = () => {
+        handleTurnComplete(); // Same logic: send whatever we have so far.
+        if (displayMicActive) addUserAudioPlaceholder();
+    };
+    
+    // Assign the new robust handlers.
+    onTurnCompleteRef.current = handleTurnComplete;
+    onInterruptedRef.current = handleInterruption;
+
+    // --- Other handlers remain the same ---
+    onTextSentRef.current = (text) => addMessage("user", text, false, "text");
     onScreenShareStoppedRef.current = () => setScreenError(null);
     onMicStateChangedRef.current = (state) => {
       if (state.active && !state.suspended) addUserAudioPlaceholder();
@@ -250,10 +283,10 @@ const ChatView = ({
   }, [
     addMessage,
     updateStreamingMessage,
-    finalizeStreamingMessage,
+    finalizeStreamingMessageUI, // Using the renamed UI function
     addUserAudioPlaceholder,
     displayMicActive,
-    sendTranscriptToBackend,
+    sendTranscriptToBackend, // Dependency is still needed
   ]);
   
   const handleConnect = useCallback(() => {
@@ -261,7 +294,6 @@ const ChatView = ({
     if (!isConnected && !isInitializing) {
       setCameraError(null);
       setScreenError(null);
-      // History is now loaded separately, don't clear messages on connect
       connectAgent().catch((err) => console.error("ChatView: Connection failed", err));
     }
   }, [session, isConnected, isInitializing, connectAgent]);
@@ -269,19 +301,22 @@ const ChatView = ({
   const handleDisconnect = useCallback(() => {
     if (isConnected) {
       disconnectAgent();
-      // Don't clear messages, the conversation is persisted.
     }
   }, [isConnected, disconnectAgent]);
   
   const handleSendMessage = useCallback((text) => {
     const trimmedText = text.trim();
     if (trimmedText && agent && isConnected && session) {
-      finalizeStreamingMessage();
+      // It's good practice to ensure any ongoing model speech is finalized
+      // before the user sends a new message. onInterruptedRef should handle this,
+      // but this is a safe fallback.
+      onInterruptedRef.current?.(); 
       setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
       sendText(trimmedText);
     }
-  }, [agent, isConnected, session, finalizeStreamingMessage, sendText]);
+  }, [agent, isConnected, session, sendText]);
 
+  // ... (the rest of the component from handleToggleMic onwards is unchanged) ...
   const handleToggleMic = useCallback(() => {
     if (!canInteract) return alert("Please connect the agent first.");
     toggleMic().catch((err) => alert(`Mic error: ${err.message}`));
@@ -314,7 +349,7 @@ const ChatView = ({
   const handleInputKeyPress = (e) => {
     if (e.key === 'Enter' && e.target.value.trim()) {
       handleSendMessage(e.target.value);
-      e.target.value = '';
+e.target.value = '';
     }
   };
 
@@ -363,7 +398,6 @@ const ChatView = ({
           </div>
         );
     }
-    // Render messages if history loaded, or if it's a new chat (empty history is fine)
     return messages.map((msg) => (
             <div
               key={msg.id}
