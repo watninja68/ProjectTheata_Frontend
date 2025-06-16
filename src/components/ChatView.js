@@ -59,6 +59,12 @@ const ChatView = ({
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
   const streamingMessageRef = useRef(null);
+  const agentTextBufferRef = useRef('');
+  const userTranscriptBufferRef = useRef('');
+  // NEW: Track if we've already sent the current user transcript
+  const userTranscriptSentRef = useRef(false);
+  // Add a lock to prevent concurrent sends
+  const userTranscriptLockRef = useRef(false);
   const chatHistoryRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
   const [screenError, setScreenError] = useState(null);
@@ -68,14 +74,12 @@ const ChatView = ({
   const showConnectPrompt = session && !isConnected && !isInitializing && !agentError;
   const showConnectError = session && agentError && !isConnected && !isInitializing;
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (chatHistoryRef.current) {
       chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
     }
   }, [messages, historyLoading]);
 
-  // Load chat history when chatId changes
   useEffect(() => {
     const loadHistory = async () => {
       if (!chatId) {
@@ -105,126 +109,168 @@ const ChatView = ({
     loadHistory();
   }, [chatId]);
 
-
   useEffect(() => {
     if (onConnectionChange) {
       onConnectionChange(isConnected);
     }
   }, [isConnected, onConnectionChange]);
 
-  const addMessage = useCallback(
-    (sender, text, isStreaming = false, type = "text") => {
-      setMessages((prev) => {
-        const newMessage = {
-          id: Date.now() + Math.random(),
-          sender,
-          text,
-          isStreaming,
-          type,
-        };
-        if (sender === "model" && isStreaming) {
-          streamingMessageRef.current = newMessage.id;
-        }
-        const filteredPrev = prev.filter(
-          (msg) =>
-            !(msg.type === "audio_input_placeholder" && sender === "model"),
-        );
-        return [...filteredPrev, newMessage];
-      });
-    },
-    [],
-  );
+  const addMessage = useCallback((sender, text, isStreaming = false, type = "text") => {
+    setMessages((prev) => {
+      const newMessage = { id: Date.now() + Math.random(), sender, text, isStreaming, type };
+      if (sender === "model" && isStreaming) {
+        streamingMessageRef.current = newMessage.id;
+      }
+      const filteredPrev = prev.filter(msg => !(msg.type === "audio_input_placeholder" && sender === "model"));
+      return [...filteredPrev, newMessage];
+    });
+  }, []);
 
   const addUserAudioPlaceholder = useCallback(() => {
     setMessages((prev) => {
-      const lastMsg = prev[prev.length - 1];
-      if (lastMsg?.type === "audio_input_placeholder") return prev;
-      return [
-        ...prev,
-        {
-          id: "placeholder-" + Date.now(),
-          sender: "user",
-          text: "Listening...",
-          type: "audio_input_placeholder",
-          isStreaming: false,
-        },
-      ];
+      if (prev[prev.length - 1]?.type === "audio_input_placeholder") return prev;
+      return [...prev, { id: "placeholder-" + Date.now(), sender: "user", text: "Listening...", type: "audio_input_placeholder", isStreaming: false }];
     });
   }, []);
 
   const updateStreamingMessage = useCallback((transcriptChunk) => {
     setMessages((prevMessages) =>
         prevMessages.map((msg) =>
-          msg.id === streamingMessageRef.current
-            ? { ...msg, text: msg.text + transcriptChunk, isStreaming: true }
-            : msg,
-        ),
+          msg.id === streamingMessageRef.current ? { ...msg, text: msg.text + transcriptChunk, isStreaming: true } : msg
+        )
       );
   }, []);
-
-  const finalizeStreamingMessage = useCallback(() => {
+  
+  const finalizeStreamingMessageUI = useCallback(() => {
     if (streamingMessageRef.current) {
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === streamingMessageRef.current
-              ? { ...msg, isStreaming: false }
-              : msg,
-          ),
+            msg.id === streamingMessageRef.current ? { ...msg, isStreaming: false } : msg
+          )
         );
         streamingMessageRef.current = null;
     }
   }, []);
 
-  const sendTranscriptToBackend = useCallback(
-    async (speaker, transcript) => {
-      if (!transcript || transcript.trim() === "" || !chatId) return;
-      const backendUrl = `${settings.backendBaseUrl}/api/text`;
-      try {
-        const payload = {
-          speaker,
-          text: transcript,
-          timestamp: new Date().toISOString(),
-          chat_id: chatId,
-        };
-        const response = await fetch(backendUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const errorData = await response.text();
-          console.error(`Go Backend Logging Error (${response.status}): ${errorData}`);
-        }
-      } catch (error) {
-        console.error(`Network Error logging transcript for ${speaker}:`, error);
+  const sendTranscriptToBackend = useCallback(async (speaker, transcript) => {
+    if (!transcript || transcript.trim() === "" || !chatId) return;
+    console.log(`SENDING TO BACKEND: [${speaker}] - "${transcript}"`);
+    const backendUrl = `${settings.backendBaseUrl}/api/text`;
+    try {
+      const payload = { speaker, text: transcript, timestamp: new Date().toISOString(), chat_id: chatId };
+      const response = await fetch(backendUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`Go Backend Logging Error (${response.status}): ${errorData}`);
       }
-    },
-    [settings.backendBaseUrl, chatId],
-  );
+    } catch (error) {
+      console.error(`Network Error logging transcript for ${speaker}:`, error);
+    }
+  }, [settings.backendBaseUrl, chatId]);
 
+  // IMPROVED: More robust buffer management
+  const sendAndClearUserBuffer = useCallback(() => {
+    // Prevent concurrent execution
+    if (userTranscriptLockRef.current) {
+      return;
+    }
+    
+    userTranscriptLockRef.current = true;
+    
+    try {
+      const currentTranscript = userTranscriptBufferRef.current.trim();
+      const hasBeenSent = userTranscriptSentRef.current;
+      
+      if (currentTranscript && !hasBeenSent) {
+        console.log('Sending user transcript to backend:', currentTranscript);
+        sendTranscriptToBackend('user', currentTranscript);
+        userTranscriptSentRef.current = true;
+      }
+      
+      // Clear buffer and reset flags
+      userTranscriptBufferRef.current = '';
+      userTranscriptSentRef.current = false;
+    } finally {
+      userTranscriptLockRef.current = false;
+    }
+  }, [sendTranscriptToBackend]);
+
+  // NEW: Function to start a new user transcript session
+  const startNewUserTranscript = useCallback(() => {
+    userTranscriptBufferRef.current = '';
+    userTranscriptSentRef.current = false;
+  }, []);
+
+  // IMPROVED: Better transcript update logic
   useEffect(() => {
     onTranscriptionRef.current = (transcript) => {
+      // IMPROVED: Add small delay to ensure user transcript is complete
+      setTimeout(() => {
+        sendAndClearUserBuffer();
+      }, 100);
+
       if (!streamingMessageRef.current) {
+        agentTextBufferRef.current = transcript;
         addMessage("model", transcript, true);
       } else {
+        agentTextBufferRef.current += transcript;
         updateStreamingMessage(transcript);
       }
     };
-    onTranscriptForBackendRef.current = sendTranscriptToBackend;
-    onTextSentRef.current = (text) => addMessage("user", text, false, "text");
-    onInterruptedRef.current = () => {
-      finalizeStreamingMessage();
-      if (displayMicActive) addUserAudioPlaceholder();
+    
+    // FIXED: Only update buffer if not currently being sent
+    onTranscriptForBackendRef.current = (speaker, transcript) => {
+      if (speaker === 'user' && !userTranscriptLockRef.current) {
+        // Only update if we have a longer/newer transcript
+        const currentBuffer = userTranscriptBufferRef.current;
+        if (transcript.length >= currentBuffer.length) {
+          userTranscriptBufferRef.current = transcript;
+          userTranscriptSentRef.current = false;
+          console.log('User transcript updated:', transcript);
+        }
+      }
     };
-    onTurnCompleteRef.current = finalizeStreamingMessage;
-    onScreenShareStoppedRef.current = () => setScreenError(null);
+
+    const handleTurnComplete = () => {
+      if (agentTextBufferRef.current.trim()) {
+        sendTranscriptToBackend('model', agentTextBufferRef.current);
+      }
+      agentTextBufferRef.current = '';
+      finalizeStreamingMessageUI();
+    };
+    
+    // IMPROVED: Handle interruptions more carefully
+    const handleInterruption = () => {
+      // Give a moment for any final transcript updates
+      setTimeout(() => {
+        sendAndClearUserBuffer();
+        handleTurnComplete();
+        if (displayMicActive) {
+          addUserAudioPlaceholder();
+          startNewUserTranscript();
+        }
+      }, 150);
+    };
+    
+    onTurnCompleteRef.current = handleTurnComplete;
+    onInterruptedRef.current = handleInterruption;
+    
+    // IMPROVED: Better mic state handling
     onMicStateChangedRef.current = (state) => {
-      if (state.active && !state.suspended) addUserAudioPlaceholder();
-      else setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
+      if (!state.active && !state.suspended) {
+        // Add delay to ensure final transcript is captured
+        setTimeout(() => {
+          sendAndClearUserBuffer();
+        }, 200);
+      } else if (state.active && !state.suspended) {
+        startNewUserTranscript();
+        addUserAudioPlaceholder();
+      } else {
+        setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
+      }
     };
-    onCameraStartedRef.current = () => setCameraError(null);
-    onCameraStoppedRef.current = () => {};
-    onScreenShareStartedRef.current = () => setScreenError(null);
+
+    // UI update for live user transcription (this does not send to backend)
     onUserTranscriptionRef.current = (transcript) => {
       setMessages((prev) => {
         const lastMsg = prev[prev.length - 1];
@@ -233,27 +279,27 @@ const ChatView = ({
             msg.id === lastMsg.id ? { ...msg, text: ` ${transcript}` } : msg,
           );
         } else if (!prev.some((msg) => msg.type === "audio_input_placeholder") && displayMicActive) {
-          return [
-            ...prev,
-            {
-              id: "placeholder-" + Date.now(),
-              sender: "user",
-              text: ` ${transcript}`,
-              type: "audio_input_placeholder",
-              isStreaming: false,
-            },
-          ];
+          return [...prev, { id: "placeholder-" + Date.now(), sender: "user", text: ` ${transcript}`, type: "audio_input_placeholder", isStreaming: false }];
         }
         return prev;
       });
     };
+
+    onTextSentRef.current = (text) => addMessage("user", text, false, "text");
+    onScreenShareStoppedRef.current = () => setScreenError(null);
+    onCameraStartedRef.current = () => setCameraError(null);
+    onCameraStoppedRef.current = () => {};
+    onScreenShareStartedRef.current = () => setScreenError(null);
+    
   }, [
     addMessage,
     updateStreamingMessage,
-    finalizeStreamingMessage,
+    finalizeStreamingMessageUI,
     addUserAudioPlaceholder,
     displayMicActive,
     sendTranscriptToBackend,
+    sendAndClearUserBuffer,
+    startNewUserTranscript
   ]);
   
   const handleConnect = useCallback(() => {
@@ -261,26 +307,32 @@ const ChatView = ({
     if (!isConnected && !isInitializing) {
       setCameraError(null);
       setScreenError(null);
-      // History is now loaded separately, don't clear messages on connect
       connectAgent().catch((err) => console.error("ChatView: Connection failed", err));
     }
   }, [session, isConnected, isInitializing, connectAgent]);
 
   const handleDisconnect = useCallback(() => {
     if (isConnected) {
+      // Send any pending buffers before disconnect
+      sendAndClearUserBuffer(); 
+      onTurnCompleteRef.current?.(); // Finalize agent turn if it was interrupted
       disconnectAgent();
-      // Don't clear messages, the conversation is persisted.
     }
-  }, [isConnected, disconnectAgent]);
+  }, [isConnected, disconnectAgent, sendAndClearUserBuffer]);
   
+  // IMPROVED: Better message sending
   const handleSendMessage = useCallback((text) => {
     const trimmedText = text.trim();
     if (trimmedText && agent && isConnected && session) {
-      finalizeStreamingMessage();
-      setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
-      sendText(trimmedText);
+      // Ensure any pending transcript is sent first
+      setTimeout(() => {
+        sendAndClearUserBuffer();
+        onInterruptedRef.current?.();
+        setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
+        sendText(trimmedText);
+      }, 100);
     }
-  }, [agent, isConnected, session, finalizeStreamingMessage, sendText]);
+  }, [agent, isConnected, session, sendText, sendAndClearUserBuffer]);
 
   const handleToggleMic = useCallback(() => {
     if (!canInteract) return alert("Please connect the agent first.");
@@ -363,7 +415,6 @@ const ChatView = ({
           </div>
         );
     }
-    // Render messages if history loaded, or if it's a new chat (empty history is fine)
     return messages.map((msg) => (
             <div
               key={msg.id}
