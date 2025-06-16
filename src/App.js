@@ -267,13 +267,7 @@ function App() {
     <div className="app-container">
       <div className="app-header">
         <div className="header-left">
-          <button
-            onClick={toggleLeftSidebar}
-            title={isLeftSidebarCollapsed ? "Show History" : "Hide History"}
-            className="left-sidebar-toggle-btn"
-          >
-            {isLeftSidebarCollapsed ? <FaBars /> : <FaChevronLeft />}
-          </button>
+          {/* Left sidebar toggle button removed from here */}
           <FaStroopwafel
             style={{
               fontSize: "1.8rem",
@@ -317,23 +311,6 @@ function App() {
         </div>
 
         <div className="header-right controls">
-          {session && (
-            <button
-              onClick={toggleRightSidebar}
-              title={
-                rightSidebarWidth === 0 ? "Show Sidebar" : "Hide Sidebar"
-              }
-              className="sidebar-toggle-btn"
-              style={{ marginRight: "0.5rem" }}
-            >
-              {rightSidebarWidth === 0 ? (
-                <FaChevronLeft />
-              ) : (
-                <FaChevronRight />
-              )}
-            </button>
-          )}
-
           {showAuthSpinner && (
             <FaSpinner
               className="fa-spin"
@@ -434,6 +411,7 @@ function App() {
           onCreateChat={handleCreateChat}
           onChatSelect={handleSelectChat}
           isCollapsed={isLeftSidebarCollapsed}
+          toggleCollapse={toggleLeftSidebar} // Prop added here
         />
         
         <div className="center-and-right-content">
@@ -499,6 +477,22 @@ function App() {
                   : "none",
             }}
           >
+            {/* Relocated Right Sidebar Toggle Button */}
+            {session && (
+              <button
+                onClick={toggleRightSidebar}
+                title={
+                  rightSidebarWidth === 0 ? "Show Sidebar" : "Hide Sidebar"
+                }
+                className="sidebar-toggle-btn-right" // New class for specific styling
+              >
+                {rightSidebarWidth === 0 ? (
+                  <FaChevronLeft />
+                ) : (
+                  <FaChevronRight />
+                )}
+              </button>
+            )}
             {rightSidebarWidth > 50 && (
               <div className="sidebar-content-wrapper">
                 <Collapsible title="Media Previews" startOpen={true}>

@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  FaPlus,
   FaCrown,
   FaTrash,
   FaEdit,
   FaSpinner,
-  FaCommentDots,
+  FaCommentDots, // Added for collapse button
+  FaBars,    
+  FaAngleDoubleLeft    // Added for collapse button
 } from "react-icons/fa";
+import { IoIosAdd } from "react-icons/io";
 import ChatService from "../services/chatService";
 import { useAuth } from "../hooks/useAuth";
 import "./ChatList.css";
 
-const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed }) => {
+// Added toggleCollapse to props
+const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed, toggleCollapse }) => {
   const { user } = useAuth();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -207,13 +210,30 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed }) =
   
   return (
     <div className={`conversation-history-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-        <div className="chat-list-header">
-            <h3>Conversations</h3>
-            <button className="create-chat-btn" onClick={onCreateChat} title="Create New Chat" disabled={loading}>
-                <FaPlus />
-            </button>
+        {/* Updated header to include collapse button and match desired structure */}
+        <div className="chat-list-header"> 
+          <h4>Conversations</h4> {/* Added Heading */}
+          {/* Collapse button - using sidebar-toggle-btn for potential style reuse */}
+          <button 
+            onClick={toggleCollapse} 
+            className="sidebar-toggle-btn" 
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <FaBars size={20} /> : <FaAngleDoubleLeft size={24} />}
+          </button>
         </div>
-        <div className="chat-list-scroll-area">
+
+        {/* Separator Line - MOVED UP */}
+        <hr className="sidebar-separator" />
+
+        {/* New "New Conversation" button - MOVED DOWN */}
+        <button onClick={onCreateChat} className="new-conversation-btn" disabled={loading}>
+          <IoIosAdd size={20} style={{ marginRight: '0.7rem' }} />
+          <span>New Conversation</span>
+        </button>
+
+        {/* Renamed chat-list-scroll-area to conv-history-list for CSS consistency */}
+        <div className="conv-history-list">
             {renderContent()}
         </div>
     </div>
