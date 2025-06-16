@@ -158,6 +158,14 @@ export const useSettings = () => {
 
       return {
         model: "models/gemini-2.0-flash-exp",
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        //output_audio_transcription: {
+        //enable_automatic_punctuation: true,
+        //},
+        //input_audio_transcription: {
+        //enable_automatic_punctuation: true,
+        //},
         generationConfig: {
           temperature: settings.temperature,
           top_p: settings.top_p,
