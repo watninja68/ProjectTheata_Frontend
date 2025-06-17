@@ -336,6 +336,7 @@ export class AudioStreamer {
                 const source = this.context.createBufferSource();
                 source.buffer = audioBuffer;
 
+                //source.playbackRate.value = 1.1;
                 try {
                     source.connect(this.gainNode); // Connect to main gain node
                 } catch (connectError) {
@@ -345,7 +346,6 @@ export class AudioStreamer {
 
                 this.scheduledSources.add(source);
                 source.onended = () => {
-                    // **FIX:** Add dispose check in onended
                     if (this.isDisposed || !this.scheduledSources) return;
                     this.scheduledSources.delete(source);
                     try { source.disconnect(); } catch (e) {/* ignore disconnect errors */}
