@@ -138,7 +138,7 @@ export const useSettings = () => {
 
   // Function to generate the Gemini config object based on current settings AND auth state
   const getGeminiConfig = useCallback(
-    (toolDeclarations = []) => {
+    (toolDeclarations = [], conversationContextSummary = '') => {
       // --- System Instruction Update ---
       // Get user name from Supabase metadata if available, otherwise fallback to email
       const userName =
@@ -146,12 +146,18 @@ export const useSettings = () => {
         user?.user_metadata?.name ||
         user?.email;
       const baseInstructions =
-        "You are a helpful assistant named Theata.You are a helpful assistant named Theta. Whenever you perform a background agent tool call by forwarding the user requests , always keep the user updated with answers while you await the result - for examples -> start with I'm forwarding the task to the background agent , let's wait until we receive the results back etc...";
-      // Add user info if logged in
+        "You are a helpful assistant named Theta. Whenever you perform a background agent tool call by forwarding the user requests, always keep the user updated with answers while you await the result - for example, start with 'I'm forwarding the task to the background agent, let's wait until we receive the results back,' etc.";
+      
       const userPrefix = userName
         ? `The user you are speaking with is logged in as ${userName}. `
         : "The user is not logged in. ";
-      const finalInstructions = userPrefix + baseInstructions;
+
+      const contextPrefix = conversationContextSummary
+        ? `This is a continuing conversation. Here is the summary of the previous messages:\n---\n${conversationContextSummary}\n---\n\nPlease consider this context in your responses. The current date is ${new Date().toDateString()}.\n\n`
+        : "";
+      
+      const finalInstructions = contextPrefix + userPrefix + baseInstructions;
+
       console.log("Using final system instructions:", finalInstructions);
       // --- End System Instruction Update ---
 

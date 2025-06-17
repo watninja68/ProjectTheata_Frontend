@@ -62,8 +62,8 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
 
   // --- Resizable Sidebar State ---
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(280);
-  const [preCollapseWidth, setPreCollapseWidth] = useState(280);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(350);
+  const [preCollapseWidth, setPreCollapseWidth] = useState(350);
   const [isResizing, setIsResizing] = useState(false);
   const mainContentRef = useRef(null);
 
@@ -104,7 +104,7 @@ function App() {
       setPreCollapseWidth(rightSidebarWidth);
       setRightSidebarWidth(0);
     } else {
-      setRightSidebarWidth(preCollapseWidth > 50 ? preCollapseWidth : 280);
+      setRightSidebarWidth(preCollapseWidth > 50 ? preCollapseWidth : 350);
     }
   };
 
@@ -122,7 +122,7 @@ function App() {
         const newWidth =
           mainContentRef.current.getBoundingClientRect().right -
           mouseMoveEvent.clientX;
-        if (newWidth >= 220 && newWidth <= 600) {
+        if (newWidth >= 220 && newWidth <= 800) {
           setRightSidebarWidth(newWidth);
         }
       }

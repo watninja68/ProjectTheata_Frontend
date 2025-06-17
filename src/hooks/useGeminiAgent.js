@@ -182,7 +182,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
   // ────────────────────────────────────────────────────────────────────────────
   //  Agent connection & initialization
   // ────────────────────────────────────────────────────────────────────────────
-  const connectAgent = useCallback(async () => {
+  const connectAgent = useCallback(async (conversationContextSummary = '') => {
     // Use agentRef.current to check if already connecting/connected
     if (
       agentRef.current ||
@@ -211,6 +211,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         url,
         config: getGeminiConfig(
           toolManager.current?.getToolDeclarations() || [],
+          conversationContextSummary,
         ),
         deepgramApiKey: settings.deepgramApiKey || null,
         modelSampleRate: settings.sampleRate,

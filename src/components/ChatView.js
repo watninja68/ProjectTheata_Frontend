@@ -58,6 +58,7 @@ const ChatView = ({
   } = useGeminiAgent(settings, getGeminiConfig, getWebsocketUrl);
 
   const [messages, setMessages] = useState([]);
+  const [conversationContextSummary, setConversationContextSummary] = useState('');
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
   const streamingMessageRef = useRef(null);
@@ -87,6 +88,7 @@ const ChatView = ({
     const loadHistory = async () => {
       if (!chatId) {
         setMessages([]);
+        setConversationContextSummary('');
         setHistoryLoading(false);
         setHasBeenConnectedBefore(false); // Added for new chat
         return;
@@ -105,6 +107,16 @@ const ChatView = ({
           type: 'text'
         }));
         setMessages(formattedHistory);
+        
+        if (formattedHistory.length > 0) {
+          const summary = formattedHistory
+            .map(msg => `${msg.sender === 'user' ? 'User' : 'Agent'}: ${msg.text}`)
+            .join('\n');
+          setConversationContextSummary(summary);
+        } else {
+            setConversationContextSummary('');
+        }
+
         if (formattedHistory.some(msg => msg.sender === 'model')) {
           setHasBeenConnectedBefore(true);
         }
@@ -112,6 +124,7 @@ const ChatView = ({
       } catch (err) {
         console.error("Failed to load chat history:", err);
         setHistoryError(err.message || "Could not load messages.");
+        setConversationContextSummary('');
         // Ensure it's false on error
         setHasBeenConnectedBefore(false);
       } finally {
@@ -319,9 +332,9 @@ const ChatView = ({
     if (!isConnected && !isInitializing) {
       setCameraError(null);
       setScreenError(null);
-      connectAgent().catch((err) => console.error("ChatView: Connection failed", err));
+      connectAgent(conversationContextSummary).catch((err) => console.error("ChatView: Connection failed", err));
     }
-  }, [session, isConnected, isInitializing, connectAgent]);
+  }, [session, isConnected, isInitializing, connectAgent, conversationContextSummary]);
 
   const handleDisconnect = useCallback(() => {
     if (isConnected) {
