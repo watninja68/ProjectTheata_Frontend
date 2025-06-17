@@ -25,6 +25,8 @@ const ChatView = ({
   onConnectionChange,
   chatId,
 }) => {
+  const isExistingChat = !!chatId;
+
   const {
     agent,
     isConnected,
@@ -68,6 +70,7 @@ const ChatView = ({
   const chatHistoryRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
   const [screenError, setScreenError] = useState(null);
+  const [hasBeenConnectedBefore, setHasBeenConnectedBefore] = useState(false);
 
   const displayMicActive = isMicActive && !isMicSuspended;
   const canInteract = session && isConnected && !isInitializing;
@@ -85,11 +88,14 @@ const ChatView = ({
       if (!chatId) {
         setMessages([]);
         setHistoryLoading(false);
+        setHasBeenConnectedBefore(false); // Added for new chat
         return;
       }
       try {
         setHistoryLoading(true);
         setHistoryError(null);
+        // Reset for existing chat before loading, in case of error or empty history
+        setHasBeenConnectedBefore(false); 
         const history = await ChatService.getChatHistory(chatId);
         const formattedHistory = history.map(msg => ({
           id: msg.id,
@@ -99,15 +105,21 @@ const ChatView = ({
           type: 'text'
         }));
         setMessages(formattedHistory);
+        if (formattedHistory.some(msg => msg.sender === 'model')) {
+          setHasBeenConnectedBefore(true);
+        }
+        // If catch is hit, or formattedHistory is empty, it remains false from the reset above.
       } catch (err) {
         console.error("Failed to load chat history:", err);
         setHistoryError(err.message || "Could not load messages.");
+        // Ensure it's false on error
+        setHasBeenConnectedBefore(false);
       } finally {
         setHistoryLoading(false);
       }
     };
     loadHistory();
-  }, [chatId]);
+  }, [chatId]); // No need to add setHasBeenConnectedBefore to deps, it's part of this effect's logic
 
   useEffect(() => {
     if (onConnectionChange) {
@@ -393,28 +405,8 @@ const ChatView = ({
           </div>
       );
     }
-    if (showConnectPrompt) {
-        return (
-          <div className="connect-prompt-container">
-            <p>Ready to start?</p>
-            <p>Connect to the live agent to begin this conversation.</p>
-            <button onClick={handleConnect} className="connect-prompt-button" disabled={isInitializing}>
-              {isInitializing ? <FaSpinner className="fa-spin" /> : <FaLink />}
-              {isInitializing ? " Connecting..." : " Connect Agent"}
-            </button>
-          </div>
-        );
-    }
-    if (showConnectError) {
-        return (
-          <div className="chat-message system-message error-message">
-            <FaExclamationTriangle /> Connection failed: {agentError}
-            <button onClick={handleConnect} className="connect-prompt-button retry-button" disabled={isInitializing}>
-              <FaSyncAlt /> Retry Connect
-            </button>
-          </div>
-        );
-    }
+    // If not loading and no history error, always try to render messages.
+    // Connect prompts/errors will be handled elsewhere or after this block.
     return messages.map((msg) => (
             <div
               key={msg.id}
@@ -431,12 +423,66 @@ const ChatView = ({
         {renderChatContent()}
       </div>
 
+      {/* Prompts for NEW or NEVER-CONNECTED chats */}
+      {!hasBeenConnectedBefore && session && !isConnected && !isInitializing && !agentError && (
+        <div className="connect-prompt-container">
+          <p>Ready to start?</p>
+          <p>Connect to the live agent to begin this conversation.</p>
+          <button onClick={handleConnect} className="connect-prompt-button" disabled={isInitializing}>
+            {isInitializing ? <FaSpinner className="fa-spin" /> : <FaLink />}
+            {isInitializing ? " Connecting..." : " Connect Agent"}
+          </button>
+        </div>
+      )}
+
+      {!hasBeenConnectedBefore && session && agentError && !isConnected && !isInitializing && (
+        <div className="chat-message system-message error-message">
+          <FaExclamationTriangle /> Connection failed: {agentError}
+          <button onClick={handleConnect} className="connect-prompt-button retry-button" disabled={isInitializing}>
+            {isInitializing ? <FaSpinner className="fa-spin" style={{ marginRight: '5px' }} /> : <FaSyncAlt style={{ marginRight: '5px' }} />}
+            {isInitializing ? " Connecting..." : " Retry Connect"}
+          </button>
+        </div>
+      )}
+
       {isConnected && agent?.initialized && (
         <AudioVisualizerComponent agent={agent} />
       )}
 
       {session && (
         <div className="footer-controls-stacked">
+          {/* Reconnect UI for PREVIOUSLY CONNECTED chats */}
+          {hasBeenConnectedBefore && session && !isConnected && !isInitializing && (
+            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+              {agentError ? (
+                <div className="reconnect-error-container">
+                  <p style={{ color: 'var(--error-color, #ff4d4d)', fontSize: '0.9em', marginBottom: '5px' }}>
+                    <FaExclamationTriangle style={{ marginRight: '5px' }} />
+                    Connection failed: {agentError}
+                  </p>
+                  <button 
+                    onClick={handleConnect} 
+                    className="reconnect-button-small" 
+                    title="Retry Connect" 
+                    disabled={isInitializing}
+                  >
+                    {isInitializing ? <FaSpinner className="fa-spin" style={{ marginRight: '5px' }} /> : <FaSyncAlt style={{ marginRight: '5px' }} />}
+                    {isInitializing ? " Connecting..." : " Retry"}
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={handleConnect} 
+                  className="reconnect-button-small" 
+                  title="Reconnect to agent" 
+                  disabled={isInitializing}
+                >
+                  {isInitializing ? <FaSpinner className="fa-spin" style={{ marginRight: '5px' }} /> : <FaLink style={{ marginRight: '5px' }} />}
+                  {isInitializing ? " Connecting..." : " Reconnect"}
+                </button>
+              )}
+            </div>
+          )}
           <div className="floating-media-controls">
             {isConnected && (
               <button onClick={handleDisconnect} className="control-btn error" title="Disconnect Agent Session">

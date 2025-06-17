@@ -146,7 +146,6 @@ export const useSettings = () => {
         user?.user_metadata?.name ||
         user?.email;
       const baseInstructions =
-        settings.systemInstructions ||
         "You are a helpful assistant named Theata.You are a helpful assistant named Theta. Whenever you perform a background agent tool call by forwarding the user requests , always keep the user updated with answers while you await the result - for examples -> start with I'm forwarding the task to the background agent , let's wait until we receive the results back etc...";
       // Add user info if logged in
       const userPrefix = userName

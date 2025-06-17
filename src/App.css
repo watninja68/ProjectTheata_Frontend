@@ -1144,3 +1144,50 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     /* Assuming width/height were auto or not explicitly set to small fixed values here before */
   }
 }
+
+/* --- Small Reconnect Button (Styled as a standard action button) --- */
+.reconnect-button-small {
+  padding: 0.7rem 1.1rem; /* Matched to .control-btn */
+  font-size: 0.95rem; /* Matched to .control-btn */
+  font-weight: 600; /* Matched to .control-btn */
+  color: #fff; /* Matched to .control-btn */
+  background-color: var(--accent-primary); /* Matched to .control-btn */
+  border: none; /* Matched to .control-btn */
+  border-radius: var(--border-radius); /* Matched to .control-btn */
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; /* Matched to .control-btn */
+  transition: all var(--transition-speed) ease;
+  line-height: 1; /* Matched to .control-btn */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2), 0 0 0px var(--accent-glow); /* Matched to .control-btn */
+  white-space: nowrap; /* Added from .control-btn */
+}
+
+.reconnect-button-small:hover:not(:disabled) {
+  background-color: var(--accent-secondary); /* Matched to .control-btn */
+  color: #fff; 
+  border: none; /* Ensure border remains none on hover */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 15px var(--accent-glow); /* Matched to .control-btn */
+  transform: translateY(-1px); /* Matched to .control-btn */
+}
+
+.reconnect-button-small:active:not(:disabled) { /* Added active state from .control-btn */
+  transform: scale(0.96) translateY(0); 
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 5px var(--accent-glow); 
+}
+
+.reconnect-button-small:disabled {
+  background-color: var(--bg-tertiary); /* Matched to .control-btn */
+  color: var(--text-secondary); /* Matched to .control-btn */
+  opacity: 0.5; /* Matched to .control-btn */
+  cursor: not-allowed;
+  box-shadow: none; /* Matched to .control-btn */
+  transform: none; /* Matched to .control-btn */
+}
+
+.reconnect-button-small svg {
+  font-size: 1.2em; /* Matched to .control-btn */
+  vertical-align: middle; /* Added from .control-btn */
+}
