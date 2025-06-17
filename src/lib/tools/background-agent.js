@@ -25,38 +25,42 @@ export class BackgroundTaskTool {
   getDeclaration() {
     return {
       name: "executeBackgroundTask",
-      description: "Sends a natural language task to a backend agent for execution. Useful for complex, multi-step tasks or tasks requiring authenticated access to user data (like Gmail or Google Drive or Google Calander).",
+      description: "Sends a natural language task to a backend agent for execution. This is useful for complex, multi-step tasks or tasks requiring authenticated access to user data (like Gmail, Google Drive, or Google Calendar). The agent will have access to the user's authenticated context.",
       parameters: {
         type: "object",
         properties: {
           taskQuery: {
             type: "string",
-            description: "The natural language instruction or query for the agent. For example: 'Search my Gmail for emails from boss@example.com about the Q3 report'."
-          },
-          userId: {
-            type: "string",
-            description: "The unique identifier of the user initiating the task. This is required for authentication and context on the backend."
+            description: "The natural language instruction or query for the agent. For example: 'Search my Gmail for emails from boss@example.com about the Q3 report' or 'Find my next event on Google Calendar'."
           }
         },
-        required: ["taskQuery", "userId"]
+        required: ["taskQuery"]
       }
     };
   }
 
   /**
    * Executes the background task by calling the backend API.
-   * @param {Object} params - The parameters for executing the tool.
+   * @param {Object} params - The parameters for executing the tool, provided by the LLM.
    * @param {string} params.taskQuery - The natural language task for the agent.
-   * @param {string} params.userId - The ID of the user.
+   * @param {Object} user - The authenticated user object, provided by the agent.
    * @returns {Promise<Object>} A promise that resolves to an object containing the status and result of the execution.
    */
-  async execute(params) {
-    const { taskQuery, userId } = params;
+  async execute(params, user) {
+    const { taskQuery } = params;
+    const userId = user?.id; // Get user ID from the context passed by the agent
 
-    if (!taskQuery || !userId) {
+    if (!taskQuery) {
       return {
         status: "error",
-        error: "Both 'taskQuery' and 'userId' are required parameters."
+        error: "'taskQuery' is a required parameter."
+      };
+    }
+
+    if (!userId) {
+      return {
+        status: "error",
+        error: "User is not authenticated. Cannot execute a background task without a user context."
       };
     }
 

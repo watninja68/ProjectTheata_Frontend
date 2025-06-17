@@ -45,15 +45,27 @@ export class ToolManager {
 
     /**
      * Parses tool arguments and runs execute() method of the requested tool.
-     * @param {Object} functionCall - Function call specification
+     * @param {Object} functionCall - Function call specification from the model.
+     * @param {Object|null} user - The authenticated user object, passed from the agent.
      */
-    async handleToolCall(functionCall) {
+    async handleToolCall(functionCall, user = null) {
         const { name, args, id } = functionCall;
-        console.info(`Handling tool call: ${name}`, { args });
+        console.info(`Handling tool call: ${name}`, { args, userId: user?.id });
 
         const tool = this.tools.get(name);
+        if (!tool) {
+            const errorMsg = `Tool with name '${name}' is not registered.`;
+            console.error(errorMsg);
+            return {
+                output: null,
+                id: id,
+                error: errorMsg,
+            };
+        }
+
         try {
-            const result = await tool.execute(args);
+            // Pass both the LLM's arguments and the user context to the tool
+            const result = await tool.execute(args, user);
             return {
                 output: result,
                 id: id,

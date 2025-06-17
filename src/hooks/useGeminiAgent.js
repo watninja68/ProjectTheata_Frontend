@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { GeminiAgent } from "../lib/main/agent";
 import { ToolManager } from "../lib/tools/tool-manager";
-import { GoogleSearchTool } from "../lib/tools/google-search"; // Assuming this exists
-import { WolframAlphaTool } from "../lib/tools/wolf-from-alpha.js"; // Corrected import path assumed
+import { GoogleSearchTool } from "../lib/tools/google-search";
+import { WolframAlphaTool } from "../lib/tools/wolf-from-alpha.js";
+import { BackgroundTaskTool } from "../lib/tools/background-agent"; // Import the new tool
+import { useAuth } from './useAuth'; // Import useAuth to get user context
 
 // ────────────────────────────────────────────────────────────────────────────────
 //  useGeminiAgent -- now with robust SSE support and forwarding SSE messages to agent
 // ────────────────────────────────────────────────────────────────────────────────
 export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
+  const { user } = useAuth(); // Get user context here
   const [agent, setAgent] = useState(null);
   const agentRef = useRef(null); // <<< NEW: Ref to hold the current agent instance
   const [isConnected, setIsConnected] = useState(false);
@@ -37,13 +40,18 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
   // ───── Tools ─────
   const toolManager = useRef(null);
   useEffect(() => {
-    if (!toolManager.current) {
+    if (!toolManager.current && settings?.backendBaseUrl) {
       toolManager.current = new ToolManager();
       toolManager.current.registerTool("googleSearch", new GoogleSearchTool());
       toolManager.current.registerTool("wolframAlpha", new WolframAlphaTool());
-      console.log("[useGeminiAgent] ToolManager ready");
+      // Register the BackgroundTaskTool, providing the necessary backend URL
+      toolManager.current.registerTool(
+        "executeBackgroundTask",
+        new BackgroundTaskTool({ backendBaseUrl: settings.backendBaseUrl })
+      );
+      console.log("[useGeminiAgent] ToolManager ready with all tools");
     }
-  }, []);
+  }, [settings?.backendBaseUrl]); // Re-run if backend URL changes
 
   // ────────────────────────────────────────────────────────────────────────────
   //  SSE plumbing with robust reconnection handling
@@ -178,7 +186,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     // Use agentRef.current to check if already connecting/connected
     if (
       agentRef.current ||
-      isInitializing /*|| isConnected - redundant if agentRef exists */
+      isInitializing
     ) {
       console.warn(
         "[useGeminiAgent] connect cancelled – already busy/connected",
@@ -210,12 +218,12 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         transcribeUsersSpeech: settings.transcribeUsersSpeech || false,
         transcribeModelsSpeech: settings.transcribeModelsSpeech || false,
         settings,
+        user: user, // <<< PASS THE AUTHENTICATED USER
       };
-      console.log("[useGeminiAgent] Creating GeminiAgent", agentConfig);
+      console.log("[useGeminiAgent] Creating GeminiAgent with user:", user?.id, agentConfig);
       const newAgent = new GeminiAgent(agentConfig);
 
       // ── Hook‑up agent events to refs ──
-      // ... (event listeners remain the same) ...
       newAgent.on("transcription", (t) => {
         onTranscriptionRef.current?.(t);
         onTranscriptForBackendRef.current?.("agent", t);
@@ -256,17 +264,12 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
       });
 
       // ── Connect & init ──
-      // Set refs and state *before* potential async operations that might change them
       agentRef.current = newAgent; // <<< UPDATE REF
       setAgent(newAgent); // <<< Update state for consumers
 
       await newAgent.connect();
-      // Verify connection status if connect doesn't throw
-      // const connected = newAgent.isConnected ? newAgent.isConnected() : true; // Example check
-      // if (!connected) throw new Error("Agent failed to connect.");
 
       await newAgent.initialize();
-      // Verify initialization if initialize doesn't throw
 
       setIsConnected(true); // <<< Set connected state AFTER successful connection/init
       setIsMicActive(newAgent.audioRecorder?.isRecording || false);
@@ -282,10 +285,9 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
       setError(errorMsg);
       onErrorRef.current?.(errorMsg);
 
-      // Clean up agent state and ref
-      agentRef.current?.disconnect?.().catch(console.error); // Try to disconnect if ref exists
-      agentRef.current = null; // <<< CLEAR REF
-      setAgent(null); // <<< Clear state
+      agentRef.current?.disconnect?.().catch(console.error);
+      agentRef.current = null;
+      setAgent(null);
       setIsConnected(false);
       setIsMicActive(false);
       setIsMicSuspended(true);
@@ -294,22 +296,21 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     } finally {
       setIsInitializing(false);
     }
-    // Removed 'agent' from dependencies, using agentRef now
   }, [
-    /* agent, */ // No longer needed due to agentRef
     isInitializing,
-    isConnected, // Keep isConnected to prevent multiple connection attempts
+    isConnected,
     settings,
     getGeminiConfig,
     getWebsocketUrl,
-    startSSE, // Keep startSSE if its identity matters (it shouldn't change often now)
+    startSSE,
+    user, // Add user as a dependency
   ]);
 
   // ────────────────────────────────────────────────────────────────────────────
   //  Disconnect
   // ────────────────────────────────────────────────────────────────────────────
   const disconnectAgent = useCallback(async () => {
-    const agentToDisconnect = agentRef.current; // Use the ref
+    const agentToDisconnect = agentRef.current;
     if (!agentToDisconnect) {
       console.warn("[useGeminiAgent] disconnect cancelled – no agent");
       return;
@@ -319,40 +320,32 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
       await agentToDisconnect.disconnect();
     } catch (err) {
       console.error("[useGeminiAgent] Disconnect error", err);
-      // Keep existing error state logic
       const errorMsg = err.message || "Failed to disconnect agent.";
       setError(errorMsg);
       onErrorRef.current?.(errorMsg);
     } finally {
-      // Reset state variables
       setAgent(null);
       setIsConnected(false);
-      setIsInitializing(false); // Should already be false, but reset for safety
+      setIsInitializing(false);
       setIsMicActive(false);
       setIsMicSuspended(true);
       setIsCameraActive(false);
       setIsScreenShareActive(false);
-      // Clear the primary ref *after* attempting disconnect
-      agentRef.current = null; // <<< CLEAR REF
-      // Don't clear error state here, let connectAgent clear it on next attempt
-      // setError(null);
-      stopSSE(); // Stop SSE when agent disconnects
+      agentRef.current = null;
+      stopSSE();
       console.log("[useGeminiAgent] Agent disconnected");
     }
-  }, [stopSSE /* No dependency on agent state needed */]);
+  }, [stopSSE]);
 
   // ───── Cleanup on unmount ─────
   useEffect(() => {
-    // Capture the ref value at the time the effect runs
     const agentInstance = agentRef.current;
     return () => {
-      // Disconnect the captured instance if it exists
       if (agentInstance) {
         agentInstance.disconnect().catch(console.error);
       }
-      stopSSE(); // Ensure SSE closed on unmount
+      stopSSE();
     };
-    // agentRef itself is stable, stopSSE dependency might be needed if its identity changes
   }, [stopSSE]);
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -361,7 +354,6 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
 
   const sendText = useCallback(
     async (text) => {
-      // Check ref and connection status
       if (!agentRef.current || !isConnected) {
         console.warn(
           "[useGeminiAgent] sendText cancelled – not connected or no agent",
@@ -376,111 +368,94 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
         setError(msg);
         onErrorRef.current?.(msg);
       }
-      // Depend on isConnected; agentRef.current is stable
     },
     [isConnected],
   );
 
   const toggleMic = useCallback(async () => {
-    const currentAgent = agentRef.current; // Use ref
+    const currentAgent = agentRef.current;
     if (!currentAgent || !isConnected) {
       return Promise.reject(new Error("Agent not available or not connected."));
     }
     try {
       await currentAgent.toggleMic();
-      // State updates for mic status are handled by the 'mic_state_changed' event listener
     } catch (err) {
       console.error("[useGeminiAgent] toggleMic error", err);
       const msg = err.message || "Failed to toggle microphone.";
       setError(msg);
       onErrorRef.current?.(msg);
-      // Ensure state reflects reality after error
       setIsMicActive(currentAgent.audioRecorder?.isRecording || false);
       setIsMicSuspended(currentAgent.audioRecorder?.isSuspended !== false);
-      throw err; // Re-throw error for consumer
+      throw err;
     }
-    // Depend on isConnected; agentRef.current is stable
   }, [isConnected]);
 
   const startCamera = useCallback(async () => {
-    const currentAgent = agentRef.current; // Use ref
+    const currentAgent = agentRef.current;
     if (!currentAgent || !isConnected) {
       return Promise.reject(new Error("Agent not available or not connected."));
     }
-    if (isCameraActive) return; // Already active
-    setError(null); // Clear previous errors
+    if (isCameraActive) return;
+    setError(null);
     try {
       await currentAgent.startCameraCapture();
-      // State update (setIsCameraActive(true)) is handled by the 'camera_started' event
     } catch (err) {
       console.error("[useGeminiAgent] startCamera error", err);
       const msg = err.message || "Failed to start camera.";
       setError(msg);
       onErrorRef.current?.(msg);
-      setIsCameraActive(false); // Ensure state is correct on error
-      throw err; // Re-throw error for consumer
+      setIsCameraActive(false);
+      throw err;
     }
-    // Depend on isConnected, isCameraActive; agentRef.current is stable
   }, [isConnected, isCameraActive]);
 
   const stopCamera = useCallback(async () => {
-    const currentAgent = agentRef.current; // Use ref
-    // Only stop if agent exists and camera is active
+    const currentAgent = agentRef.current;
     if (!currentAgent || !isCameraActive) return;
-    setError(null); // Clear previous errors
+    setError(null);
     try {
       await currentAgent.stopCameraCapture();
-      // State update (setIsCameraActive(false)) is handled by the 'camera_stopped' event
     } catch (err) {
       console.error("[useGeminiAgent] stopCamera error", err);
       const msg = err.message || "Failed to stop camera.";
       setError(msg);
       onErrorRef.current?.(msg);
-      // Camera state might be stuck if stop fails, the event handler is the source of truth
-      // setIsCameraActive(false); // Event handler updates state
-      throw err; // Re-throw error for consumer
+      throw err;
     }
-    // Depend on isCameraActive; agentRef.current is stable
   }, [isCameraActive]);
 
   const startScreenShare = useCallback(async () => {
-    const currentAgent = agentRef.current; // Use ref
+    const currentAgent = agentRef.current;
     if (!currentAgent || !isConnected) {
       return Promise.reject(new Error("Agent not available or not connected."));
     }
-    if (isScreenShareActive) return; // Already active
-    setError(null); // Clear previous errors
+    if (isScreenShareActive) return;
+    setError(null);
     try {
       await currentAgent.startScreenShare();
-      // State update (setIsScreenShareActive(true)) is handled by 'screenshare_started'
     } catch (err) {
       console.error("[useGeminiAgent] startScreenShare error", err);
       const msg = err.message || "Failed to start screen share.";
       setError(msg);
       onErrorRef.current?.(msg);
-      setIsScreenShareActive(false); // Ensure state is correct on error
-      throw err; // Re-throw error for consumer
+      setIsScreenShareActive(false);
+      throw err;
     }
-    // Depend on isConnected, isScreenShareActive; agentRef.current is stable
   }, [isConnected, isScreenShareActive]);
 
   const stopScreenShare = useCallback(async () => {
-    const currentAgent = agentRef.current; // Use ref
-    // Only stop if agent exists and screenshare is active
+    const currentAgent = agentRef.current;
     if (!currentAgent || !isScreenShareActive) return;
-    setError(null); // Clear previous errors
+    setError(null);
     try {
       await currentAgent.stopScreenShare();
-      // State update (setIsScreenShareActive(false)) is handled by 'screenshare_stopped'
     } catch (err) {
       console.error("[useGeminiAgent] stopScreenShare error", err);
       const msg = err.message || "Failed to stop screen share.";
       setError(msg);
       onErrorRef.current?.(msg);
-      // setIsScreenShareActive(false); // Event handler updates state
-      throw err; // Re-throw error for consumer
+      throw err;
     }
-    // Depend on isScreenShareActive; agentRef.current is stable
   }, [isScreenShareActive]);
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -488,7 +463,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
   // ────────────────────────────────────────────────────────────────────────────
   return {
     // state
-    agent, // Provide agent state for potential direct inspection by consumer (read-only recommended)
+    agent,
     isConnected,
     isInitializing,
     isMicActive,
@@ -508,11 +483,6 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     stopCamera,
     startScreenShare,
     stopScreenShare,
-
-    // SSE helpers (optional for consumers)
-    // Exposing these might be less useful now that SSE is tightly coupled
-    // startSSE, // Consider if consumer still needs manual control
-    // stopSSE,
 
     // callback refs
     onTranscriptionRef,
