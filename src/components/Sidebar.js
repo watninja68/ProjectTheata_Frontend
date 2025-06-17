@@ -1,6 +1,7 @@
 import React from 'react';
 // Changed from lucide-react to react-icons/fa for consistency with App.js
 import { BsLayoutSidebar, FaPlus, FaBars } from 'react-icons/fa'; 
+import { GrChapterAdd } from 'react-icons/gr'; // For the "New Conversation" button
 
 // Renamed props for clarity and consistency:
 // isCollapsed (from App.js: isLeftSidebarCollapsed)
@@ -27,7 +28,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, conversations, onSelectConversat
 
       {/* Transformed 'New Conversation' Button */}
       <button onClick={onCreateNewConversation} className="new-conversation-btn">
-        <FaPlus size={18} style={{ marginRight: '0.5rem' }} /> 
+        <GrChapterAdd size={18} style={{ marginRight: '0.5rem' }} /> 
         <span>New Conversation</span>
       </button>
 

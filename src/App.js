@@ -19,6 +19,7 @@ import {
   FaBars,
   FaPlus,
 } from "react-icons/fa";
+import {GrChapterAdd} from "react-icons/gr";
 import ChatList from "./components/ChatList";
 import ChatView from "./components/ChatView";
 import SettingsDialog from "./components/SettingsDialog";
