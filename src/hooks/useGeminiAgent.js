@@ -373,6 +373,26 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
     [isConnected],
   );
 
+  const sendImage = useCallback(
+    async (base64Image) => {
+      if (!agentRef.current || !isConnected) {
+        console.warn(
+          "[useGeminiAgent] sendImage cancelled – not connected or no agent",
+        );
+        return;
+      }
+      try {
+        await agentRef.current.sendImage(base64Image);
+      } catch (err) {
+        console.error("[useGeminiAgent] sendImage error", err);
+        const msg = err.message || "Failed to send image.";
+        setError(msg);
+        onErrorRef.current?.(msg);
+      }
+    },
+    [isConnected],
+  );
+
   const toggleMic = useCallback(async () => {
     const currentAgent = agentRef.current;
     if (!currentAgent || !isConnected) {
@@ -479,6 +499,7 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
 
     // interaction
     sendText,
+    sendImage,
     toggleMic,
     startCamera,
     stopCamera,

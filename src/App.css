@@ -794,16 +794,16 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
   align-items: center; 
 }
 
-#messageInput { 
-  flex-grow: 1; 
-  padding: 0.7rem 3.2rem 0.7rem 1.2rem; /* Original padding */
-  border-radius: var(--border-radius); 
-  border: 1px solid var(--border-color); 
-  background-color: var(--bg-input); 
-  color: var(--text-primary); 
-  font-size: 1rem; 
-  outline: none; 
-  transition: all var(--transition-speed) ease; 
+#messageInput {
+  flex-grow: 1;
+  padding: 0.7rem 6.4rem 0.7rem 1.2rem; /* Increased right padding for image button */
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  transition: all var(--transition-speed) ease;
   height: 40px; /* Original height */
   line-height: normal; /* Original line-height */
   /* Removed multi-line properties: min-height, max-height, overflow-y, resize, white-space, word-wrap */
@@ -832,8 +832,43 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
   width: auto;   /* Original width */
   border-radius: 0 var(--border-radius) var(--border-radius) 0; /* Original border-radius */
 }
-.send-icon-button svg { 
-    display: block; 
+.send-icon-button svg {
+    display: block;
+}
+
+.image-upload-button {
+  position: absolute;
+  right: 40px;  /* Position to the left of send button */
+  top: 0px;
+  bottom: 0px;
+  margin: auto 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0 0.6rem;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: color var(--transition-speed) ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: auto;
+  border-radius: 0;
+}
+
+.image-upload-button:hover:not(:disabled) {
+  color: var(--accent-primary);
+  transform: scale(1.05);
+}
+
+.image-upload-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.image-upload-button svg {
+  display: block;
 }
 .send-icon-button:hover:not(:disabled) {
   color: var(--accent-primary);
@@ -1136,12 +1171,17 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   #messageInput {
     height: 34px; /* Original responsive height */
     font-size: 0.9rem;
-    padding-right: 2.5rem; /* Original responsive padding */
+    padding-right: 5.5rem; /* Increased for both image and send buttons */
   }
   .send-icon-button {
     font-size: 1rem; /* Original responsive font-size */
     padding: 0 0.5rem; /* Original responsive padding */
     /* Assuming width/height were auto or not explicitly set to small fixed values here before */
+  }
+  .image-upload-button {
+    font-size: 1rem;
+    padding: 0 0.5rem;
+    right: 35px; /* Adjusted for smaller screen */
   }
 }
 

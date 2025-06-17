@@ -60,3 +60,51 @@ export function arrayBufferToBase64(buffer) {
         console.error('Failed to convert array buffer to base64: ' + error.message);
     }
 }
+
+/**
+ * Converts a File object to a base64 string
+ * @param {File} file - The file to convert
+ * @param {number} maxWidth - Maximum width for image resizing (default: 1280)
+ * @param {number} quality - JPEG quality (0-1, default: 0.8)
+ * @returns {Promise<string>} Promise resolving to base64 string (without data URL prefix)
+ */
+export function fileToBase64(file, maxWidth = 1280, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+            reject(new Error('File must be an image'));
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Create canvas for resizing
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Calculate new dimensions maintaining aspect ratio
+                let { width, height } = img;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw and compress image
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                // Return only the base64 part (without data:image/jpeg;base64,)
+                const base64 = dataUrl.split(',')[1];
+                resolve(base64);
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+    });
+}

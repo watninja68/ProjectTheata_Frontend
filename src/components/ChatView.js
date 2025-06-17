@@ -11,10 +11,12 @@ import {
   FaSyncAlt,
   FaExclamationTriangle,
   FaSpinner,
+  FaImage,
 } from "react-icons/fa";
 import AudioVisualizerComponent from "./AudioVisualizerComponent";
 import { useGeminiAgent } from "../hooks/useGeminiAgent";
 import ChatService from "../services/chatService";
+import { fileToBase64 } from "../lib/utils/utils";
 
 const ChatView = ({
   user,
@@ -39,6 +41,7 @@ const ChatView = ({
     connectAgent,
     disconnectAgent,
     sendText,
+    sendImage,
     toggleMic,
     startCamera,
     stopCamera,
@@ -402,6 +405,41 @@ const ChatView = ({
       input.value = "";
     }
   };
+
+  const handleImageUpload = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!canInteract) {
+      alert("Please connect the agent first.");
+      return;
+    }
+
+    try {
+      // Convert file to base64 using the utility function
+      const base64Image = await fileToBase64(file, settings.resizeWidth || 1280, settings.quality || 0.8);
+
+      // Send image to agent
+      await sendImage(base64Image);
+
+      // Add a message to show the image was sent
+      addMessage("user", `📷 Image uploaded: ${file.name}`, false, "image");
+
+      // Clear the file input
+      event.target.value = '';
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert(`Failed to upload image: ${error.message}`);
+    }
+  }, [canInteract, sendImage, addMessage, settings.resizeWidth, settings.quality]);
+
+  const handleImageButtonClick = () => {
+    if (!canInteract) {
+      alert("Please connect the agent first.");
+      return;
+    }
+    document.getElementById("imageInput")?.click();
+  };
   
   const renderChatContent = () => {
     if (historyLoading) {
@@ -539,6 +577,21 @@ const ChatView = ({
               disabled={!canInteract || displayMicActive}
               onKeyPress={handleInputKeyPress}
             />
+            <input
+              id="imageInput"
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={handleImageButtonClick}
+              className="image-upload-button"
+              disabled={!canInteract || displayMicActive}
+              title="Upload Image"
+            >
+              <FaImage />
+            </button>
             <button
               onClick={handleSendButtonClick}
               className="send-icon-button"
