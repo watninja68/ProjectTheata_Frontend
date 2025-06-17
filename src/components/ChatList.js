@@ -53,7 +53,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed }) =
 
   useEffect(() => {
     loadChats();
-  }, [loadChats]); // This is now safe because loadChats is properly memoized
+  }, [selectedChatId]); 
 
   const handleDeleteChat = async (idOfChatToDelete, event) => {
     event.stopPropagation();
