@@ -103,10 +103,13 @@ const BackgroundTaskManager = () => {
             setIsLoading(false);
             return;
         }
+        
+        const clientDateTime = new Date().toISOString();
 
         const goBackendPayload = {
             user_id: user ? user.id : "",
             text: taskQuery,
+            client_datetime: clientDateTime,
         };
 
         try {
