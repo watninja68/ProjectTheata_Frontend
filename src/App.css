@@ -327,7 +327,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
 
 /* --- Left Conversation History Sidebar --- */
 .conversation-history-sidebar {
-  width: 240px; /* UPDATED: Reduced width */
+  width: 260px; /* UPDATED: Increased width */
   flex-shrink: 0;
   background-color: var(--bg-secondary); 
   border-right: 1px solid var(--border-color);
@@ -343,21 +343,126 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   font-family: var(--font-family);
 }
 .conversation-history-sidebar.collapsed {
-  width: 0;
-  padding: 1rem 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateX(-100%); 
-  border-right: none;
+  /* Adjustments to keep a sliver visible for the button */
+  width: auto; /* Let the content (header with button) define the width */
+  min-width: 0; /* Allow shrinking to content */
+  padding: 0; /* Remove padding when collapsed */
+  opacity: 1; /* Ensure it's visible */
+  transform: translateX(0); /* Keep it on-screen */
+  overflow: hidden; /* Still hide overflowing content from other elements */
+  /* border-right: 1px solid var(--border-color); /* Optional: keep a border */
+  /* Ensure other properties like height are not preventing visibility */
 }
+
+/* Hide elements below the header when the left sidebar is collapsed */
+.conversation-history-sidebar.collapsed .chat-list-header h4,
+.conversation-history-sidebar.collapsed .new-conversation-btn,
+.conversation-history-sidebar.collapsed .sidebar-separator,
+.conversation-history-sidebar.collapsed .conv-history-list {
+  display: none;
+}
+
+/* Adjust the header within the collapsed left sidebar to center the button */
+.conversation-history-sidebar.collapsed .chat-list-header {
+  padding: 0.1rem; /* Minimal padding */
+  justify-content: center; /* Center the button */
+  margin-bottom: 0; /* Remove margin when collapsed */
+  min-height: 40px; /* Ensure it has some height for the button */
+}
+
 .conv-history-header {
-  margin-bottom: 0.8rem; /* UPDATED: Slightly reduced */
+  display: flex; 
+  justify-content: flex-end; 
+  align-items: center;
+  margin-bottom: 0.8rem; 
   flex-shrink: 0;
-  /* Consider adding a "New Chat" button or title here */
 }
+
+/* Updated styles for the ChatList.js header */
+.conversation-history-sidebar .chat-list-header {
+  display: flex;
+  justify-content: space-between; 
+  align-items: center;
+  padding: 0.6rem 0.8rem; 
+  flex-shrink: 0; 
+}
+
+/* Styling for the "Conversations" heading within .chat-list-header */
+.conversation-history-sidebar .chat-list-header h4 {
+  margin: 0;
+  font-size: 1.1rem; /* Suitable font size for a heading */
+  font-weight: 600;  /* Make it semi-bold */
+  color: var(--text-primary);
+  line-height: 1.2; /* Adjust line height if necessary */
+  /* flex-grow: 1; /* Allows heading to take available space if button is not pushing it enough */
+  /* text-align: left; /* Default, but good to be explicit */
+}
+
+/* Styling for the collapse button within .chat-list-header */
+.conversation-history-sidebar .chat-list-header .sidebar-toggle-btn {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  width: 32px; 
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-speed) ease;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0; /* Prevent button from shrinking */
+  /* margin-left: auto; /* Use this if justify-content: flex-start on parent and want to push button right */
+}
+
+.conversation-history-sidebar .chat-list-header .sidebar-toggle-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* New Conversation Button Styling - This should already exist and apply */
+.new-conversation-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem; /* Adjusted padding */
+  border-radius: calc(var(--border-radius) - 4px); /* Slightly sharper radius */
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  font-size: 1rem; /* Adjusted font size */
+  font-weight: 500;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 1rem; /* Added margin to space it from the chat list below */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+}
+
+.new-conversation-btn:hover {
+  background-color: var(--bg-user-message); /* Use a hover effect similar to other buttons */
+  border-color: var(--accent-primary);
+}
+
+.new-conversation-btn svg {
+  flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+/* Sidebar Separator Line */
+.sidebar-separator {
+  border: none;
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 0.8rem 0; /* Consistent spacing above and below */
+}
+
 .conv-history-list {
   flex-grow: 1;
   overflow-y: auto; 
+  padding: 0.5rem; /* Added padding from ChatList.css's chat-list-scroll-area */
 }
 .conv-history-group-title {
   font-size: 0.7rem; /* UPDATED: Smaller */
@@ -422,7 +527,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   flex-grow: 1;
   display: flex;
   flex-direction: row; 
-  overflow: hidden; 
+  overflow: visible; /* Changed from hidden to visible for button */
   min-width: 0; 
 }
 
@@ -460,7 +565,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   -webkit-backdrop-filter: blur(5px); 
   border-left: 1px solid var(--border-color); /* This is set conditionally now */
   padding: 1rem; 
-  overflow: hidden; /* Changed from auto to hidden to prevent scrollbars during resize */
+  overflow: visible; /* Allow button to be visible outside bounds */
   position: relative; 
   display: flex; 
   flex-direction: column; 
@@ -477,12 +582,64 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   overflow-y: auto; /* Scroll is on this inner wrapper */
   height: 100%;
 }
-/* When sidebar is collapsed (width: 0), hide its children */
-.sidebar[style*="width: 0px"] > * {
+/* When sidebar is collapsed (width: 0), hide its children (except button) */
+.sidebar[style*="width: 0px"] > *:not(.sidebar-toggle-btn-right) {
   display: none;
+}
+/* EXCEPTION: Allow the toggle button to be visible when sidebar is collapsed */
+/* Styles for the right sidebar toggle button when sidebar is collapsed */
+.sidebar[style*="width: 0px"] > .sidebar-toggle-btn-right {
+  display: flex !important; /* Ensure it's displayed */
+  position: fixed; /* Fixed positioning relative to viewport */
+  right: 10px; /* Position from the right edge of the viewport */
+  left: auto; /* Override general 'left: 0' */
+  top: 50%; /* Vertically centered in viewport */
+  transform: translateY(-50%); /* Only Y-axis transform */
+  /* Keep existing size, z-index, and appearance from the general rule below, or redeclare if needed */
+  /* The border-radius might need adjustment if it looks odd on the viewport edge */
+  border-radius: var(--border-radius) 0 0 var(--border-radius); /* e.g. rounded on the left */
+}
+
+/* Ensure overflow is visible when collapsed to see the button */
+.sidebar[style*="width: 0px"] {
+  overflow: visible !important;
 }
 .sidebar > p { display: none; } 
 
+/* General styles for the right sidebar toggle button */
+.sidebar .sidebar-toggle-btn-right {
+  position: absolute; /* Default positioning when sidebar is open */
+  left: 0; 
+  top: 50%; 
+  transform: translate(-50%, -50%); 
+  z-index: 100; 
+  
+  background-color: var(--bg-tertiary); 
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  
+  width: 22px; /* Narrower for a tab-like feel */
+  height: 70px; /* Taller */
+  padding: 0; /* Reset padding for icon centering */
+  
+  border-radius: 0 var(--border-radius) var(--border-radius) 0; /* Rounded on the right side */
+  
+  font-size: 1rem; /* Icon size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Optional: subtle shadow to lift it visually */
+}
+
+.sidebar .sidebar-toggle-btn-right:hover {
+  background-color: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+  /* Optional: Slightly increase size or change shadow on hover */
+  transform: translate(-50%, -50%) scale(1.05);
+}
 
 /* --- Footer (Minimal) --- */
 .app-footer { 
@@ -639,7 +796,7 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
 
 #messageInput { 
   flex-grow: 1; 
-  padding: 0.7rem 3.2rem 0.7rem 1.2rem; 
+  padding: 0.7rem 3.2rem 0.7rem 1.2rem; /* Original padding */
   border-radius: var(--border-radius); 
   border: 1px solid var(--border-color); 
   background-color: var(--bg-input); 
@@ -647,8 +804,9 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
   font-size: 1rem; 
   outline: none; 
   transition: all var(--transition-speed) ease; 
-  height: 40px; 
-  line-height: normal; 
+  height: 40px; /* Original height */
+  line-height: normal; /* Original line-height */
+  /* Removed multi-line properties: min-height, max-height, overflow-y, resize, white-space, word-wrap */
 }
 #messageInput:focus { border-color: var(--accent-primary); box-shadow: 0 0 10px var(--accent-glow); }
 #messageInput::placeholder { color: var(--text-placeholder); opacity: 0.6; }
@@ -656,23 +814,23 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
 
 .send-icon-button {
   position: absolute;
-  right: 0px; 
-  top: 0px;   
-  bottom: 0px; 
-  margin: auto 0; 
+  right: 0px;  /* Original position */
+  top: 0px;    /* Original position */
+  bottom: 0px; /* Original position */
+  margin: auto 0; /* Original margin for vertical centering */
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  padding: 0 0.6rem; 
+  padding: 0 0.6rem; /* Original padding */
   font-size: 1.3rem; 
   cursor: pointer;
   transition: color var(--transition-speed) ease, transform 0.1s ease;
   display: flex; 
   align-items: center;
   justify-content: center;
-  height: 100%; 
-  width: auto; 
-  border-radius: 0 var(--border-radius) var(--border-radius) 0; 
+  height: 100%; /* Original height to fill parent's height */
+  width: auto;   /* Original width */
+  border-radius: 0 var(--border-radius) var(--border-radius) 0; /* Original border-radius */
 }
 .send-icon-button svg { 
     display: block; 
@@ -901,13 +1059,15 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
      /* padding: 0.5rem 0.8rem; for text buttons */
   }
   
-  .conversation-history-sidebar { width: 220px; } /* Adjusted */
+  .conversation-history-sidebar { width: 240px; } /* Adjusted for smaller screens if 260px is too wide */
   /* .sidebar { width: 220px; }  REMOVED fixed width for resizable */
 
   .app-footer { padding: 0.2rem 1rem; } /* Minimal footer padding */
   .floating-media-controls .control-btn { padding: 0.4rem 0.6rem; height: 32px; }
   .floating-media-controls .control-btn svg { font-size: 1em; }
-  #messageInput { height: 38px; }
+  #messageInput { 
+    height: 38px; /* Original responsive height */
+  }
 }
 
 @media (max-width: 768px) {
@@ -922,7 +1082,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     top: var(--header-height); 
     bottom: 0;
     left: 0;
-    width: 240px; /* Maintain reduced width for mobile overlay */
+    width: 260px; /* Maintain increased width for mobile overlay */
     max-height: none; 
     height: calc(100vh - var(--header-height)); 
     z-index: 200; 
@@ -952,130 +1112,16 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
     overflow-y: auto; /* Allow scrolling within the sidebar itself */
   }
   /* On mobile, collapse sets height to 0 */
-  .sidebar[style*="width: 0px"],
-  .sidebar[style*="height: 0px"] /* Ensuring this style is robust */ 
-  {
+  .sidebar[style*="width: 0px"] {
       max-height: 0;
       height: 0;
-      padding-top: 0 !important; /* Ensure padding is removed */
-      padding-bottom: 0 !important; /* Ensure padding is removed */
+      padding-top: 0;
+      padding-bottom: 0;
       border-top: none;
       overflow: hidden;
   }
   .sidebar-content-wrapper { overflow-y: visible; } /* No double scrollbar */
 
-  /* Right Sidebar Mobile Optimizations */
-  .sidebar {
-    padding: 0.8rem; /* Slightly reduced from 1rem */
-    /* max-height: 40vh; is current, can be adjusted if needed */
-  }
-
-  .sidebar .collapsible {
-    padding: 0.9rem 1.1rem; /* Increased tappability */
-    font-size: 0.95rem;    /* Slightly larger text */
-  }
-  
-  .sidebar .collapsible .collapse-icon {
-    font-size: 0.9em; /* Adjusted for proportion, if needed */
-    margin-left: 0.6rem; /* Adjusted for spacing, if needed */
-  }
-  /* End of Right Sidebar Mobile Optimizations */
-
-  /* Left Sidebar (Chat History) Mobile Optimizations */
-  .conv-history-item {
-    padding: 0.75rem 0.9rem; /* Increased for larger tap target */
-    font-size: 0.9rem;     /* Increased for readability */
-    /* Consider min-height: 44px; if padding is not enough */
-  }
-
-  .conv-history-group-title {
-    font-size: 0.75rem; /* Slightly increased */
-    margin-top: 1rem; 
-    margin-bottom: 0.5rem; 
-  }
-  
-  /* Placeholder for specific "Create New Chat" button styling if needed */
-  /* .conversation-history-sidebar .new-chat-btn { */
-  /*   padding: 0.7rem 1rem; */
-  /*   font-size: 0.9rem; */
-  /*   width: 100%; */ /* Make it full width */
-  /*   box-sizing: border-box; */ /* Ensure padding doesn't break layout */
-  /* } */
-
-  .conv-history-header {
-    margin-bottom: 0.6rem; /* Adjusted for spacing */
-  }
-  .conv-history-footer {
-    padding-top: 0.6rem; /* Adjusted for spacing */
-  }
-  /* End of Left Sidebar Mobile Optimizations */
-
-  /* Chat View Mobile Optimizations */
-  .footer-controls-stacked {
-    gap: 0.6rem; /* Adjusted spacing */
-  }
-  .floating-media-controls {
-    gap: 0.6rem; /* Adjusted spacing */
-  }
-
-  #messageInput {
-    height: 40px; 
-    font-size: 0.95rem; 
-    padding: 0.6rem 2.8rem 0.6rem 1rem; /* Adjusted padding for larger tap target & text visibility */
-  }
-
-  .send-icon-button {
-    font-size: 1.2rem; 
-    padding: 0 0.8rem; /* Adjusted padding for larger tap target */
-  }
-
-  .floating-media-controls .control-btn {
-    height: 40px; 
-    padding: 0.6rem; 
-    font-size: 0.9rem; /* Base font size for button, icon should scale */
-  }
-  .floating-media-controls .control-btn svg {
-    font-size: 1.2em; /* Explicitly scale SVG icon if needed */
-  }
-
-  .chat-message {
-    padding: 0.7rem 1.2rem; 
-    max-width: 85%;        
-    font-size: 0.95rem;    
-  }
-  /* End of Chat View Mobile Optimizations for 768px */
-
-  /* Settings Dialog Mobile Optimizations for 768px */
-  .settings-dialog {
-    padding: 1.5rem;
-    width: 90vw; 
-    max-width: 500px; 
-  }
-  .settings-group {
-    margin-bottom: 1.2rem;
-  }
-  .settings-group label {
-    font-size: 0.85rem; 
-  }
-  .settings-group input[type="text"], 
-  .settings-group input[type="password"], 
-  .settings-group input[type="number"], 
-  .settings-group select, 
-  .settings-group textarea {
-    padding: 0.9rem 1rem;
-    font-size: 0.95rem; 
-    min-height: 42px; 
-  }
-  .settings-group.checkbox-group input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-  }
-  .settings-save-btn {
-    padding: 0.9rem 1.2rem; 
-    font-size: 1rem;    
-    min-height: 44px;
-  }
-  /* End of Settings Dialog Mobile Optimizations for 768px */
 
   .app-footer { 
     padding: 0.2rem 0.8rem; /* Minimal footer padding */
@@ -1083,156 +1129,18 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   .floating-media-controls .control-btn .button-text { 
      display: none; 
   } 
-  /* The following .floating-media-controls .control-btn will be overridden by the above specific styles */
   .floating-media-controls .control-btn { 
-     padding: 0.5rem;  /* This will be overridden by 0.6rem above */
-     height: 34px;    /* This will be overridden by 40px above */
+     padding: 0.5rem; 
+     height: 34px; 
   }
-  /* The following #messageInput will be overridden by the above specific styles */
   #messageInput {
-    height: 34px;    /* This will be overridden by 40px above */
-    font-size: 0.9rem; /* This will be overridden by 0.95rem above */
-    padding-right: 2.5rem; 
-  }
-  /* The following .send-icon-button will be overridden by the above specific styles */
-  .send-icon-button {
-    font-size: 1rem; /* This will be overridden by 1.2rem above */
-    padding: 0 0.5rem;
-  }
-
-  /* Header usability improvements for mobile */
-  .app-header .controls .theme-toggle-btn,
-  .app-header .controls button[title="Settings"],
-  .app-header .profile-btn,
-  .app-header .sidebar-toggle-btn,
-  .app-header .left-sidebar-toggle-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 1.3rem;
-  }
-
-  .app-header .controls button:not(.profile-btn):not(.theme-toggle-btn):not([title="Settings"]):not(.sidebar-toggle-btn):not(.left-sidebar-toggle-btn),
-  .app-header .controls .control-btn {
-    height: 40px;
+    height: 34px; /* Original responsive height */
     font-size: 0.9rem;
+    padding-right: 2.5rem; /* Original responsive padding */
   }
-
-  .app-header .header-left, 
-  .app-header .header-right {
-    gap: 0.5rem;
-  }
-
-  .app-header h1 {
-    font-size: 1.25rem;
-  }
-
-  .header-status .status {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.85rem;
-  }
-}
-
-/* --- Smaller Mobile Devices --- */
-@media (max-width: 480px) {
-  .app-header {
-    padding: 0.5rem 0.6rem;
-  }
-
-  .app-header .controls .theme-toggle-btn,
-  .app-header .controls button[title="Settings"],
-  .app-header .profile-btn,
-  .app-header .sidebar-toggle-btn,
-  .app-header .left-sidebar-toggle-btn {
-    width: 38px;
-    height: 38px;
-    font-size: 1.2rem;
-  }
-
-  .app-header .controls button:not(.profile-btn):not(.theme-toggle-btn):not([title="Settings"]):not(.sidebar-toggle-btn):not(.left-sidebar-toggle-btn),
-  .app-header .controls .control-btn {
-    height: 38px;
-    font-size: 0.85rem;
-    padding: 0.5rem 0.8rem; /* General padding for text buttons */
-  }
-
-  /* Hide text in general header buttons */
-  .app-header .controls button .button-text {
-    display: none;
-  }
-
-  /* Adjust padding for buttons that had text and now only show icon */
-  .app-header .controls button:not(.profile-btn):not(.theme-toggle-btn):not([title="Settings"]):not(.sidebar-toggle-btn):not(.left-sidebar-toggle-btn):has(.button-text) {
-    padding: 0.5rem; /* Centering padding */
-  }
-  
-  .app-header h1 {
-    font-size: 1.1rem;
-  }
-
-  /* Style FaStroopwafel icon */
-  .app-header .header-left svg:first-of-type { /* Assuming it's the first SVG in header-left */
-    font-size: 1.6rem !important; 
-  }
-
-  .header-status .status {
-    padding: 0.2rem 0.4rem;
-    font-size: 0.75rem;
-    gap: 0.2rem;
-  }
-
-  .header-status .status svg {
-    margin-right: 0.2rem;
-  }
-
-  /* Chat View Mobile Optimizations for 480px */
-  #messageInput {
-    height: 38px;
-    font-size: 0.9rem; /* Slightly smaller than 768px view */
-    padding: 0.5rem 2.5rem 0.5rem 0.8rem; /* Adjusted padding */
-  }
-
   .send-icon-button {
-    font-size: 1.1rem; /* Slightly smaller */
-    padding: 0 0.7rem; /* Adjusted padding */
+    font-size: 1rem; /* Original responsive font-size */
+    padding: 0 0.5rem; /* Original responsive padding */
+    /* Assuming width/height were auto or not explicitly set to small fixed values here before */
   }
-
-  .floating-media-controls .control-btn {
-    height: 38px;
-    padding: 0.5rem; /* Adjusted padding for smaller icon buttons */
-  }
-  .floating-media-controls .control-btn svg {
-    font-size: 1.1em; /* Slightly smaller icon */
-  }
-  
-  .chat-message {
-    padding: 0.6rem 1rem; /* Smaller padding */
-    max-width: 90%;       /* More width for very small screens */
-    font-size: 0.9rem;    /* Readable font size */
-  }
-  /* End of Chat View Mobile Optimizations for 480px */
-
-  /* Settings Dialog Mobile Optimizations for 480px */
-  .settings-dialog {
-    padding: 1rem;
-    width: 95vw;
-    max-width: none; 
-  }
-  .settings-group label {
-    font-size: 0.8rem;
-  }
-  .settings-group input[type="text"], 
-  .settings-group input[type="password"], 
-  .settings-group input[type="number"], 
-  .settings-group select, 
-  .settings-group textarea {
-    padding: 0.8rem 0.9rem;
-    font-size: 0.9rem;
-    min-height: 40px;
-  }
-  .settings-save-btn {
-    padding: 0.8rem 1rem;
-    font-size: 0.95rem;
-    min-height: 42px;
-  }
-  /* End of Settings Dialog Mobile Optimizations for 480px */
 }

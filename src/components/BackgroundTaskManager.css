@@ -45,18 +45,29 @@ body.theme-light .background-task-manager {
     color: var(--text-secondary);
 }
 
-.form-group input.task-query-input {
-    padding: 0.7rem 0.9rem;
+/* Styles for the task-query-input as a textarea */
+.form-group textarea.task-query-input {
+    padding: 0.8rem 0.9rem; /* Adjusted top padding for better text alignment */
     border-radius: 6px;
     border: 1px solid var(--border-color);
     background-color: var(--bg-input);
     color: var(--text-primary);
     font-size: 0.95rem;
+    font-family: inherit; /* Ensure font consistency */
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    
+    /* Multi-line behavior */
+    min-height: 60px; /* Approx 3 lines, suitable for rows="3" */
+    max-height: 150px; 
+    overflow-y: auto; /* Show scrollbar when content exceeds max-height */
+    resize: vertical; /* Allow user to resize vertically */
+    white-space: pre-wrap; /* Respect newlines and wrap text */
+    word-wrap: break-word; /* Break long words */
+    line-height: 1.4; /* Added for better multi-line readability */
 }
 
-.form-group input.task-query-input:focus {
+.form-group textarea.task-query-input:focus {
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
@@ -94,7 +105,6 @@ body.theme-light .background-task-manager {
     background-color: var(--bg-tertiary); 
     color: var(--text-secondary);
 }
-
 
 /* Gmail Auth Section Styles */
 .gmail-auth-section {
@@ -165,8 +175,8 @@ body.theme-light .gmail-auth-section {
     font-size: 0.9em;
     flex-shrink: 0; 
 }
-body.theme-dark .task-error { background-color: rgba(255, 77, 77, 0.15); } 
-body.theme-light .task-error { background-color: rgba(255, 77, 77, 0.1); }
+body.theme-dark .task-error { background-color: rgba(var(--error-color-rgb, 255, 77, 77), 0.15); } 
+body.theme-light .task-error { background-color: rgba(var(--error-color-rgb, 255, 77, 77), 0.1); }
 
 
 .task-results {

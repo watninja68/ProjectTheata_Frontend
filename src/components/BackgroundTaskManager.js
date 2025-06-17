@@ -103,13 +103,13 @@ const BackgroundTaskManager = () => {
             setIsLoading(false);
             return;
         }
-
-        const clientDateTime = new Date().toISOString(); // Get current time in ISO format
+        
+        const clientDateTime = new Date().toISOString();
 
         const goBackendPayload = {
             user_id: user ? user.id : "",
             text: taskQuery,
-            client_datetime: clientDateTime, // Add the user's local time to the request
+            client_datetime: clientDateTime,
         };
 
         try {
@@ -200,13 +200,13 @@ const BackgroundTaskManager = () => {
             <div className="task-form">
                 <div className="form-group">
                     <label htmlFor="taskQuery">Task Instruction for Agent:</label>
-                    <input
-                        type="text"
+                    <textarea
                         id="taskQuery"
                         placeholder="e.g., Search my Gmail for emails from 'boss@example.com' with subject 'report'"
                         value={taskQuery}
                         onChange={(e) => setTaskQuery(e.target.value)}
                         className="task-query-input"
+                        rows="3" // Added rows attribute
                     />
                     <small>
                         Enter your request. If it involves Google tools, ensure Google Account is connected.
