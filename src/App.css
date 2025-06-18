@@ -796,7 +796,7 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
 
 #messageInput {
   flex-grow: 1;
-  padding: 0.7rem 6.4rem 0.7rem 1.2rem; /* Increased right padding for image button */
+  padding: 0.7rem 3.2rem 0.7rem 3.2rem; /* Left padding for image button, right padding for send button */
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
   background-color: var(--bg-input);
@@ -838,7 +838,7 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
 
 .image-upload-button {
   position: absolute;
-  right: 40px;  /* Position to the left of send button */
+  left: 0px;  /* Position on the left side */
   top: 0px;
   bottom: 0px;
   margin: auto 0;
@@ -846,7 +846,7 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
   border: none;
   color: var(--text-secondary);
   padding: 0 0.6rem;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   cursor: pointer;
   transition: color var(--transition-speed) ease, transform 0.1s ease;
   display: flex;
@@ -854,7 +854,7 @@ body.theme-light .system-message.error-message { background-color: rgba(255, 77,
   justify-content: center;
   height: 100%;
   width: auto;
-  border-radius: 0;
+  border-radius: var(--border-radius) 0 0 var(--border-radius);
 }
 
 .image-upload-button:hover:not(:disabled) {
@@ -1171,7 +1171,8 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   #messageInput {
     height: 34px; /* Original responsive height */
     font-size: 0.9rem;
-    padding-right: 5.5rem; /* Increased for both image and send buttons */
+    padding-left: 2.5rem; /* Left padding for image button */
+    padding-right: 2.5rem; /* Right padding for send button */
   }
   .send-icon-button {
     font-size: 1rem; /* Original responsive font-size */
@@ -1181,7 +1182,7 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
   .image-upload-button {
     font-size: 1rem;
     padding: 0 0.5rem;
-    right: 35px; /* Adjusted for smaller screen */
+    left: 0px; /* Position on left side for mobile */
   }
 }
 

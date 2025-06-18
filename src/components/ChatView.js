@@ -11,8 +11,8 @@ import {
   FaSyncAlt,
   FaExclamationTriangle,
   FaSpinner,
-  FaImage,
 } from "react-icons/fa";
+import { IoIosAddCircle } from "react-icons/io";
 import AudioVisualizerComponent from "./AudioVisualizerComponent";
 import { useGeminiAgent } from "../hooks/useGeminiAgent";
 import ChatService from "../services/chatService";
@@ -571,13 +571,6 @@ const ChatView = ({
           </div>
           <div className="text-input-container">
             <input
-              id="messageInput"
-              type="text"
-              placeholder={!canInteract ? "Connect agent to chat" : displayMicActive ? "Listening..." : "Type message or turn on mic..."}
-              disabled={!canInteract || displayMicActive}
-              onKeyPress={handleInputKeyPress}
-            />
-            <input
               id="imageInput"
               type="file"
               accept="image/*"
@@ -590,8 +583,15 @@ const ChatView = ({
               disabled={!canInteract || displayMicActive}
               title="Upload Image"
             >
-              <FaImage />
+              <IoIosAddCircle />
             </button>
+            <input
+              id="messageInput"
+              type="text"
+              placeholder={!canInteract ? "Connect agent to chat" : displayMicActive ? "Listening..." : "Type message or turn on mic..."}
+              disabled={!canInteract || displayMicActive}
+              onKeyPress={handleInputKeyPress}
+            />
             <button
               onClick={handleSendButtonClick}
               className="send-icon-button"
