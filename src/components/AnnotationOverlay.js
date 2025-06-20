@@ -15,6 +15,10 @@ const AnnotationOverlay = forwardRef(({
     const [startPosition, setStartPosition] = useState(null);
     const [currentShape, setCurrentShape] = useState(null);
     const [annotations, setAnnotations] = useState([]);
+    const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+    const [originalSize, setOriginalSize] = useState({ width: 0, height: 0 });
+    const canvasSizeRef = useRef({ width: 0, height: 0 });
+    const originalSizeRef = useRef({ width: 0, height: 0 });
 
     // Initialize canvas
     useEffect(() => {
@@ -32,19 +36,119 @@ const AnnotationOverlay = forwardRef(({
             const container = canvas.parentElement;
             if (container) {
                 const rect = container.getBoundingClientRect();
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-                redrawAnnotations();
+                const newWidth = rect.width;
+                const newHeight = rect.height;
+
+                // Only update if size actually changed
+                if (canvasSizeRef.current.width !== newWidth || canvasSizeRef.current.height !== newHeight) {
+                    // Store original size on first resize
+                    if (originalSizeRef.current.width === 0 && originalSizeRef.current.height === 0) {
+                        const newOriginalSize = { width: newWidth, height: newHeight };
+                        setOriginalSize(newOriginalSize);
+                        originalSizeRef.current = newOriginalSize;
+                    }
+
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    const newCanvasSize = { width: newWidth, height: newHeight };
+                    setCanvasSize(newCanvasSize);
+                    canvasSizeRef.current = newCanvasSize;
+
+                    // Use requestAnimationFrame for smooth redrawing
+                    requestAnimationFrame(() => {
+                        redrawAnnotations();
+                    });
+                }
             }
         };
 
         resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+
+        // Use ResizeObserver for container resize detection
+        let resizeObserver;
+        let resizeTimeout;
+
+        if (window.ResizeObserver) {
+            resizeObserver = new ResizeObserver((entries) => {
+                // Debounce to prevent excessive calls
+                if (resizeTimeout) {
+                    clearTimeout(resizeTimeout);
+                }
+                resizeTimeout = setTimeout(() => {
+                    requestAnimationFrame(resizeCanvas);
+                }, 16);
+            });
+
+            const container = canvas.parentElement;
+            if (container) {
+                resizeObserver.observe(container);
+            }
+        }
+
+        // Listen for custom screen preview resize events
+        const handleCustomResize = () => {
+            requestAnimationFrame(resizeCanvas);
+        };
+
+        const container = canvas.parentElement;
+        if (container) {
+            container.addEventListener('screenPreviewResize', handleCustomResize);
+        }
+
+        // Fallback to window resize (debounced)
+        const handleWindowResize = () => {
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
+            resizeTimeout = setTimeout(() => {
+                requestAnimationFrame(resizeCanvas);
+            }, 16);
+        };
+
+        window.addEventListener('resize', handleWindowResize);
 
         return () => {
-            window.removeEventListener('resize', resizeCanvas);
+            window.removeEventListener('resize', handleWindowResize);
+            if (container) {
+                container.removeEventListener('screenPreviewResize', handleCustomResize);
+            }
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
         };
-    }, []);
+    }, []); // Empty dependency array since we use refs for size tracking
+
+    // Update refs when state changes
+    useEffect(() => {
+        canvasSizeRef.current = canvasSize;
+    }, [canvasSize]);
+
+    useEffect(() => {
+        originalSizeRef.current = originalSize;
+    }, [originalSize]);
+
+    // Calculate scaling factors
+    const getScalingFactors = useCallback(() => {
+        if (originalSize.width === 0 || originalSize.height === 0) {
+            return { scaleX: 1, scaleY: 1 };
+        }
+        return {
+            scaleX: canvasSize.width / originalSize.width,
+            scaleY: canvasSize.height / originalSize.height
+        };
+    }, [canvasSize, originalSize]);
+
+    // Scale a point based on current canvas size
+    const scalePoint = useCallback((point) => {
+        const { scaleX, scaleY } = getScalingFactors();
+        return {
+            x: point.x * scaleX,
+            y: point.y * scaleY
+        };
+    }, [getScalingFactors]);
 
     // Redraw all annotations
     const redrawAnnotations = useCallback(() => {
@@ -56,6 +160,8 @@ const AnnotationOverlay = forwardRef(({
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.globalCompositeOperation = 'source-over';
 
+        const { scaleX, scaleY } = getScalingFactors();
+
         annotations.forEach(annotation => {
             // Set context properties for this annotation
             if (annotation.tool === 'eraser') {
@@ -66,61 +172,74 @@ const AnnotationOverlay = forwardRef(({
                 context.strokeStyle = annotation.color;
             }
             context.fillStyle = annotation.color;
-            context.lineWidth = annotation.size;
+            context.lineWidth = annotation.size * Math.min(scaleX, scaleY); // Scale line width
 
             switch (annotation.type) {
                 case 'path':
                     context.beginPath();
                     annotation.points.forEach((point, index) => {
+                        const scaledPoint = scalePoint(point);
                         if (index === 0) {
-                            context.moveTo(point.x, point.y);
+                            context.moveTo(scaledPoint.x, scaledPoint.y);
                         } else {
-                            context.lineTo(point.x, point.y);
+                            context.lineTo(scaledPoint.x, scaledPoint.y);
                         }
                     });
                     context.stroke();
                     break;
                 case 'circle':
                     context.beginPath();
+                    const scaledStart = scalePoint(annotation.start);
+                    const scaledEnd = scalePoint(annotation.end);
                     const radius = Math.sqrt(
-                        Math.pow(annotation.end.x - annotation.start.x, 2) +
-                        Math.pow(annotation.end.y - annotation.start.y, 2)
+                        Math.pow(scaledEnd.x - scaledStart.x, 2) +
+                        Math.pow(scaledEnd.y - scaledStart.y, 2)
                     );
-                    context.arc(annotation.start.x, annotation.start.y, radius, 0, 2 * Math.PI);
+                    context.arc(scaledStart.x, scaledStart.y, radius, 0, 2 * Math.PI);
                     context.stroke();
                     break;
                 case 'square':
+                    const scaledStartSq = scalePoint(annotation.start);
+                    const scaledEndSq = scalePoint(annotation.end);
                     const size = Math.max(
-                        Math.abs(annotation.end.x - annotation.start.x),
-                        Math.abs(annotation.end.y - annotation.start.y)
+                        Math.abs(scaledEndSq.x - scaledStartSq.x),
+                        Math.abs(scaledEndSq.y - scaledStartSq.y)
                     );
-                    context.strokeRect(annotation.start.x, annotation.start.y, size, size);
+                    context.strokeRect(scaledStartSq.x, scaledStartSq.y, size, size);
                     break;
                 case 'rectangle':
-                    const width = annotation.end.x - annotation.start.x;
-                    const height = annotation.end.y - annotation.start.y;
-                    context.strokeRect(annotation.start.x, annotation.start.y, width, height);
+                    const scaledStartRect = scalePoint(annotation.start);
+                    const scaledEndRect = scalePoint(annotation.end);
+                    const width = scaledEndRect.x - scaledStartRect.x;
+                    const height = scaledEndRect.y - scaledStartRect.y;
+                    context.strokeRect(scaledStartRect.x, scaledStartRect.y, width, height);
                     break;
             }
         });
 
         // Reset context state after drawing
         context.globalCompositeOperation = 'source-over';
-    }, [annotations]);
+    }, [annotations, getScalingFactors, scalePoint]);
 
-    // Get mouse/touch position relative to canvas
+    // Get mouse/touch position relative to canvas (in original coordinate system)
     const getPosition = useCallback((canvas, event) => {
         const rect = canvas.getBoundingClientRect();
         const clientX = event.clientX || (event.touches && event.touches[0]?.clientX);
         const clientY = event.clientY || (event.touches && event.touches[0]?.clientY);
-        
+
         if (clientX === undefined || clientY === undefined) return null;
-        
+
+        // Get position relative to current canvas
+        const currentX = clientX - rect.left;
+        const currentY = clientY - rect.top;
+
+        // Convert to original coordinate system for storage
+        const { scaleX, scaleY } = getScalingFactors();
         return {
-            x: clientX - rect.left,
-            y: clientY - rect.top
+            x: currentX / scaleX,
+            y: currentY / scaleY
         };
-    }, []);
+    }, [getScalingFactors]);
 
     // Start drawing/shape creation
     const startDrawing = useCallback((event) => {
@@ -209,6 +328,7 @@ const AnnotationOverlay = forwardRef(({
         redrawAnnotations();
 
         const context = contextRef.current;
+        const { scaleX, scaleY } = getScalingFactors();
 
         // Set context properties for preview
         if (currentShape.tool === 'eraser') {
@@ -219,46 +339,53 @@ const AnnotationOverlay = forwardRef(({
             context.strokeStyle = currentShape.color;
         }
         context.fillStyle = currentShape.color;
-        context.lineWidth = currentShape.size;
+        context.lineWidth = currentShape.size * Math.min(scaleX, scaleY);
 
         switch (currentShape.type) {
             case 'path':
                 context.beginPath();
                 currentShape.points.forEach((point, index) => {
+                    const scaledPoint = scalePoint(point);
                     if (index === 0) {
-                        context.moveTo(point.x, point.y);
+                        context.moveTo(scaledPoint.x, scaledPoint.y);
                     } else {
-                        context.lineTo(point.x, point.y);
+                        context.lineTo(scaledPoint.x, scaledPoint.y);
                     }
                 });
                 context.stroke();
                 break;
             case 'circle':
                 context.beginPath();
+                const scaledStart = scalePoint(currentShape.start);
+                const scaledEnd = scalePoint(currentShape.end);
                 const radius = Math.sqrt(
-                    Math.pow(currentShape.end.x - currentShape.start.x, 2) +
-                    Math.pow(currentShape.end.y - currentShape.start.y, 2)
+                    Math.pow(scaledEnd.x - scaledStart.x, 2) +
+                    Math.pow(scaledEnd.y - scaledStart.y, 2)
                 );
-                context.arc(currentShape.start.x, currentShape.start.y, radius, 0, 2 * Math.PI);
+                context.arc(scaledStart.x, scaledStart.y, radius, 0, 2 * Math.PI);
                 context.stroke();
                 break;
             case 'square':
+                const scaledStartSq = scalePoint(currentShape.start);
+                const scaledEndSq = scalePoint(currentShape.end);
                 const size = Math.max(
-                    Math.abs(currentShape.end.x - currentShape.start.x),
-                    Math.abs(currentShape.end.y - currentShape.start.y)
+                    Math.abs(scaledEndSq.x - scaledStartSq.x),
+                    Math.abs(scaledEndSq.y - scaledStartSq.y)
                 );
-                context.strokeRect(currentShape.start.x, currentShape.start.y, size, size);
+                context.strokeRect(scaledStartSq.x, scaledStartSq.y, size, size);
                 break;
             case 'rectangle':
-                const width = currentShape.end.x - currentShape.start.x;
-                const height = currentShape.end.y - currentShape.start.y;
-                context.strokeRect(currentShape.start.x, currentShape.start.y, width, height);
+                const scaledStartRect = scalePoint(currentShape.start);
+                const scaledEndRect = scalePoint(currentShape.end);
+                const width = scaledEndRect.x - scaledStartRect.x;
+                const height = scaledEndRect.y - scaledStartRect.y;
+                context.strokeRect(scaledStartRect.x, scaledStartRect.y, width, height);
                 break;
         }
 
         // Reset context state after preview
         context.globalCompositeOperation = 'source-over';
-    }, [currentShape, redrawAnnotations]);
+    }, [currentShape, redrawAnnotations, getScalingFactors, scalePoint]);
 
     // Redraw annotations when they change
     useEffect(() => {

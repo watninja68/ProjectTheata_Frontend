@@ -83,6 +83,44 @@ const ScreenAnnotationWrapper = ({
         };
     }, [screenPreviewElement]);
 
+    // Monitor screen preview element for size changes
+    useEffect(() => {
+        if (!screenPreviewElement) return;
+
+        let resizeObserver;
+        let resizeTimeout;
+
+        if (window.ResizeObserver) {
+            resizeObserver = new ResizeObserver((entries) => {
+                // Debounce resize events to prevent loops
+                if (resizeTimeout) {
+                    clearTimeout(resizeTimeout);
+                }
+
+                resizeTimeout = setTimeout(() => {
+                    // Use requestAnimationFrame to avoid ResizeObserver loop
+                    requestAnimationFrame(() => {
+                        // Trigger a custom event instead of window resize
+                        const customEvent = new CustomEvent('screenPreviewResize', {
+                            detail: { entries }
+                        });
+                        screenPreviewElement.dispatchEvent(customEvent);
+                    });
+                }, 16); // ~60fps debounce
+            });
+            resizeObserver.observe(screenPreviewElement);
+        }
+
+        return () => {
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
+        };
+    }, [screenPreviewElement]);
+
     // Handle annotation container class styling
     useEffect(() => {
         if (screenPreviewElement) {
