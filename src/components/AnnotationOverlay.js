@@ -3,7 +3,7 @@ import './AnnotationOverlay.css';
 
 const AnnotationOverlay = forwardRef(({
     isActive = false,
-    brushColor = '#FF0000',
+    brushColor = '#e74c3c', // Muted red as default
     brushSize = 3,
     tool = 'pen', // 'pen', 'circle', 'square', 'rectangle', 'eraser'
     onAnnotationChange = null, // Callback when annotations change

@@ -45,9 +45,9 @@
 }
 
 .annotation-toggle.active {
-    background: var(--success-color, #00f5a0);
-    border-color: var(--success-color, #00f5a0);
-    color: var(--text-dark, #111);
+    background: var(--accent-secondary, #a450e0);
+    border-color: var(--accent-secondary, #a450e0);
+    color: white;
 }
 
 .tool-button {
@@ -72,10 +72,10 @@
 }
 
 .tool-button.active {
-    background: var(--success-color, #00f5a0);
-    border-color: var(--success-color, #00f5a0);
-    color: var(--text-dark, #111);
-    box-shadow: 0 0 0 2px rgba(0, 245, 160, 0.3);
+    background: var(--accent-secondary, #a450e0);
+    border-color: var(--accent-secondary, #a450e0);
+    color: white;
+    box-shadow: 0 0 0 2px rgba(164, 80, 224, 0.3);
 }
 
 .tools-section {

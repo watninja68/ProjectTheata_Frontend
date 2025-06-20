@@ -12,7 +12,7 @@ import { MdRectangle } from 'react-icons/md';
 import './AnnotationToolbar.css';
 
 const AnnotationToolbar = ({
-    brushColor = '#FF0000',
+    brushColor = '#e74c3c', // Muted red as default
     setBrushColor,
     brushSize = 3,
     setBrushSize,
@@ -22,13 +22,13 @@ const AnnotationToolbar = ({
     isActive = false,
     setIsActive,
 }) => {
-    // 5 different colors as requested
+    // 5 different colors - mellow tones that complement the UI
     const colors = [
-        '#FF0000', // Red
-        '#00FF00', // Green  
-        '#0000FF', // Blue
-        '#FFFF00', // Yellow
-        '#FF00FF'  // Magenta
+        '#e74c3c', // Muted red
+        '#27ae60', // Muted green
+        '#3498db', // Muted blue
+        '#f39c12', // Muted orange/amber
+        '#9b59b6'  // Muted purple
     ];
 
     const tools = [

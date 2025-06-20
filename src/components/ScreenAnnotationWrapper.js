@@ -9,7 +9,7 @@ const ScreenAnnotationWrapper = ({
     agent = null
 }) => {
     const [isAnnotationActive, setIsAnnotationActive] = useState(false);
-    const [brushColor, setBrushColor] = useState('#FF0000');
+    const [brushColor, setBrushColor] = useState('#e74c3c'); // Muted red as default
     const [brushSize, setBrushSize] = useState(3);
     const [tool, setTool] = useState('pen');
     const annotationOverlayRef = useRef(null);
@@ -20,23 +20,45 @@ const ScreenAnnotationWrapper = ({
     useEffect(() => {
         if (agent?.screenManager && isScreenShareActive) {
             const getAnnotationOverlay = () => {
-                if (annotationOverlayRef.current && isAnnotationActive) {
-                    return annotationOverlayRef.current.captureAnnotations();
+                try {
+                    if (annotationOverlayRef.current && isAnnotationActive) {
+                        return annotationOverlayRef.current.captureAnnotations();
+                    }
+                } catch (error) {
+                    console.warn('ScreenAnnotationWrapper: Error capturing annotations:', error);
                 }
                 return null;
             };
 
-            agent.screenManager.setAnnotationOverlayCallback(getAnnotationOverlay);
-            console.log('ScreenAnnotationWrapper: Annotation overlay callback set');
+            try {
+                agent.screenManager.setAnnotationOverlayCallback(getAnnotationOverlay);
+                console.log('ScreenAnnotationWrapper: Annotation overlay callback set');
+            } catch (error) {
+                console.warn('ScreenAnnotationWrapper: Error setting annotation callback:', error);
+            }
 
             return () => {
                 // Clean up callback when component unmounts or screen share stops
-                if (agent?.screenManager) {
-                    agent.screenManager.setAnnotationOverlayCallback(null);
+                try {
+                    if (agent?.screenManager && typeof agent.screenManager.setAnnotationOverlayCallback === 'function') {
+                        agent.screenManager.setAnnotationOverlayCallback(null);
+                        console.log('ScreenAnnotationWrapper: Annotation overlay callback cleared');
+                    }
+                } catch (error) {
+                    console.warn('ScreenAnnotationWrapper: Error clearing annotation callback:', error);
                 }
             };
         }
     }, [agent, isScreenShareActive, isAnnotationActive]);
+
+    // Handle agent disconnect cleanup
+    useEffect(() => {
+        if (!agent && isAnnotationActive) {
+            // Agent was disconnected while annotations were active
+            console.log('ScreenAnnotationWrapper: Agent disconnected, cleaning up annotations');
+            setIsAnnotationActive(false);
+        }
+    }, [agent, isAnnotationActive]);
 
     // Find and monitor screen preview container
     useEffect(() => {
