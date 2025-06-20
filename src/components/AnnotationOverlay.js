@@ -52,13 +52,21 @@ const AnnotationOverlay = forwardRef(({
         const canvas = canvasRef.current;
         if (!context || !canvas) return;
 
+        // Clear canvas and reset context state
         context.clearRect(0, 0, canvas.width, canvas.height);
-        
+        context.globalCompositeOperation = 'source-over';
+
         annotations.forEach(annotation => {
-            context.strokeStyle = annotation.color;
+            // Set context properties for this annotation
+            if (annotation.tool === 'eraser') {
+                context.globalCompositeOperation = 'destination-out';
+                context.strokeStyle = 'rgba(0,0,0,1)'; // Use opaque color for eraser
+            } else {
+                context.globalCompositeOperation = 'source-over';
+                context.strokeStyle = annotation.color;
+            }
             context.fillStyle = annotation.color;
             context.lineWidth = annotation.size;
-            context.globalCompositeOperation = annotation.tool === 'eraser' ? 'destination-out' : 'source-over';
 
             switch (annotation.type) {
                 case 'path':
@@ -95,6 +103,9 @@ const AnnotationOverlay = forwardRef(({
                     break;
             }
         });
+
+        // Reset context state after drawing
+        context.globalCompositeOperation = 'source-over';
     }, [annotations]);
 
     // Get mouse/touch position relative to canvas
@@ -128,7 +139,7 @@ const AnnotationOverlay = forwardRef(({
             setCurrentShape({
                 type: 'path',
                 points: [pos],
-                color: tool === 'eraser' ? 'transparent' : brushColor,
+                color: brushColor, // Always use the brush color, eraser logic handled in rendering
                 size: tool === 'eraser' ? brushSize * 2 : brushSize,
                 tool: tool
             });
@@ -198,10 +209,17 @@ const AnnotationOverlay = forwardRef(({
         redrawAnnotations();
 
         const context = contextRef.current;
-        context.strokeStyle = currentShape.color;
+
+        // Set context properties for preview
+        if (currentShape.tool === 'eraser') {
+            context.globalCompositeOperation = 'destination-out';
+            context.strokeStyle = 'rgba(0,0,0,1)'; // Use opaque color for eraser
+        } else {
+            context.globalCompositeOperation = 'source-over';
+            context.strokeStyle = currentShape.color;
+        }
         context.fillStyle = currentShape.color;
         context.lineWidth = currentShape.size;
-        context.globalCompositeOperation = currentShape.tool === 'eraser' ? 'destination-out' : 'source-over';
 
         switch (currentShape.type) {
             case 'path':
@@ -237,6 +255,9 @@ const AnnotationOverlay = forwardRef(({
                 context.strokeRect(currentShape.start.x, currentShape.start.y, width, height);
                 break;
         }
+
+        // Reset context state after preview
+        context.globalCompositeOperation = 'source-over';
     }, [currentShape, redrawAnnotations]);
 
     // Redraw annotations when they change
@@ -252,6 +273,10 @@ const AnnotationOverlay = forwardRef(({
         const canvas = canvasRef.current;
         if (context && canvas) {
             context.clearRect(0, 0, canvas.width, canvas.height);
+            // Reset canvas context to default state
+            context.globalCompositeOperation = 'source-over';
+            context.lineCap = 'round';
+            context.lineJoin = 'round';
         }
         if (onAnnotationChange) {
             onAnnotationChange([]);
