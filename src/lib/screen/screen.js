@@ -14,6 +14,9 @@ export class ScreenManager {
             onStop: config.onStop // Callback when user stops sharing
         };
 
+        // Annotation overlay support
+        this.annotationOverlayCallback = null;
+
         this.stream = null;
         this.videoElement = null;
         this.canvas = null;
@@ -312,6 +315,14 @@ export class ScreenManager {
     }
 
     /**
+     * Set a callback function to get annotation overlay data
+     * @param {Function} callback - Function that returns annotation overlay image data URL or null
+     */
+    setAnnotationOverlayCallback(callback) {
+        this.annotationOverlayCallback = callback;
+    }
+
+    /**
      * Capture and process an image from the screen share.
      * @returns {Promise<string | null>} Base64 encoded JPEG image (without prefix), or null on failure.
      */
@@ -352,6 +363,32 @@ export class ScreenManager {
                 0, 0, videoWidth, videoHeight,
                 0, 0, this.canvas.width, this.canvas.height
             );
+
+            // Composite annotation overlay if available
+            if (this.annotationOverlayCallback) {
+                try {
+                    const annotationDataUrl = this.annotationOverlayCallback();
+                    if (annotationDataUrl) {
+                        // Create an image from the annotation data
+                        const annotationImage = new Image();
+                        await new Promise((resolve, reject) => {
+                            annotationImage.onload = resolve;
+                            annotationImage.onerror = reject;
+                            annotationImage.src = annotationDataUrl;
+                        });
+
+                        // Draw the annotation overlay on top of the video frame
+                        this.ctx.drawImage(
+                            annotationImage,
+                            0, 0, annotationImage.width, annotationImage.height,
+                            0, 0, this.canvas.width, this.canvas.height
+                        );
+                    }
+                } catch (annotationError) {
+                    // Don't fail the entire capture if annotation overlay fails
+                    console.warn('ScreenManager: Error compositing annotation overlay:', annotationError);
+                }
+            }
 
             // Convert to base64 JPEG
             const dataUrl = this.canvas.toDataURL('image/jpeg', this.config.quality);

@@ -1,0 +1,36 @@
+.annotation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    touch-action: none;
+    background: transparent;
+}
+
+.annotation-overlay.active {
+    pointer-events: auto;
+}
+
+.annotation-overlay:hover {
+    /* Optional: Add visual feedback when hovering */
+}
+
+/* Ensure the overlay doesn't interfere with video controls */
+.annotation-overlay + video {
+    pointer-events: auto;
+}
+
+/* Container for annotation overlay */
+.annotation-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.annotation-container .annotation-overlay {
+    border-radius: inherit;
+}

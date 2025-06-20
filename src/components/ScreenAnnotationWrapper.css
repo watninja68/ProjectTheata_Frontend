@@ -1,0 +1,65 @@
+.screen-annotation-wrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+/* Ensure the annotation overlay is positioned correctly over the screen preview */
+#screenPreview.annotation-container {
+    position: relative;
+}
+
+#screenPreview.annotation-container .annotation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    border-radius: inherit;
+    touch-action: none;
+}
+
+#screenPreview.annotation-container .annotation-overlay.active {
+    pointer-events: auto;
+    cursor: crosshair;
+}
+
+/* Ensure video element doesn't interfere with annotations */
+#screenPreview video {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+}
+
+/* Style adjustments for the annotation toolbar in screen context */
+.screen-annotation-wrapper .annotation-toolbar {
+    margin-bottom: 0.5rem;
+    background: var(--bg-secondary, rgba(42, 42, 42, 0.95));
+    backdrop-filter: blur(5px);
+    border: 1px solid var(--border-color, rgba(68, 68, 68, 0.8));
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .screen-annotation-wrapper .annotation-toolbar {
+        padding: 0.3rem;
+        gap: 0.5rem;
+    }
+    
+    .screen-annotation-wrapper .annotation-toolbar .toolbar-section {
+        gap: 0.3rem;
+    }
+    
+    .screen-annotation-wrapper .annotation-toolbar .tool-button {
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.9rem;
+    }
+    
+    .screen-annotation-wrapper .annotation-toolbar .color-button {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+}

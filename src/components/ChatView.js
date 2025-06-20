@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import { IoIosAddCircle } from "react-icons/io";
 import AudioVisualizerComponent from "./AudioVisualizerComponent";
+import ScreenAnnotationWrapper from "./ScreenAnnotationWrapper";
 import { useGeminiAgent } from "../hooks/useGeminiAgent";
 import ChatService from "../services/chatService";
 import { fileToBase64 } from "../lib/utils/utils";
@@ -499,6 +500,12 @@ const ChatView = ({
       {isConnected && agent?.initialized && (
         <AudioVisualizerComponent agent={agent} />
       )}
+
+      {/* Screen Annotation Wrapper - positioned to overlay the screen preview */}
+      <ScreenAnnotationWrapper
+        isScreenShareActive={isScreenShareActive}
+        agent={agent}
+      />
 
       {session && (
         <div className="footer-controls-stacked">

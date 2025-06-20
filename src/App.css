@@ -948,18 +948,46 @@ body.theme-light .profile-dropdown { background-color: var(--bg-secondary); bord
 }
 
 /* --- Preview Placeholders & Switch Button --- */
-#cameraPreview, #screenPreview { 
-    position: relative; 
-    width: 100%; 
-    aspect-ratio: 16 / 9; 
-    background-color: var(--bg-placeholder); 
-    border: 1px solid var(--border-color); 
-    border-radius: var(--border-radius); 
-    overflow: hidden; 
-    display: none; 
-    box-shadow: var(--shadow-sm); 
-    transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease; 
-    margin-bottom: 0.5rem; 
+#cameraPreview, #screenPreview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: var(--bg-placeholder);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    display: none;
+    box-shadow: var(--shadow-sm);
+    transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+    margin-bottom: 0.5rem;
+}
+
+/* Annotation container styling */
+#screenPreview.annotation-container {
+    position: relative;
+    overflow: visible; /* Allow annotation overlay to be visible */
+}
+
+#screenPreview.annotation-container .annotation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    border-radius: inherit;
+    touch-action: none;
+}
+
+#screenPreview.annotation-container .annotation-overlay.active {
+    pointer-events: auto;
+    cursor: crosshair;
+}
+
+/* Ensure screen preview is visible when screen sharing is active */
+#screenPreview:not(:empty) {
+    display: block !important;
 }
 #cameraPreview video, #screenPreview video { display: block; width: 100%; height: 100%; object-fit: cover; }
 
