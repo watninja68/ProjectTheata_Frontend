@@ -2,15 +2,13 @@ export class RAGQueryTool {
   /**
    * Creates a new RAGQueryTool instance
    * @param {Object} options - Configuration options
-   * @param {string} options.qdrantUrl - Qdrant database URL
-   * @param {string} options.qdrantApiKey - Qdrant API key
    * @param {string} options.googleApiKey - Google API key for Gemini
    * @param {string} options.openaiApiKey - OpenAI API key for embeddings
    */
   constructor(options = {}) {
-    this.qdrantUrl = options.qdrantUrl || process.env.REACT_APP_QDRANT_URL;
-    this.qdrantApiKey = 
-      options.qdrantApiKey || process.env.REACT_APP_QDRANT_API_KEY;
+    // The Qdrant URL now points to your Go backend's proxy endpoint.
+    this.qdrantUrl = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8080"}/api/qdrant`;
+
     this.googleApiKey = 
       options.googleApiKey || process.env.REACT_APP_GOOGLE_API_KEY;
     this.openaiApiKey = 
@@ -24,14 +22,8 @@ export class RAGQueryTool {
 
     // Validate required configuration
     if (!this.qdrantUrl) {
-      console.warn(
-        "RAGQueryTool: No Qdrant URL provided. Please provide qdrantUrl or set REACT_APP_QDRANT_URL environment variable."
-      );
-    }
-
-    if (!this.qdrantApiKey) {
-      console.warn(
-        "RAGQueryTool: No Qdrant API key provided. Please provide qdrantApiKey or set REACT_APP_QDRANT_API_KEY environment variable."
+      console.error(
+        "RAGQueryTool: The Qdrant proxy URL is not set. This is a critical internal error."
       );
     }
 
@@ -131,7 +123,7 @@ export class RAGQueryTool {
         return result;
       }
 
-      // Check if collection exists
+      // Check if collection exists via the backend proxy
       const collectionExists = await this.checkCollectionExists(collectionName);
       if (!collectionExists) {
         result.error = `Collection '${collectionName}' not found. Please ingest documents first.`;
@@ -145,7 +137,7 @@ export class RAGQueryTool {
         return result;
       }
 
-      // Search for relevant documents
+      // Search for relevant documents via the backend proxy
       const searchResults = await this.searchDocuments(
         collectionName,
         queryEmbedding,
@@ -190,7 +182,7 @@ export class RAGQueryTool {
   }
 
   /**
-   * Check if a Qdrant collection exists
+   * Check if a Qdrant collection exists via the backend proxy
    * @param {string} collectionName - Name of the collection
    * @returns {Promise<boolean>} - Whether the collection exists
    */
@@ -201,13 +193,18 @@ export class RAGQueryTool {
         {
           method: "GET",
           headers: {
-            "api-key": this.qdrantApiKey,
             "Content-Type": "application/json",
           },
         }
       );
 
-      return response.ok;
+      if (response.ok) {
+        console.log(`[RAGQueryTool] Collection '${collectionName}' exists`);
+        return true;
+      } else {
+        console.log(`[RAGQueryTool] Collection '${collectionName}' does not exist or is inaccessible`);
+        return false;
+      }
     } catch (error) {
       console.error("[RAGQueryTool] Collection check error:", error);
       return false;
@@ -221,6 +218,10 @@ export class RAGQueryTool {
    */
   async generateEmbedding(text) {
     try {
+      if (!this.openaiApiKey) {
+        throw new Error("OpenAI API key is not configured");
+      }
+
       const response = await fetch("https://api.openai.com/v1/embeddings", {
         method: "POST",
         headers: {
@@ -229,15 +230,17 @@ export class RAGQueryTool {
         },
         body: JSON.stringify({
           input: text,
-          model: "text-embedding-3-small", // More cost-effective than ada-002
+          model: "text-embedding-ada-002",
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
+      console.log(`[RAGQueryTool] Generated embedding for query: "${text.substring(0, 50)}..."`);
       return data.data[0].embedding;
     } catch (error) {
       console.error("[RAGQueryTool] Embedding generation error:", error);
@@ -246,7 +249,7 @@ export class RAGQueryTool {
   }
 
   /**
-   * Search for relevant documents in Qdrant
+   * Search for relevant documents in Qdrant via the backend proxy
    * @param {string} collectionName - Collection to search in
    * @param {number[]} queryVector - Query embedding vector
    * @param {number} limit - Maximum results to return
@@ -255,28 +258,38 @@ export class RAGQueryTool {
    */
   async searchDocuments(collectionName, queryVector, limit, scoreThreshold) {
     try {
+      const searchPayload = {
+        vector: queryVector,
+        limit: limit,
+        score_threshold: scoreThreshold,
+        with_payload: true,
+      };
+
+      console.log(`[RAGQueryTool] Searching documents in collection '${collectionName}' with limit ${limit} and threshold ${scoreThreshold}`);
+
       const response = await fetch(
         `${this.qdrantUrl}/collections/${collectionName}/points/search`,
         {
           method: "POST",
           headers: {
-            "api-key": this.qdrantApiKey,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            vector: queryVector,
-            limit: limit,
-            score_threshold: scoreThreshold,
-            with_payload: true,
-          }),
+          body: JSON.stringify(searchPayload),
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Qdrant search error: ${response.statusText}`);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { message: await response.text() };
+        }
+        throw new Error(`Qdrant search error: ${response.statusText} - ${JSON.stringify(errorData)}`);
       }
 
       const data = await response.json();
+      console.log(`[RAGQueryTool] Found ${data.result?.length || 0} matching documents`);
       return data.result;
     } catch (error) {
       console.error("[RAGQueryTool] Document search error:", error);
@@ -312,6 +325,7 @@ export class RAGQueryTool {
     }
 
     const combinedContext = contextParts.join("\n\n---\n\n");
+    console.log(`[RAGQueryTool] Processed ${retrievedChunks.length} chunks from ${sources.length} unique sources`);
 
     return { retrievedChunks, sources, combinedContext };
   }
@@ -325,8 +339,12 @@ export class RAGQueryTool {
    */
   async generateResponse(query, context, modelName) {
     try {
+      if (!this.googleApiKey) {
+        throw new Error("Google API key is not configured");
+      }
+
       const prompt = `You are a helpful assistant. Answer the following question based only on the context provided.
-If the context doesn't contain the answer, state that clearly. Be concise.
+If the context doesn't contain the answer, state that you cannot answer based on the provided documents. Be concise.
 
 Context:
 ${context}
@@ -345,6 +363,8 @@ Answer:`;
         },
       };
 
+      console.log(`[RAGQueryTool] Generating response using ${modelName}`);
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -354,13 +374,20 @@ Answer:`;
       });
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(`Gemini API error: ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const responseJson = await response.json();
+      
+      if (!responseJson.candidates || responseJson.candidates.length === 0) {
+        throw new Error("Gemini API returned no candidates in the response.");
+      }
+
       const generatedResponse = 
         responseJson.candidates[0].content.parts[0].text.trim();
 
+      console.log(`[RAGQueryTool] Successfully generated response`);
       return generatedResponse;
     } catch (error) {
       console.error("[RAGQueryTool] Response generation error:", error);
