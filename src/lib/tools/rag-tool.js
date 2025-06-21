@@ -17,7 +17,7 @@ export class RAGQueryTool {
       options.openaiApiKey || process.env.REACT_APP_OPENAI_API_KEY;
 
     // Default configuration
-    this.defaultCollectionName = "nigga_work";
+    this.defaultCollectionName = "personal_document_query_system";
     this.defaultTopK = 5;
     this.defaultSimilarityThreshold = 0.7;
     this.defaultModelName = "gemini-1.5-flash";
