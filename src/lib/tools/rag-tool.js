@@ -17,7 +17,7 @@ export class RAGQueryTool {
     // Default configuration
     this.defaultCollectionName = "personal_document_query_system";
     this.defaultTopK = 5;
-    this.defaultSimilarityThreshold = 0.7;
+    this.defaultSimilarityThreshold = 0.5;
     this.defaultModelName = "gemini-1.5-flash";
 
     // Validate required configuration
@@ -230,7 +230,8 @@ export class RAGQueryTool {
         },
         body: JSON.stringify({
           input: text,
-          model: "text-embedding-ada-002",
+          model: "text-embedding-3-small",
+          dimensions: 1536, // Reduce dimensions to 768
         }),
       });
 
