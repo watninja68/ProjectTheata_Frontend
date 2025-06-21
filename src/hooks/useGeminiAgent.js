@@ -4,7 +4,8 @@ import { ToolManager } from "../lib/tools/tool-manager";
 import { GoogleSearchTool } from "../lib/tools/google-search";
 import { WolframAlphaTool } from "../lib/tools/wolf-from-alpha.js";
 import { BackgroundTaskTool } from "../lib/tools/background-agent"; // Import the new tool
-import { useAuth } from './useAuth'; // Import useAuth to get user context
+import { useAuth } from "./useAuth"; // Import useAuth to get user context
+import { RAGQueryTool } from "../lib/tools/rag-tool";
 
 // ────────────────────────────────────────────────────────────────────────────────
 //  useGeminiAgent -- now with robust SSE support and forwarding SSE messages to agent
@@ -44,10 +45,11 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
       toolManager.current = new ToolManager();
       toolManager.current.registerTool("googleSearch", new GoogleSearchTool());
       toolManager.current.registerTool("wolframAlpha", new WolframAlphaTool());
+      toolManager.current.registerTool("ragQuery", new RAGQueryTool({}));
       // Register the BackgroundTaskTool, providing the necessary backend URL
       toolManager.current.registerTool(
         "executeBackgroundTask",
-        new BackgroundTaskTool({ backendBaseUrl: settings.backendBaseUrl })
+        new BackgroundTaskTool({ backendBaseUrl: settings.backendBaseUrl }),
       );
       console.log("[useGeminiAgent] ToolManager ready with all tools");
     }
@@ -182,130 +184,135 @@ export const useGeminiAgent = (settings, getGeminiConfig, getWebsocketUrl) => {
   // ────────────────────────────────────────────────────────────────────────────
   //  Agent connection & initialization
   // ────────────────────────────────────────────────────────────────────────────
-  const connectAgent = useCallback(async (conversationContextSummary = '') => {
-    // Use agentRef.current to check if already connecting/connected
-    if (
-      agentRef.current ||
-      isInitializing
-    ) {
-      console.warn(
-        "[useGeminiAgent] connect cancelled – already busy/connected",
-      );
-      return;
-    }
+  const connectAgent = useCallback(
+    async (conversationContextSummary = "") => {
+      // Use agentRef.current to check if already connecting/connected
+      if (agentRef.current || isInitializing) {
+        console.warn(
+          "[useGeminiAgent] connect cancelled – already busy/connected",
+        );
+        return;
+      }
 
-    const url = getWebsocketUrl();
-    if (!url) {
-      const errMsg =
-        "API Key or WebSocket URL is missing. Please configure settings.";
-      setError(errMsg);
-      onErrorRef.current?.(errMsg);
-      return;
-    }
+      const url = getWebsocketUrl();
+      if (!url) {
+        const errMsg =
+          "API Key or WebSocket URL is missing. Please configure settings.";
+        setError(errMsg);
+        onErrorRef.current?.(errMsg);
+        return;
+      }
 
-    setError(null);
-    setIsInitializing(true);
+      setError(null);
+      setIsInitializing(true);
 
-    try {
-      const agentConfig = {
-        url,
-        config: getGeminiConfig(
-          toolManager.current?.getToolDeclarations() || [],
-          conversationContextSummary,
-        ),
-        deepgramApiKey: settings.deepgramApiKey || null,
-        modelSampleRate: settings.sampleRate,
-        toolManager: toolManager.current,
-        transcribeUsersSpeech: settings.transcribeUsersSpeech || false,
-        transcribeModelsSpeech: settings.transcribeModelsSpeech || false,
-        settings,
-        user: user, // <<< PASS THE AUTHENTICATED USER
-      };
-      console.log("[useGeminiAgent] Creating GeminiAgent with user:", user?.id, agentConfig);
-      const newAgent = new GeminiAgent(agentConfig);
+      try {
+        const agentConfig = {
+          url,
+          config: getGeminiConfig(
+            toolManager.current?.getToolDeclarations() || [],
+            conversationContextSummary,
+          ),
+          deepgramApiKey: settings.deepgramApiKey || null,
+          modelSampleRate: settings.sampleRate,
+          toolManager: toolManager.current,
+          transcribeUsersSpeech: settings.transcribeUsersSpeech || false,
+          transcribeModelsSpeech: settings.transcribeModelsSpeech || false,
+          settings,
+          user: user, // <<< PASS THE AUTHENTICATED USER
+        };
+        console.log(
+          "[useGeminiAgent] Creating GeminiAgent with user:",
+          user?.id,
+          agentConfig,
+        );
+        const newAgent = new GeminiAgent(agentConfig);
 
-      // ── Hook‑up agent events to refs ──
-      newAgent.on("transcription", (t) => {
-        onTranscriptionRef.current?.(t);
-        onTranscriptForBackendRef.current?.("agent", t);
-      });
-      newAgent.on("user_transcription", (t) => {
-        onUserTranscriptionRef.current?.(t);
-        onTranscriptForBackendRef.current?.("user", t);
-      });
-      newAgent.on("text_sent", (txt) => onTextSentRef.current?.(txt));
-      newAgent.on("interrupted", () => onInterruptedRef.current?.());
-      newAgent.on("turn_complete", () => onTurnCompleteRef.current?.());
-      newAgent.on("screenshare_stopped", () => {
-        setIsScreenShareActive(false);
-        onScreenShareStoppedRef.current?.();
-      });
-      newAgent.on("error", (err) => {
-        console.error("[useGeminiAgent] Agent error", err);
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
-        onErrorRef.current?.(msg);
-      });
-      newAgent.on("mic_state_changed", (s) => {
-        setIsMicActive(s.active);
-        setIsMicSuspended(s.suspended);
-        onMicStateChangedRef.current?.(s);
-      });
-      newAgent.on("camera_started", () => {
-        setIsCameraActive(true);
-        onCameraStartedRef.current?.();
-      });
-      newAgent.on("camera_stopped", () => {
+        // ── Hook‑up agent events to refs ──
+        newAgent.on("transcription", (t) => {
+          onTranscriptionRef.current?.(t);
+          onTranscriptForBackendRef.current?.("agent", t);
+        });
+        newAgent.on("user_transcription", (t) => {
+          onUserTranscriptionRef.current?.(t);
+          onTranscriptForBackendRef.current?.("user", t);
+        });
+        newAgent.on("text_sent", (txt) => onTextSentRef.current?.(txt));
+        newAgent.on("interrupted", () => onInterruptedRef.current?.());
+        newAgent.on("turn_complete", () => onTurnCompleteRef.current?.());
+        newAgent.on("screenshare_stopped", () => {
+          setIsScreenShareActive(false);
+          onScreenShareStoppedRef.current?.();
+        });
+        newAgent.on("error", (err) => {
+          console.error("[useGeminiAgent] Agent error", err);
+          const msg = err instanceof Error ? err.message : String(err);
+          setError(msg);
+          onErrorRef.current?.(msg);
+        });
+        newAgent.on("mic_state_changed", (s) => {
+          setIsMicActive(s.active);
+          setIsMicSuspended(s.suspended);
+          onMicStateChangedRef.current?.(s);
+        });
+        newAgent.on("camera_started", () => {
+          setIsCameraActive(true);
+          onCameraStartedRef.current?.();
+        });
+        newAgent.on("camera_stopped", () => {
+          setIsCameraActive(false);
+          onCameraStoppedRef.current?.();
+        });
+        newAgent.on("screenshare_started", () => {
+          setIsScreenShareActive(true);
+          onScreenShareStartedRef.current?.();
+        });
+
+        // ── Connect & init ──
+        agentRef.current = newAgent; // <<< UPDATE REF
+        setAgent(newAgent); // <<< Update state for consumers
+
+        await newAgent.connect();
+
+        await newAgent.initialize();
+
+        setIsConnected(true); // <<< Set connected state AFTER successful connection/init
+        setIsMicActive(newAgent.audioRecorder?.isRecording || false);
+        setIsMicSuspended(newAgent.audioRecorder?.isSuspended !== false);
+
+        console.log("[useGeminiAgent] Agent ready");
+
+        // ── Start SSE once the agent is live ──
+        startSSE();
+      } catch (err) {
+        console.error("[useGeminiAgent] connect/init failed", err);
+        const errorMsg =
+          err.message || "Failed to connect or initialize agent.";
+        setError(errorMsg);
+        onErrorRef.current?.(errorMsg);
+
+        agentRef.current?.disconnect?.().catch(console.error);
+        agentRef.current = null;
+        setAgent(null);
+        setIsConnected(false);
+        setIsMicActive(false);
+        setIsMicSuspended(true);
         setIsCameraActive(false);
-        onCameraStoppedRef.current?.();
-      });
-      newAgent.on("screenshare_started", () => {
-        setIsScreenShareActive(true);
-        onScreenShareStartedRef.current?.();
-      });
-
-      // ── Connect & init ──
-      agentRef.current = newAgent; // <<< UPDATE REF
-      setAgent(newAgent); // <<< Update state for consumers
-
-      await newAgent.connect();
-
-      await newAgent.initialize();
-
-      setIsConnected(true); // <<< Set connected state AFTER successful connection/init
-      setIsMicActive(newAgent.audioRecorder?.isRecording || false);
-      setIsMicSuspended(newAgent.audioRecorder?.isSuspended !== false);
-
-      console.log("[useGeminiAgent] Agent ready");
-
-      // ── Start SSE once the agent is live ──
-      startSSE();
-    } catch (err) {
-      console.error("[useGeminiAgent] connect/init failed", err);
-      const errorMsg = err.message || "Failed to connect or initialize agent.";
-      setError(errorMsg);
-      onErrorRef.current?.(errorMsg);
-
-      agentRef.current?.disconnect?.().catch(console.error);
-      agentRef.current = null;
-      setAgent(null);
-      setIsConnected(false);
-      setIsMicActive(false);
-      setIsMicSuspended(true);
-      setIsCameraActive(false);
-      setIsScreenShareActive(false);
-    } finally {
-      setIsInitializing(false);
-    }
-  }, [
-    isInitializing,
-    isConnected,
-    settings,
-    getGeminiConfig,
-    getWebsocketUrl,
-    startSSE,
-    user, // Add user as a dependency
-  ]);
+        setIsScreenShareActive(false);
+      } finally {
+        setIsInitializing(false);
+      }
+    },
+    [
+      isInitializing,
+      isConnected,
+      settings,
+      getGeminiConfig,
+      getWebsocketUrl,
+      startSSE,
+      user, // Add user as a dependency
+    ],
+  );
 
   // ────────────────────────────────────────────────────────────────────────────
   //  Disconnect
