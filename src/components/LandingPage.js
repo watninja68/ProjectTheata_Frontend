@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+    Link,
+    useNavigate
+} from "react-router-dom";
 import {
     FaAtom,
     FaSignInAlt,
@@ -14,7 +17,6 @@ import {
     FaQuoteRight,
     FaRegSmile,
     FaBrain,
-    // --- New icons for the enhanced footer ---
     FaTwitter,
     FaLinkedin,
     FaGithub,
@@ -36,11 +38,8 @@ const LandingPage = () => {
             "data-theme",
             isDarkMode ? THEME_DARK : THEME_LIGHT,
         );
+        document.body.className = isDarkMode ? 'dark-mode' : 'light-mode';
     }, [isDarkMode]);
-
-    // const toggleTheme = () => { // If you want a theme toggle in the footer too
-    //     setIsDarkMode(!isDarkMode);
-    // };
 
     return (
         <div className={`landing-page ${isDarkMode ? "dark-mode" : "light-mode"}`}>
@@ -48,7 +47,6 @@ const LandingPage = () => {
                 <div className="logo-title">
                     <FaAtom
                         size={40}
-                        style={{ color: "var(--accent-primary)", marginRight: "10px" }}
                         aria-hidden="true"
                     />
                     <h1>Project Theta</h1>
@@ -353,10 +351,6 @@ const LandingPage = () => {
                             <div className="footer-logo">
                                 <FaAtom
                                     size={30}
-                                    style={{
-                                        color: "var(--accent-primary)",
-                                        marginRight: "10px",
-                                    }}
                                     aria-hidden="true"
                                 />
                                 <h3>Project Theta</h3>
@@ -382,7 +376,6 @@ const LandingPage = () => {
                                 <li>
                                     <a href="#testimonials">Testimonials</a>
                                 </li>
-                                {/* <li><Link to="/blog">Blog</Link></li> You can add more links like a blog or FAQ */}
                             </ul>
                         </div>
 
@@ -395,7 +388,6 @@ const LandingPage = () => {
                                 <li>
                                     <Link to="/terms-of-service">Terms of Service</Link>
                                 </li>
-                                {/* <li><Link to="/cookie-policy">Cookie Policy</Link></li> */}
                             </ul>
                         </div>
 
@@ -425,22 +417,13 @@ const LandingPage = () => {
                                 >
                                     <FaLinkedin size={22} />
                                 </a>
-                                <br />
                                 <a
-                                    href="https://twitter.com/YourProjectTheta"
+                                    href="https://github.com/your-repo"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label="Follow Project Theta on Twitter"
+                                    aria-label="Project Theta on GitHub"
                                 >
-                                    <FaTwitter size={22} />
-                                </a>
-                                <a
-                                    href="https://linkedin.com/company/YourProjectTheta"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label="Follow Project Theta on LinkedIn"
-                                >
-                                    <FaLinkedin size={22} />
+                                    <FaGithub size={22} />
                                 </a>
                             </div>
                         </div>
@@ -449,10 +432,6 @@ const LandingPage = () => {
                     <div className="footer-secondary">
                         <div className="footer-credits">
                             A project by Karneeshkar & Ashish.
-                            {/* You can make emails clickable if desired, but a general contact is often better for a product.
-                                <a href="mailto:karneeshkar68@gmail.com">Karneeshkar</a> &
-                                <a href="mailto:ashishfounder@email.com">Ashish</a>
-                            */}
                         </div>
                         <p className="footer-copyright">
                             &copy; {new Date().getFullYear()} Project Theta. All Rights
