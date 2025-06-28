@@ -52,8 +52,9 @@ body.theme-light .background-task-manager {
     border: 1px solid var(--border-color);
     background-color: var(--bg-input);
     color: var(--text-primary);
-    font-size: 0.95rem;
-    font-family: inherit; /* Ensure font consistency */
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm); /* 14px - Input fields */
+    font-weight: var(--font-weight-normal);
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     

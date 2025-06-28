@@ -16,15 +16,13 @@ import {
   FaUserPlus,
   FaChevronLeft,
   FaChevronRight,
-  FaBars,
   FaPlus,
 } from "react-icons/fa";
-import {GrChapterAdd} from "react-icons/gr";
 import ChatList from "./components/ChatList";
 import ChatView from "./components/ChatView";
 import SettingsDialog from "./components/SettingsDialog";
 import BackgroundTaskManager from "./components/BackgroundTaskManager";
-import Collapsible from "./components/Collapsible";
+
 import { useSettings } from "./hooks/useSettings";
 import { useAuth } from "./hooks/useAuth";
 
@@ -60,6 +58,7 @@ function App() {
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [activeRightTab, setActiveRightTab] = useState('media'); // 'media' or 'tasks'
 
   // --- Resizable Sidebar State ---
   const [rightSidebarWidth, setRightSidebarWidth] = useState(350);
@@ -496,15 +495,38 @@ function App() {
             )}
             {rightSidebarWidth > 50 && (
               <div className="sidebar-content-wrapper">
-                <Collapsible title="Media Previews" startOpen={true}>
-                  <div id="cameraPreview" style={{ position: "relative" }} />
-                  <div id="screenPreview" />
-                </Collapsible>
-                {session && (
-                  <Collapsible title="Background Tasks" startOpen={true}>
-                    <BackgroundTaskManager />
-                  </Collapsible>
-                )}
+                {/* Tab Navigation */}
+                <div className="sidebar-tab-nav">
+                  <button
+                    className={`sidebar-tab ${activeRightTab === 'media' ? 'active' : ''}`}
+                    onClick={() => setActiveRightTab('media')}
+                  >
+                    MEDIA PREVIEWS
+                  </button>
+                  {session && (
+                    <button
+                      className={`sidebar-tab ${activeRightTab === 'tasks' ? 'active' : ''}`}
+                      onClick={() => setActiveRightTab('tasks')}
+                    >
+                      BACKGROUND TASKS
+                    </button>
+                  )}
+                </div>
+
+                {/* Tab Content */}
+                <div className="sidebar-tab-content">
+                  {activeRightTab === 'media' && (
+                    <div className="media-previews-content">
+                      <div id="cameraPreview" style={{ position: "relative" }} />
+                      <div id="screenPreview" />
+                    </div>
+                  )}
+                  {activeRightTab === 'tasks' && session && (
+                    <div className="background-tasks-content">
+                      <BackgroundTaskManager />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
