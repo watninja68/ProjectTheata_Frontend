@@ -17,6 +17,7 @@ import { IoIosAddCircle } from "react-icons/io";
 import AudioVisualizerComponent from "./AudioVisualizerComponent";
 import ScreenAnnotationWrapper from "./ScreenAnnotationWrapper";
 import { useGeminiAgent } from "../hooks/useGeminiAgent";
+import { useToolCallTracking } from "../hooks/useToolCallTracking";
 import ChatService from "../services/chatService";
 import { fileToBase64 } from "../lib/utils/utils";
 
@@ -61,6 +62,9 @@ const ChatView = ({
     onCameraStoppedRef,
     onScreenShareStartedRef,
   } = useGeminiAgent(settings, getGeminiConfig, getWebsocketUrl);
+
+  // Track tool calls and show notifications
+  useToolCallTracking(agent);
 
   const [messages, setMessages] = useState([]);
   const [conversationContextSummary, setConversationContextSummary] = useState('');

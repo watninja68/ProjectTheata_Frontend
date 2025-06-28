@@ -276,9 +276,25 @@ export class GeminiAgent extends EventEmitter {
       console.info(`${this.name}: Handling tool call: ${functionCall.name}`, {
         args: functionCall.args,
       });
+
+      // Emit tool call started event for tracking
+      this.emit("tool_call_started", {
+        name: functionCall.name,
+        id: functionCall.id,
+        args: functionCall.args
+      });
+
       // <<< PASS USER CONTEXT TO THE TOOL MANAGER >>>
       const response = await this.toolManager.handleToolCall(functionCall, this.user);
       responses.push(response);
+
+      // Emit tool call completed event for tracking
+      this.emit("tool_call_completed", {
+        name: functionCall.name,
+        id: functionCall.id,
+        success: !response.error,
+        error: response.error
+      });
     }
 
     if (this.client && this.connected) {

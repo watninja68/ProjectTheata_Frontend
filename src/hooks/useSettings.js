@@ -159,7 +159,7 @@ export const useSettings = () => {
         user?.user_metadata?.name ||
         user?.email;
       const baseInstructions =
-        "You are a helpful assistant named Theta. ";
+        "You are a helpful assistant named Theta. If you perform a google search tool call always summarize and give the user the final requested answer based on the info you collect from the toolcall only donot display all links and the content in them ";
       
       const userPrefix = userName
         ? `The user you are speaking with is logged in as ${userName}. `

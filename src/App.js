@@ -22,6 +22,8 @@ import ChatList from "./components/ChatList";
 import ChatView from "./components/ChatView";
 import SettingsDialog from "./components/SettingsDialog";
 import BackgroundTaskManager from "./components/BackgroundTaskManager";
+import NotificationPopup from "./components/NotificationPopup";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
 import { useSettings } from "./hooks/useSettings";
 import { useAuth } from "./hooks/useAuth";
@@ -264,7 +266,8 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <NotificationProvider>
+      <div className="app-container">
       <div className="app-header">
         <div className="header-left">
           {/* Left sidebar toggle button removed from here */}
@@ -543,7 +546,10 @@ function App() {
           thresholds={thresholds}
         />
       )}
+
+      <NotificationPopup />
     </div>
+    </NotificationProvider>
   );
 }
 
