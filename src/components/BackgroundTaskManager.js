@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
+import { useNotifications } from '../contexts/NotificationContext';
 import { FaGoogle, FaInfoCircle, FaRobot, FaCog, FaTerminal, FaCheckCircle, FaTimes } from 'react-icons/fa';
 
 const BackgroundTaskManager = () => {
@@ -12,6 +13,7 @@ const BackgroundTaskManager = () => {
     const [taskError, setTaskError] = useState(null);
     const { user } = useAuth();
     const { settings } = useSettings();
+    const { showToolCallStarted, showToolCallCompleted, removeNotification } = useNotifications();
     const [gmailConnectionStatus, setGmailConnectionStatus] = useState({ loading: true, message: "Verifying Google connection..." });
 
     const checkBackendGoogleTokenStatus = async () => {
@@ -103,7 +105,10 @@ const BackgroundTaskManager = () => {
             setIsLoading(false);
             return;
         }
-        
+
+        // Show notification that background task execution started
+        const notificationId = showToolCallStarted('Background Agent Task');
+
         const goBackendPayload = {
             user_id: user ? user.id : "",
             text: taskQuery,
@@ -145,10 +150,18 @@ const BackgroundTaskManager = () => {
 
             setProcessedResults(processAdkResponse(adkDataToProcess));
 
+            // Remove started notification and show success notification
+            removeNotification(notificationId);
+            showToolCallCompleted('Background Agent Task', true);
+
         } catch (err) {
             console.error("Error during task execution call:", err);
             setTaskError(err.message || "Network error or unexpected issue during task execution.");
             setProcessedResults([]);
+
+            // Remove started notification and show error notification
+            removeNotification(notificationId);
+            showToolCallCompleted('Background Agent Task', false, err.message || "Task execution failed");
         } finally {
             setIsLoading(false);
         }

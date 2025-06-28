@@ -12,6 +12,8 @@ import {
   FaSyncAlt,
   FaExclamationTriangle,
   FaSpinner,
+  FaCheckCircle,
+  FaCog,
 } from "react-icons/fa";
 import { IoIosAddCircle } from "react-icons/io";
 import AudioVisualizerComponent from "./AudioVisualizerComponent";
@@ -62,9 +64,6 @@ const ChatView = ({
     onCameraStoppedRef,
     onScreenShareStartedRef,
   } = useGeminiAgent(settings, getGeminiConfig, getWebsocketUrl);
-
-  // Track tool calls and show notifications
-  useToolCallTracking(agent);
 
   const [messages, setMessages] = useState([]);
   const [conversationContextSummary, setConversationContextSummary] = useState('');
@@ -150,14 +149,77 @@ const ChatView = ({
   }, [isConnected, onConnectionChange]);
 
   const addMessage = useCallback((sender, text, isStreaming = false, type = "text") => {
+    const messageId = Date.now() + Math.random();
     setMessages((prev) => {
-      const newMessage = { id: Date.now() + Math.random(), sender, text, isStreaming, type };
+      const newMessage = { id: messageId, sender, text, isStreaming, type };
       if (sender === "model" && isStreaming) {
         streamingMessageRef.current = newMessage.id;
       }
       const filteredPrev = prev.filter(msg => !(msg.type === "audio_input_placeholder" && sender === "model"));
       return [...filteredPrev, newMessage];
     });
+    return messageId; // Return the message ID
+  }, []);
+
+  const updateMessage = useCallback((messageId, updates) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId ? { ...msg, ...updates } : msg
+      )
+    );
+  }, []);
+
+  // Track tool calls and show them as chat messages
+  useToolCallTracking(agent, addMessage, updateMessage);
+
+  // Function to render tool call messages with notification-style design
+  const renderToolCallMessage = useCallback((msg) => {
+    let messageData;
+    try {
+      messageData = JSON.parse(msg.text);
+    } catch (e) {
+      messageData = { toolName: msg.text, status: 'started' };
+    }
+
+    const isStarted = msg.type === "tool_call_started" || messageData.status === 'started';
+    const isSuccess = msg.type === "tool_call_completed_success";
+    const isError = msg.type === "tool_call_completed_error";
+
+    let icon, title, message, bubbleClass;
+
+    if (isStarted) {
+      icon = <FaSpinner className="tool-call-icon spinning" />;
+      title = "Tool Call Started";
+      message = `Executing ${messageData.toolName}...`;
+      bubbleClass = "";
+    } else if (isSuccess) {
+      icon = <FaCheckCircle className="tool-call-icon success" />;
+      title = "Tool Call Completed";
+      message = `${messageData.toolName} completed successfully`;
+      bubbleClass = "success";
+    } else if (isError) {
+      icon = <FaExclamationTriangle className="tool-call-icon error" />;
+      title = "Tool Call Failed";
+      message = `${messageData.toolName} failed: ${messageData.error || 'Unknown error'}`;
+      bubbleClass = "error";
+    }
+
+    return (
+      <div key={msg.id} className={`tool-call-notification-bubble ${bubbleClass}`}>
+        <div className="tool-call-content">
+          <div className="tool-call-header">
+            {icon}
+            <span className="tool-call-title">{title}</span>
+          </div>
+          <div className="tool-call-message">
+            {message}
+          </div>
+          <div className="tool-call-tool-name">
+            Tool: {messageData.toolName}
+          </div>
+        </div>
+      </div>
+    );
   }, []);
 
   const addUserAudioPlaceholder = useCallback(() => {
@@ -464,14 +526,22 @@ const ChatView = ({
     }
     // If not loading and no history error, always try to render messages.
     // Connect prompts/errors will be handled elsewhere or after this block.
-    return messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`chat-message ${msg.sender === "user" ? "user-message" : "model-message"} type-${msg.type || "text"} ${msg.isStreaming ? "streaming" : ""}`}
-            >
-              {msg.text}
-            </div>
-          ));
+    return messages.map((msg) => {
+      // Check if this is a tool call message
+      if (msg.type && (msg.type === "tool_call_started" || msg.type === "tool_call_completed_success" || msg.type === "tool_call_completed_error")) {
+        return renderToolCallMessage(msg);
+      }
+
+      // Regular message rendering
+      return (
+        <div
+          key={msg.id}
+          className={`chat-message ${msg.sender === "user" ? "user-message" : "model-message"} type-${msg.type || "text"} ${msg.isStreaming ? "streaming" : ""}`}
+        >
+          {msg.text}
+        </div>
+      );
+    });
   };
 
   return (

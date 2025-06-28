@@ -278,6 +278,7 @@ export class GeminiAgent extends EventEmitter {
       });
 
       // Emit tool call started event for tracking
+      console.log(`[Agent] Emitting tool_call_started for ${functionCall.name} with ID: ${functionCall.id}`);
       this.emit("tool_call_started", {
         name: functionCall.name,
         id: functionCall.id,
@@ -289,6 +290,7 @@ export class GeminiAgent extends EventEmitter {
       responses.push(response);
 
       // Emit tool call completed event for tracking
+      console.log(`[Agent] Emitting tool_call_completed for ${functionCall.name} with ID: ${functionCall.id}, success: ${!response.error}`);
       this.emit("tool_call_completed", {
         name: functionCall.name,
         id: functionCall.id,
