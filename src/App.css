@@ -1349,7 +1349,7 @@ body.theme-light .user-message { color: white; }
   border-radius: 12px;
   padding: 16px;
   margin: 12px 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   font-family: 'Inter', sans-serif;
@@ -1441,17 +1441,7 @@ body.theme-light .user-message { color: white; }
   }
 }
 
-/* Dark theme adjustments */
-[data-theme="dark"] .tool-call-notification-bubble {
-  background: rgba(30, 30, 40, 0.95);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Light theme adjustments */
-[data-theme="light"] .tool-call-notification-bubble {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(0, 0, 0, 0.1);
-}
+/* Removed hardcoded theme styles - now uses CSS variables that respond to theme changes */
 
 .system-message { align-self: center; background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 1rem 1.5rem; border-radius: 12px; margin: 1.5rem 0; font-style: normal; max-width: 60%; text-align: center; font-size: var(--font-size-sm); }
 

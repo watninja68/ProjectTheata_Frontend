@@ -54,10 +54,10 @@ export const useSettings = () => {
     if (savedTheme) {
       return savedTheme === "light" ? "light" : "dark";
     }
-    
-    // Set default explicitly to dark and save it
-    localStorage.setItem("theme", "dark");
-    return "dark";
+
+    // Set default explicitly to light and save it
+    localStorage.setItem("theme", "light");
+    return "light";
   });
 
   // Load settings and apply theme from localStorage on initial mount
