@@ -481,7 +481,7 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   color: var(--text-primary);
 }
 
-/* New Conversation Button Styling - Modern Blackish-Purple Style */
+/* New Conversation Button Styling - Default Dark Mode */
 .new-conversation-btn {
   display: flex;
   align-items: center;
@@ -504,6 +504,19 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   overflow: hidden;
 }
 
+/* Light Mode Styling - White with Elegant Edges */
+body.theme-light .new-conversation-btn {
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid rgba(45, 45, 60, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(45, 45, 60, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Dark Mode Hover Effects */
 .new-conversation-btn:hover {
   background: var(--accent-secondary);
   transform: translateY(-1px);
@@ -515,8 +528,82 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
   box-shadow: 0 1px 4px rgba(124, 58, 237, 0.2);
 }
 
+/* Light Mode Pseudo-element for Top Edge */
+body.theme-light .new-conversation-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(45, 45, 60, 0.2) 20%,
+    rgba(45, 45, 60, 0.3) 50%,
+    rgba(45, 45, 60, 0.2) 80%,
+    transparent 100%);
+  opacity: 0.6;
+}
+
+/* Light Mode Hover Effects */
+body.theme-light .new-conversation-btn:hover {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: white;
+  transform: translateY(-2px);
+  border-color: var(--accent-primary);
+  box-shadow:
+    0 8px 25px rgba(124, 58, 237, 0.25),
+    0 0 20px rgba(124, 58, 237, 0.15),
+    0 0 0 1px rgba(124, 58, 237, 0.2);
+}
+
+body.theme-light .new-conversation-btn:hover::before {
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.3) 80%,
+    transparent 100%);
+  opacity: 1;
+}
+
+body.theme-light .new-conversation-btn:active {
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 15px rgba(124, 58, 237, 0.2),
+    0 0 10px rgba(124, 58, 237, 0.1),
+    0 0 0 1px rgba(124, 58, 237, 0.15);
+}
+
 .new-conversation-btn svg {
   flex-shrink: 0; /* Prevent icon from shrinking */
+  transition: all 0.3s ease;
+}
+
+/* Light Mode Icon Effects */
+body.theme-light .new-conversation-btn:hover svg {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+}
+
+/* Subtle pulse animation for the glow effect (Light Mode Only) */
+@keyframes subtle-glow {
+  0%, 100% {
+    box-shadow:
+      0 8px 25px rgba(124, 58, 237, 0.25),
+      0 0 20px rgba(124, 58, 237, 0.15),
+      0 0 0 1px rgba(124, 58, 237, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 8px 30px rgba(124, 58, 237, 0.3),
+      0 0 25px rgba(124, 58, 237, 0.2),
+      0 0 0 1px rgba(124, 58, 237, 0.25);
+  }
+}
+
+body.theme-light .new-conversation-btn:hover {
+  animation: subtle-glow 2s ease-in-out infinite;
 }
 
 /* Sidebar Separator Line */
