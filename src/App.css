@@ -207,7 +207,14 @@ body {
 #root { height: 100%; display: flex; flex-direction: column; }
 
 /* --- App Layout --- */
-.app-container { display: flex; flex-direction: column; height: 100%; background-color: transparent; }
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Changed: Use viewport height instead of 100% */
+  max-height: 100vh; /* Added: Prevent growing beyond viewport */
+  background-color: transparent;
+  overflow: hidden; /* Added: Prevent container overflow */
+}
 .app-header {
   display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem;
   background: var(--bg-header-footer);
@@ -368,11 +375,13 @@ body.theme-light .header-status .status-disconnected { color: var(--text-dark); 
 .header-status .status-error { background-color: var(--error-color); color: #fff; }
 .header-status .status-warning { background-color: var(--warning-color); color: var(--text-dark); }
 
-.main-content { 
-  flex-grow: 1; 
-  display: flex; 
-  overflow: hidden; 
-  min-height: 0; 
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%; /* Added: Ensure proper height constraint */
+  max-height: 100vh; /* Added: Prevent growing beyond viewport */
 }
 /* For disabling text selection during resize */
 .main-content.resizing {
@@ -694,9 +703,11 @@ body.theme-light .new-conversation-btn:hover {
 .center-and-right-content {
   flex-grow: 1;
   display: flex;
-  flex-direction: row; 
-  overflow: visible; /* Changed from hidden to visible for button */
-  min-width: 0; 
+  flex-direction: row;
+  overflow: hidden; /* Fixed: Changed back to hidden to prevent layout issues */
+  min-width: 0;
+  min-height: 0; /* Added: Prevent flex item from growing beyond container */
+  height: 100%; /* Added: Ensure proper height constraint */
 }
 
 .chat-area {
@@ -707,6 +718,9 @@ body.theme-light .new-conversation-btn:hover {
   padding: 0.75rem 1rem;
   position: relative;
   min-width: 0; /* Important for flex containers */
+  min-height: 0; /* Added: Prevent flex item from growing beyond container */
+  height: 100%; /* Added: Ensure proper height constraint */
+  max-height: 100%; /* Added: Prevent overflow beyond container */
 }
 
 /* --- Right Sidebar Styles (Updated for Resizing) --- */
@@ -1084,6 +1098,8 @@ body.theme-light .new-conversation-btn:hover {
   flex-direction: column;
   gap: 0.5rem;
   position: relative;
+  min-height: 0; /* Added: Allow flex shrinking */
+  max-height: 100%; /* Added: Prevent overflow beyond container */
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .chat-message {
@@ -1221,6 +1237,14 @@ body.theme-light .user-message { color: white; }
 
 .chat-bubble-icon.system-icon {
   background: var(--text-secondary);
+}
+
+.chat-bubble-profile-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: none;
 }
 
 .chat-bubble-name {

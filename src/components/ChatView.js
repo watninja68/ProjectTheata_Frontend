@@ -199,7 +199,20 @@ const ChatView = ({
     };
 
     const getIcon = () => {
-      if (isUser) return <FaUser />;
+      if (isUser) {
+        // Use user's Google profile picture if available, fallback to FaUser icon
+        const profileImageUrl = user?.user_metadata?.avatar_url;
+        if (profileImageUrl) {
+          return (
+            <img
+              src={profileImageUrl}
+              alt="User profile"
+              className="chat-bubble-profile-img"
+            />
+          );
+        }
+        return <FaUser />;
+      }
       if (isModel) return <FaRobot />;
       return <FaCog />;
     };
@@ -333,26 +346,34 @@ const ChatView = ({
     if (userTranscriptLockRef.current) {
       return;
     }
-    
+
     userTranscriptLockRef.current = true;
-    
+
     try {
       const currentTranscript = userTranscriptBufferRef.current.trim();
       const hasBeenSent = userTranscriptSentRef.current;
-      
+
       if (currentTranscript && !hasBeenSent) {
         console.log('Sending user transcript to backend:', currentTranscript);
+
+        // Remove any audio input placeholder
+        setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
+
+        // Add the final user message to chat
+        addMessage("user", currentTranscript, false, "text");
+
+        // Send to backend
         sendTranscriptToBackend('user', currentTranscript);
         userTranscriptSentRef.current = true;
       }
-      
+
       // Clear buffer and reset flags
       userTranscriptBufferRef.current = '';
       userTranscriptSentRef.current = false;
     } finally {
       userTranscriptLockRef.current = false;
     }
-  }, [sendTranscriptToBackend]);
+  }, [sendTranscriptToBackend, addMessage]);
 
   // NEW: Function to start a new user transcript session
   const startNewUserTranscript = useCallback(() => {
@@ -492,7 +513,6 @@ const ChatView = ({
       setTimeout(() => {
         sendAndClearUserBuffer();
         onInterruptedRef.current?.();
-        setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
         sendText(trimmedText);
       }, 100);
     }
