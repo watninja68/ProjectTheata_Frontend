@@ -1,7 +1,24 @@
+import { supabase } from "../lib/supabase/client";
+
 const API_BASE_URL =
   process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
 
 class ChatService {
+  async _getAuthHeaders() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) {
+      return {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      };
+    }
+    return {
+      "Content-Type": "application/json",
+    };
+  }
+
   /**
    * Get user's chat list
    * @param {string} userId - User ID (UUID string)
@@ -10,14 +27,19 @@ class ChatService {
    */
   async getChats(userId, options = {}) {
     if (!userId) {
-        return Promise.reject(new Error("User ID is required to fetch chats."));
+      return Promise.reject(new Error("User ID is required to fetch chats."));
     }
     const params = new URLSearchParams({
       user_id: userId,
       ...options,
     });
 
-    const response = await fetch(`${API_BASE_URL}/api/chats?${params}`);
+    const headers = await this._getAuthHeaders();
+    delete headers["Content-Type"]; // GET request doesn't need Content-Type
+
+    const response = await fetch(`${API_BASE_URL}/api/chats?${params}`, {
+      headers,
+    });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || "Failed to fetch chats");
@@ -31,11 +53,10 @@ class ChatService {
    * @returns {Promise<Object>} Created chat response
    */
   async createChat(chatData) {
+    const headers = await this._getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/api/chats/create`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(chatData),
     });
 
@@ -53,13 +74,12 @@ class ChatService {
    * @returns {Promise<Object>} Updated chat response
    */
   async updateChat(chatId, updateData) {
+    const headers = await this._getAuthHeaders();
     const response = await fetch(
       `${API_BASE_URL}/api/chats/update?chat_id=${chatId}`,
       {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(updateData),
       },
     );
@@ -78,10 +98,14 @@ class ChatService {
    * @returns {Promise<Object>} Delete response
    */
   async deleteChat(chatId, userId) {
+    const headers = await this._getAuthHeaders();
+    delete headers["Content-Type"]; // DELETE request doesn't need Content-Type
+
     const response = await fetch(
       `${API_BASE_URL}/api/chats/delete?chat_id=${chatId}&user_id=${userId}`,
       {
         method: "DELETE",
+        headers,
       },
     );
 
@@ -101,9 +125,17 @@ class ChatService {
     if (!chatId) {
       return Promise.resolve([]);
     }
-    const response = await fetch(`${API_BASE_URL}/api/chat/history?chat_id=${chatId}`);
+    const headers = await this._getAuthHeaders();
+    delete headers["Content-Type"]; // GET request doesn't need Content-Type
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/chat/history?chat_id=${chatId}`,
+      { headers },
+    );
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to fetch history and parse error' }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Failed to fetch history and parse error" }));
       throw new Error(errorData.error || "Failed to fetch chat history");
     }
     return response.json();
@@ -116,13 +148,12 @@ class ChatService {
    * @returns {Promise<Object>} Add participant response
    */
   async addParticipant(chatId, participantData) {
+    const headers = await this._getAuthHeaders();
     const response = await fetch(
       `${API_BASE_URL}/api/chats/${chatId}/participants`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(participantData),
       },
     );
@@ -142,10 +173,14 @@ class ChatService {
    * @returns {Promise<Object>} Remove participant response
    */
   async removeParticipant(chatId, participantId, requestingUserId) {
+    const headers = await this._getAuthHeaders();
+    delete headers["Content-Type"]; // DELETE request doesn't need Content-Type
+
     const response = await fetch(
       `${API_BASE_URL}/api/chats/${chatId}/participants/${participantId}?requesting_user_id=${requestingUserId}`,
       {
         method: "DELETE",
+        headers,
       },
     );
 

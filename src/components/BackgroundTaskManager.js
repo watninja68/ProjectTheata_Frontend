@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
-import { FaGoogle, FaExclamationTriangle, FaInfoCircle, FaRobot, FaCog, FaTerminal } from 'react-icons/fa';
+import apiService from '../services/apiService';
+import { FaInfoCircle, FaExclamationTriangle, FaGoogle, FaRobot, FaCog, FaTerminal } from 'react-icons/fa';
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
@@ -27,16 +28,11 @@ const BackgroundTaskManager = () => {
         setGmailConnectionStatus({ loading: true, message: "Verifying Google connection..." });
         try {
             const statusUrl = `${settings.backendBaseUrl}/api/auth/google/status?supabase_user_id=${user.id}`;
-            const response = await fetch(statusUrl);
-            const data = await response.json();
-            if (response.ok) {
-                if (data.connected) {
-                    setGmailConnectionStatus({ loading: false, message: "Account is authenticated.", connected: true });
-                } else {
-                    setGmailConnectionStatus({ loading: false, message: `Account not connected. Reason: ${data.reason || 'Unknown'}.`, connected: false });
-                }
+            const data = await apiService.get(statusUrl);
+            if (data.connected) {
+                setGmailConnectionStatus({ loading: false, message: "Account is authenticated.", connected: true });
             } else {
-                setGmailConnectionStatus({ loading: false, message: `Could not verify connection (Status: ${response.status}).`, connected: false });
+                setGmailConnectionStatus({ loading: false, message: `Account not connected. Reason: ${data.reason || 'Unknown'}.`, connected: false });
             }
         } catch (e) {
             console.error("Error checking backend Google token status:", e);

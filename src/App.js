@@ -26,6 +26,7 @@ import SettingsDialog from "./components/SettingsDialog";
 import BackgroundTaskManager from "./components/BackgroundTaskManager";
 import Collapsible from "./components/Collapsible";
 import { useSettings } from "./hooks/useSettings";
+import ChatService from "./services/chatService";
 import { useAuth } from "./hooks/useAuth";
 
 function App() {
@@ -222,24 +223,16 @@ function App() {
 
   const handleCreateChat = async () => {
     if (!user?.id) {
-        alert("You must be logged in to create a chat.");
-        return;
+      alert("You must be logged in to create a chat.");
+      return;
     }
     console.log("Creating new chat...");
     try {
-      const res = await fetch(`${settings.backendBaseUrl}/api/chats/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "New Chat",
-          user_id: user.id,
-        }),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to create chat");
-      }
-      const data = await res.json();
+      const chatData = {
+        title: "New Chat",
+        user_id: user.id,
+      };
+      const data = await ChatService.createChat(chatData);
       console.log("Create chat response", data);
       if (data.id) {
         navigate(`/app/chat/${data.id}`);

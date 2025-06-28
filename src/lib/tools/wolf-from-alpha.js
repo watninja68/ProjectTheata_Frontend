@@ -20,7 +20,7 @@ export class WolframAlphaTool {
   async queryWA(input) {
     // Determine the backend URL, defaulting to localhost:8080
     // We use '/wolfram' as defined in your Go backend code.
-    const backendUrl = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8080"}/wolf`;
+    const backendUrl = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8080"}/api/wolf`;
 
     // Create a URL object for the backend endpoint
     const url = new URL(backendUrl);

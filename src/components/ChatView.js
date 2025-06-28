@@ -17,6 +17,7 @@ import AudioVisualizerComponent from "./AudioVisualizerComponent";
 import ScreenAnnotationWrapper from "./ScreenAnnotationWrapper";
 import { useGeminiAgent } from "../hooks/useGeminiAgent";
 import ChatService from "../services/chatService";
+import apiService from "../services/apiService";
 import { fileToBase64 } from "../lib/utils/utils";
 
 const ChatView = ({
@@ -187,13 +188,9 @@ const ChatView = ({
     const backendUrl = `${settings.backendBaseUrl}/api/text`;
     try {
       const payload = { speaker, text: transcript, timestamp: new Date().toISOString(), chat_id: chatId };
-      const response = await fetch(backendUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error(`Go Backend Logging Error (${response.status}): ${errorData}`);
-      }
+      await apiService.post(backendUrl, payload);
     } catch (error) {
-      console.error(`Network Error logging transcript for ${speaker}:`, error);
+      console.error(`Error logging transcript for ${speaker}:`, error);
     }
   }, [settings.backendBaseUrl, chatId]);
 

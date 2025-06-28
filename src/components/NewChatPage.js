@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { useSettings } from "../hooks/useSettings";
+import ChatService from "../services/chatService";
 
 const NewChatPage = () => {
   const [title, setTitle] = useState("");
@@ -15,21 +15,11 @@ const NewChatPage = () => {
 
     setIsCreating(true);
     try {
-      const res = await fetch(`${settings.backendBaseUrl}/api/chats/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          user_id: user.id,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to create chat");
-      }
-
-      const data = await res.json();
+      const chatData = {
+        title: title.trim(),
+        user_id: user.id,
+      };
+      const data = await ChatService.createChat(chatData);
       navigate(`/app/chat/${data.id}`);
     } catch (error) {
       console.error("Create chat error:", error);
