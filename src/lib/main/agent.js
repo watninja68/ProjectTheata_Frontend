@@ -232,6 +232,12 @@ export class GeminiAgent extends EventEmitter {
 
     this.client.on("turn_complete", () => {
       console.info(`${this.name}: Model finished speaking turn.`);
+
+      // Mark the audio stream as complete and flush any remaining audio
+      if (this.audioStreamer && !this.audioStreamer.isDisposed) {
+        this.audioStreamer.markStreamComplete();
+      }
+
       this.emit("turn_complete");
     });
 

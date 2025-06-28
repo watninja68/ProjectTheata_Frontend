@@ -197,6 +197,12 @@ export class AudioStreamer {
         // We don't need to explicitly ensure context is running here,
         // as scheduleNextBuffer will handle it. Add chunk to processing buffer directly.
 
+        // Reset stream completion flag when new audio arrives (indicates new turn)
+        if (this.isStreamComplete) {
+            console.info('AudioStreamer: New audio received after stream completion, resetting for new turn');
+            this.isStreamComplete = false;
+        }
+
         try {
             // --- Convert Int16 (assuming Uint8Array is view on Int16 buffer) to Float32 ---
             // Ensure correct handling based on input type if necessary
@@ -440,6 +446,34 @@ export class AudioStreamer {
             }
         } finally {
             this.isScheduling = false; // Release the scheduling lock
+        }
+    }
+
+    /**
+     * Mark the stream as complete and flush any remaining audio in the processing buffer
+     */
+    markStreamComplete() {
+        if (this.isDisposed) {
+            console.debug("AudioStreamer: markStreamComplete called on disposed instance.");
+            return;
+        }
+
+        console.info('AudioStreamer: Marking stream as complete and flushing remaining audio...');
+        this.isStreamComplete = true;
+
+        // Flush any remaining audio in the processing buffer
+        if (this.processingBuffer.length > 0) {
+            console.info(`AudioStreamer: Flushing ${this.processingBuffer.length} samples from processing buffer`);
+            // Add remaining audio as a final chunk, even if it's smaller than bufferSize
+            this.audioQueue.push(this.processingBuffer.slice());
+            this.processingBuffer = new Float32Array(0);
+
+            // Trigger scheduling if not already playing
+            if (!this.isPlaying && this.audioQueue.length > 0) {
+                this._startPlaybackScheduling();
+            } else if (this.isPlaying && !this.isScheduling) {
+                this.scheduleNextBuffer();
+            }
         }
     }
 

@@ -150,7 +150,12 @@ const ChatView = ({
     if (onConnectionChange) {
       onConnectionChange(isConnected);
     }
-  }, [isConnected, onConnectionChange]);
+
+    // Update hasBeenConnectedBefore when agent connects for the first time
+    if (isConnected && !hasBeenConnectedBefore) {
+      setHasBeenConnectedBefore(true);
+    }
+  }, [isConnected, onConnectionChange, hasBeenConnectedBefore]);
 
   const addMessage = useCallback((sender, text, isStreaming = false, type = "text") => {
     const messageId = Date.now() + Math.random();
@@ -379,8 +384,6 @@ const ChatView = ({
       const hasBeenSent = userTranscriptSentRef.current;
 
       if (currentTranscript && !hasBeenSent) {
-        console.log('Sending user transcript to backend:', currentTranscript);
-
         // Remove any audio input placeholder
         setMessages((prev) => prev.filter((msg) => msg.type !== "audio_input_placeholder"));
 
@@ -434,7 +437,6 @@ const ChatView = ({
         if (transcript.length >= currentBuffer.length) {
           userTranscriptBufferRef.current = transcript;
           userTranscriptSentRef.current = false;
-          console.log('User transcript updated:', transcript);
         }
       }
     };
@@ -486,10 +488,10 @@ const ChatView = ({
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === "audio_input_placeholder") {
           return prev.map((msg) =>
-            msg.id === lastMsg.id ? { ...msg, text: ` ${transcript}` } : msg,
+            msg.id === lastMsg.id ? { ...msg, text: transcript } : msg,
           );
         } else if (!prev.some((msg) => msg.type === "audio_input_placeholder") && displayMicActive) {
-          return [...prev, { id: "placeholder-" + Date.now(), sender: "user", text: ` ${transcript}`, type: "audio_input_placeholder", isStreaming: false }];
+          return [...prev, { id: "placeholder-" + Date.now(), sender: "user", text: transcript, type: "audio_input_placeholder", isStreaming: false }];
         }
         return prev;
       });
