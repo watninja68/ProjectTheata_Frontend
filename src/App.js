@@ -270,12 +270,10 @@ function App() {
           {/* Left sidebar toggle button removed from here */}
           <FaStroopwafel
             style={{
-              fontSize: "1.8rem",
+              fontSize: "1.4rem",
               color: "var(--accent-primary)",
-              marginLeft: "0.5rem",
             }}
           />
-           
           <h1>Project Theta</h1>
         </div>
 

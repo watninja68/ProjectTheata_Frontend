@@ -125,15 +125,15 @@
 
 /* --- Light Theme Variables --- */
 body.theme-light {
-  --bg-primary: #f4f7fa; 
-  --bg-secondary: #ffffff; 
-  --bg-tertiary: #e9edf1; 
-  --bg-user-message: #d0e0ff; 
-  --bg-header-footer: rgba(255, 255, 255, 0.8); 
-  --bg-sidebar: rgba(255, 255, 255, 0.7);
+  --bg-primary: #f9fafb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f3f4f6;
+  --bg-user-message: #dbeafe;
+  --bg-header-footer: rgba(255, 255, 255, 0.95);
+  --bg-sidebar: rgba(255, 255, 255, 0.9);
   --bg-input: var(--bg-secondary);
-  --bg-input-disabled: #e0e4e8;
-  --bg-placeholder: #d8dde4; 
+  --bg-input-disabled: #f3f4f6;
+  --bg-placeholder: #e5e7eb;
   --bg-visualizer: rgba(233, 237, 241, 0.5); 
   --bg-settings: rgba(255, 255, 255, 0.75);
   --bg-settings-input: rgba(244, 247, 250, 0.8);
@@ -153,14 +153,14 @@ body.theme-light {
   --accent-primary-light-rgb-val: 124, 58, 237;
 
 
-  --text-primary: #1f2937; 
-  --text-secondary: #5b667a; 
-  --text-dark: #ffffff; 
-  --text-placeholder: var(--text-secondary);
-  --text-profile-email: rgba(31, 41, 55, 0.7);
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-dark: #ffffff;
+  --text-placeholder: #6b7280;
+  --text-profile-email: rgba(17, 24, 39, 0.8);
 
-  --border-color: #d1d8e0; 
-  --border-settings: rgba(164, 80, 224, 0.2); 
+  --border-color: #d1d5db;
+  --border-settings: rgba(124, 58, 237, 0.3);
   --border-profile-dropdown: var(--border-color);
   --border-profile-divider: var(--border-color);
 
@@ -219,11 +219,11 @@ body {
   transition: all var(--transition-speed) ease;
 }
 .app-header .header-left, .app-header .header-right { display: flex; align-items: center; }
-.app-header .header-left { flex: 1; justify-content: flex-start; gap: 0.5rem; }
+.app-header .header-left { flex: 1; justify-content: flex-start; gap: 0.75rem; }
 .app-header .header-right { flex: 1; justify-content: flex-end; gap: 0.6rem; }
 .app-header .header-center { display: flex; justify-content: center; align-items: center; flex-shrink: 0; padding: 0 1rem; min-width: 160px; text-align: center; }
 .app-header h1 {
-  font-family: var(--font-family);
+  font-family: 'Manrope', var(--font-family);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
