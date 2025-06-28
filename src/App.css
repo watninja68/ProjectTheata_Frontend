@@ -1169,6 +1169,154 @@ body.theme-light .user-message { color: white; }
   font-weight: 500;
 }
 
+/* Enhanced Chat Bubble Styling */
+.chat-bubble {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+  margin: 12px 0;
+  animation: fadeIn 0.3s ease-out;
+  font-family: 'Inter', sans-serif;
+}
+
+.chat-bubble.user-bubble {
+  align-self: flex-end;
+}
+
+.chat-bubble.model-bubble {
+  align-self: flex-start;
+}
+
+.chat-bubble.system-bubble {
+  align-self: center;
+}
+
+.chat-bubble-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.chat-bubble-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: white;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chat-bubble-icon.user-icon {
+  background: var(--accent-primary);
+}
+
+.chat-bubble-icon.model-icon {
+  background: var(--accent-secondary);
+}
+
+.chat-bubble-icon.system-icon {
+  background: var(--text-secondary);
+}
+
+.chat-bubble-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+}
+
+.chat-bubble-content {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  word-wrap: break-word;
+  line-height: 1.6;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chat-bubble.user-bubble .chat-bubble-content {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.chat-bubble.streaming .chat-bubble-content::after {
+  content: '▋';
+  animation: blink 1s step-end infinite;
+  margin-left: 5px;
+  font-weight: bold;
+  color: var(--accent-primary);
+}
+
+.chat-bubble.user-bubble.streaming .chat-bubble-content::after {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Speaking Animation for Model Icon */
+.speaking-animation {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.speaking-animation .wave {
+  width: 2px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+  animation: wave 1.2s ease-in-out infinite;
+}
+
+.speaking-animation .wave:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.speaking-animation .wave:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes wave {
+  0%, 100% {
+    height: 4px;
+    opacity: 0.6;
+  }
+  50% {
+    height: 12px;
+    opacity: 1;
+  }
+}
+
+/* Responsive design for chat bubbles */
+@media (max-width: 768px) {
+  .chat-bubble {
+    max-width: 85%;
+  }
+
+  .chat-bubble-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .chat-bubble-name {
+    font-size: 11px;
+  }
+
+  .chat-bubble-content {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
 /* Tool Call Notification Bubble Styling */
 .tool-call-notification-bubble {
   align-self: flex-start;

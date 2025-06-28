@@ -14,9 +14,10 @@ import {
   FaSpinner,
   FaCheckCircle,
   FaCog,
+  FaUser,
+  FaRobot,
 } from "react-icons/fa";
 import { IoIosAddCircle } from "react-icons/io";
-import AudioVisualizerComponent from "./AudioVisualizerComponent";
 import ScreenAnnotationWrapper from "./ScreenAnnotationWrapper";
 import { useGeminiAgent } from "../hooks/useGeminiAgent";
 import { useToolCallTracking } from "../hooks/useToolCallTracking";
@@ -80,6 +81,8 @@ const ChatView = ({
   const [cameraError, setCameraError] = useState(null);
   const [screenError, setScreenError] = useState(null);
   const [hasBeenConnectedBefore, setHasBeenConnectedBefore] = useState(false);
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+  const [inputText, setInputText] = useState("");
 
   const displayMicActive = isMicActive && !isMicSuspended;
   const canInteract = session && isConnected && !isInitializing;
@@ -171,6 +174,66 @@ const ChatView = ({
 
   // Track tool calls and show them as chat messages
   useToolCallTracking(agent, addMessage, updateMessage);
+
+  // Component for enhanced chat bubble with circular icon and user name
+  const ChatBubble = useCallback(({ message, user, isAgentSpeaking }) => {
+    const isUser = message.sender === "user";
+    const isModel = message.sender === "model";
+    const isSystem = message.sender === "system";
+
+    // Don't render enhanced bubble for tool call messages
+    if (message.type && message.type.startsWith("tool_call")) {
+      return null;
+    }
+
+    const getUserName = () => {
+      if (isUser && user?.user_metadata?.full_name) {
+        return user.user_metadata.full_name;
+      }
+      if (isUser && user?.email) {
+        return user.email.split('@')[0];
+      }
+      if (isUser) return "You";
+      if (isModel) return "Theta";
+      return "System";
+    };
+
+    const getIcon = () => {
+      if (isUser) return <FaUser />;
+      if (isModel) return <FaRobot />;
+      return <FaCog />;
+    };
+
+    const getIconClass = () => {
+      let baseClass = "chat-bubble-icon";
+      if (isUser) baseClass += " user-icon";
+      if (isModel) baseClass += " model-icon";
+      if (isSystem) baseClass += " system-icon";
+      return baseClass;
+    };
+
+    return (
+      <div className={`chat-bubble ${isUser ? "user-bubble" : isModel ? "model-bubble" : "system-bubble"} ${message.isStreaming ? "streaming" : ""}`}>
+        <div className="chat-bubble-header">
+          <div className={getIconClass()}>
+            {isModel && isAgentSpeaking ? (
+              <div className="speaking-animation">
+                <div className="wave"></div>
+                <div className="wave"></div>
+                <div className="wave"></div>
+              </div>
+            ) : (
+              getIcon()
+            )}
+          </div>
+          <span className="chat-bubble-name">{getUserName()}</span>
+        </div>
+        <div className="chat-bubble-content">
+          {message.text}
+        </div>
+      </div>
+    );
+  }, []);
 
   // Function to render tool call messages with notification-style design
   const renderToolCallMessage = useCallback((msg) => {
@@ -305,6 +368,9 @@ const ChatView = ({
         sendAndClearUserBuffer();
       }, 100);
 
+      // Track that agent is speaking when we receive transcription
+      setIsAgentSpeaking(true);
+
       if (!streamingMessageRef.current) {
         agentTextBufferRef.current = transcript;
         addMessage("model", transcript, true);
@@ -333,6 +399,8 @@ const ChatView = ({
       }
       agentTextBufferRef.current = '';
       finalizeStreamingMessageUI();
+      // Stop speaking animation when turn is complete
+      setIsAgentSpeaking(false);
     };
     
     // IMPROVED: Handle interruptions more carefully
@@ -532,7 +600,21 @@ const ChatView = ({
         return renderToolCallMessage(msg);
       }
 
-      // Regular message rendering
+      // Regular message rendering with enhanced chat bubble
+      const chatBubble = (
+        <ChatBubble
+          key={msg.id}
+          message={msg}
+          user={user}
+          isAgentSpeaking={isAgentSpeaking && msg.sender === "model" && msg.isStreaming}
+        />
+      );
+
+      // If ChatBubble returns null (for tool calls), fall back to old rendering
+      if (chatBubble) {
+        return chatBubble;
+      }
+
       return (
         <div
           key={msg.id}
@@ -572,9 +654,7 @@ const ChatView = ({
         </div>
       )}
 
-      {isConnected && agent?.initialized && (
-        <AudioVisualizerComponent agent={agent} />
-      )}
+
 
       {/* Screen Annotation Wrapper - positioned to overlay the screen preview */}
       <ScreenAnnotationWrapper
