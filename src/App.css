@@ -1210,18 +1210,18 @@ body.theme-light .user-message { color: white; }
 .chat-bubble-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 6px;
 }
 
 .chat-bubble-icon {
-  width: 32px;
-  height: 32px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 10px;
   color: white;
   position: relative;
   flex-shrink: 0;
@@ -1248,10 +1248,11 @@ body.theme-light .user-message { color: white; }
 }
 
 .chat-bubble-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   font-family: 'Inter', sans-serif;
+  line-height: 1.2;
 }
 
 .chat-bubble-content {
@@ -1326,13 +1327,13 @@ body.theme-light .user-message { color: white; }
   }
 
   .chat-bubble-icon {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
   }
 
   .chat-bubble-name {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .chat-bubble-content {
@@ -1349,7 +1350,7 @@ body.theme-light .user-message { color: white; }
   border-radius: 12px;
   padding: 16px;
   margin: 12px 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   font-family: 'Inter', sans-serif;
@@ -1418,6 +1419,18 @@ body.theme-light .user-message { color: white; }
   color: #f87171; /* Red */
 }
 
+.tool-call-icon.google-search {
+  color: #4285f4; /* Google Blue */
+}
+
+.tool-call-icon.google-search.success {
+  color: #34a853; /* Google Green */
+}
+
+.tool-call-icon.google-search.error {
+  color: #ea4335; /* Google Red */
+}
+
 @keyframes slideInFromLeft {
   from {
     opacity: 0;
@@ -1429,17 +1442,7 @@ body.theme-light .user-message { color: white; }
   }
 }
 
-/* Dark theme adjustments */
-[data-theme="dark"] .tool-call-notification-bubble {
-  background: rgba(30, 30, 40, 0.95);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Light theme adjustments */
-[data-theme="light"] .tool-call-notification-bubble {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(0, 0, 0, 0.1);
-}
+/* Removed hardcoded theme styles - now uses CSS variables that respond to theme changes */
 
 .system-message { align-self: center; background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 1rem 1.5rem; border-radius: 12px; margin: 1.5rem 0; font-style: normal; max-width: 60%; text-align: center; font-size: var(--font-size-sm); }
 
