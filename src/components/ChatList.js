@@ -56,7 +56,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed, tog
 
   useEffect(() => {
     loadChats();
-  }, [loadChats, selectedChatId]);
+  }, [  selectedChatId]);
 
   const handleDeleteChat = async (idOfChatToDelete, event) => {
     event.stopPropagation();
