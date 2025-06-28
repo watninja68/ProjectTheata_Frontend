@@ -173,7 +173,7 @@ const BackgroundTaskManager = () => {
 
             <div className="gmail-auth-section">
                 <div className="auth-header">
-                    <h5>Authenticate with Google</h5>
+                    <h5>Google Integration</h5>
                 </div>
 
                 <div className="auth-status-container">

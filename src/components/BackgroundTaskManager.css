@@ -9,9 +9,9 @@
     color: var(--text-primary);
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
-    max-height: 400px;
-    /* REMOVED height: 100%; Let content define its height within the collapsible parent */
+    height: 100%;
+    min-height: 0; /* Important for flex containers to allow shrinking */
+    overflow-y: auto; /* Enable scrolling for the entire component */
 }
 body.theme-light .background-task-manager {
     background-color: var(--bg-secondary);
@@ -326,23 +326,15 @@ body.theme-light .task-error { background-color: rgba(var(--error-color-rgb, 255
 
 .task-results {
     margin-top: 1.5rem;
-    padding-top: 1rem; 
+    padding-top: 1rem;
     border-top: 1px dashed var(--border-color);
-    flex-grow: 1; /* Allows this to take available space in BTM */
-    min-height: 0; /* Important for flex-grow in a flex column */
-    overflow-y: auto; 
-    /* max-height: 300px; Removed: Let it fill available space from parent collapsible */
+    flex-shrink: 0; /* Don't shrink, let content determine height */
 }
 
 .task-results h5 {
     margin-top: 0;
     margin-bottom: 0.8rem;
     color: var(--text-primary);
-    position: sticky; 
-    top: -1rem; /* Adjust if padding-top of .task-results is different */
-    background: var(--bg-tertiary); 
-    padding: 1rem 0 0.5rem 0; 
-    z-index: 1; 
 }
 body.theme-light .task-results h5 {
     background: var(--bg-secondary); 
