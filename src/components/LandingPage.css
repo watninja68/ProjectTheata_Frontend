@@ -269,7 +269,7 @@ body {
     var(--accent-primary),
     var(--accent-secondary)
   );
-  color: var(--cta-text-color);
+  color: white !important;
   padding: 12px 24px;
   border-radius: 12px;
   text-decoration: none;
@@ -298,6 +298,7 @@ body {
     var(--accent-secondary),
     var(--accent-primary)
   );
+  color: white !important;
   transform: translateY(-3px) scale(1.05);
   box-shadow: 0 10px 35px rgba(var(--accent-primary-rgb), 0.4);
 }
@@ -316,14 +317,17 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 60px;
   overflow: hidden;
   position: relative;
+  min-height: 80vh;
 }
 
 .hero-content {
   text-align: center;
   max-width: 800px;
+  width: 100%;
 }
 
 .hero-title {
@@ -427,7 +431,8 @@ body {
 .hero-image-placeholder {
   width: 100%;
   max-width: 600px;
-  min-height: 400px;
+  min-height: 450px;
+  height: 450px;
   background: linear-gradient(
     135deg,
     var(--bg-secondary),
@@ -444,66 +449,195 @@ body {
   box-shadow: var(--card-shadow);
   animation: scaleIn 0.8s 0.5s ease-out backwards;
   margin-top: 40px;
-  padding: 40px;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-.hero-visual-elements {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+/* AI Network Visualization */
+.ai-network-visualization {
+  position: relative;
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-.hero-bg-icon {
+/* Central AI Hub */
+.ai-hub {
   position: absolute;
-  color: var(--accent-primary);
-  opacity: 0.1;
-  filter: blur(1px);
-  animation: gentleFloat 8s infinite ease-in-out;
-}
-
-.hero-bg-icon.icon-brain {
-  font-size: 80px;
-  top: 20%;
-  left: 15%;
-  transform: rotate(-10deg);
-}
-
-.hero-bg-icon.icon-users {
-  font-size: 70px;
-  top: 65%;
-  left: 70%;
-  transform: rotate(15deg);
-  animation-duration: 9s;
-  color: var(--accent-secondary);
-}
-
-.hero-bg-icon.icon-cog {
-  font-size: 120px;
-  top: 40%;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%) rotate(8deg);
-  animation-duration: 7s;
-  opacity: 0.15;
+  transform: translate(-50%, -50%);
+  z-index: 3;
 }
+
+.hub-core {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow:
+    0 0 20px rgba(124, 58, 237, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  animation: hubPulse 3s ease-in-out infinite;
+  position: relative;
+}
+
+.hub-core svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.hub-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: pulseRing 2s ease-out infinite;
+}
+
+/* Network Nodes */
+.network-node {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  backdrop-filter: blur(10px);
+  animation: nodeFloat 4s ease-in-out infinite;
+}
+
+.network-node .node-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--accent-secondary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: nodePulse 3s ease-out infinite;
+}
+
+/* Node Positioning - Better balanced positioning */
+.network-node.node-1 {
+  top: 20%;
+  left: 25%;
+  animation-delay: 0s;
+}
+
+.network-node.node-2 {
+  top: 20%;
+  right: 25%;
+  animation-delay: 0.5s;
+}
+
+.network-node.node-3 {
+  bottom: 20%;
+  left: 25%;
+  animation-delay: 1s;
+}
+
+.network-node.node-4 {
+  bottom: 20%;
+  right: 25%;
+  animation-delay: 1.5s;
+}
+
+/* Connection Lines */
+.connection-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.connection-path {
+  stroke-dasharray: 5, 5;
+  animation: dashFlow 3s linear infinite;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 2px rgba(124, 58, 237, 0.3));
+}
+
+.connection-path.path-1 { animation-delay: 0s; }
+.connection-path.path-2 { animation-delay: 0.5s; }
+.connection-path.path-3 { animation-delay: 1s; }
+.connection-path.path-4 { animation-delay: 1.5s; }
+
+/* Data Streams */
+.data-stream {
+  position: absolute;
+  display: flex;
+  gap: 10px;
+  animation: streamFlow 8s linear infinite;
+}
+
+.data-stream.stream-1 {
+  top: 30%;
+  left: -50px;
+  animation-delay: 0s;
+}
+
+.data-stream.stream-2 {
+  bottom: 30%;
+  right: -50px;
+  animation-delay: 2s;
+  animation-direction: reverse;
+}
+
+.data-bit {
+  width: 4px;
+  height: 4px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  opacity: 0.8;
+  animation: bitPulse 1s ease-in-out infinite alternate;
+}
+
+.data-bit:nth-child(2) { animation-delay: 0.2s; }
+.data-bit:nth-child(3) { animation-delay: 0.4s; }
 
 .hero-preview-text {
-  position: relative;
-  z-index: 1;
-  font-size: 1.25rem;
-  color: var(--text-secondary);
-  font-weight: 600;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 0.9rem;
+  color: var(--accent-primary);
+  font-weight: 700;
   margin-top: 0;
-  background: rgba(var(--bg-secondary-rgb), 0.8);
-  padding: 16px 24px;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
+  background: rgba(var(--bg-secondary-rgb), 0.95);
+  padding: 10px 18px;
+  border-radius: 18px;
+  backdrop-filter: blur(15px);
   letter-spacing: -0.01em;
-  border: 1px solid var(--card-border);
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.2);
+  box-shadow: 0 8px 25px rgba(var(--accent-primary-rgb), 0.15);
+  white-space: nowrap;
+  text-align: center;
 }
 
 /* ------------------------- */
@@ -1121,11 +1255,16 @@ body {
     gap: 80px;
     padding: 140px 40px 160px;
     align-items: center;
+    min-height: 600px;
   }
 
   .hero-content {
     flex: 1.2;
     text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: center;
   }
 
   .hero-title,
@@ -1140,7 +1279,13 @@ body {
     flex: 0.8;
     max-width: 600px;
     min-height: 450px;
+    height: 450px;
     margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    padding: 30px;
   }
 }
 
@@ -1206,6 +1351,9 @@ body {
 
   .hero-section {
     padding: 80px 24px 100px;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
   }
 
   .hero-title {
@@ -1277,16 +1425,19 @@ body {
     min-height: 300px;
   }
 
-  .hero-bg-icon.icon-brain {
-    font-size: 60px;
+  /* Responsive AI Network Visualization */
+  .ai-hub .hub-core {
+    width: 50px;
+    height: 50px;
   }
 
-  .hero-bg-icon.icon-users {
-    font-size: 50px;
+  .network-node {
+    width: 35px;
+    height: 35px;
   }
 
-  .hero-bg-icon.icon-cog {
-    font-size: 80px;
+  .data-stream {
+    display: none; /* Hide data streams on mobile for cleaner look */
   }
 
   .how-step,
@@ -1357,18 +1508,7 @@ body {
   }
 }
 
-@keyframes gentleFloat {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(var(--initial-rotate, 0deg));
-    opacity: var(--initial-opacity, 0.1);
-  }
-  50% {
-    transform: translateY(-15px)
-      rotate(calc(var(--initial-rotate, 0deg) + 10deg));
-    opacity: calc(var(--initial-opacity, 0.1) + 0.05);
-  }
-}
+/* Old gentleFloat animation removed - replaced with AI network animations */
 
 @keyframes gradientShift {
   0% {
@@ -1382,20 +1522,83 @@ body {
   }
 }
 
-.hero-bg-icon.icon-brain {
-  --initial-rotate: -10deg;
-  --initial-opacity: 0.08;
+/* AI Network Animations */
+@keyframes hubPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow:
+      0 0 20px rgba(124, 58, 237, 0.4),
+      inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+    box-shadow:
+      0 0 30px rgba(124, 58, 237, 0.6),
+      inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  }
 }
 
-.hero-bg-icon.icon-users {
-  --initial-rotate: 15deg;
-  --initial-opacity: 0.06;
+@keyframes pulseRing {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
 }
 
-.hero-bg-icon.icon-cog {
-  --initial-rotate: 8deg;
-  --initial-opacity: 0.12;
+@keyframes nodeFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
+
+@keyframes nodePulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes dashFlow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 20;
+  }
+}
+
+@keyframes streamFlow {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(100vw + 100px));
+  }
+}
+
+@keyframes bitPulse {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Old icon variables removed - replaced with AI network visualization */
 
 /* ------------------------- */
 /* --- ACCESSIBILITY --- */
