@@ -58,7 +58,7 @@ function App() {
   const [googleAuthMessage, setGoogleAuthMessage] = useState("");
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [activeRightTab, setActiveRightTab] = useState('media'); // 'media' or 'tasks'
+  const [activeRightTab, setActiveRightTab] = useState('tasks'); // 'media' or 'tasks'
 
   // --- Resizable Sidebar State ---
   const [rightSidebarWidth, setRightSidebarWidth] = useState(350);
@@ -496,18 +496,19 @@ function App() {
                 {/* Tab Navigation */}
                 <div className="sidebar-tab-nav">
                   <button
-                    className={`sidebar-tab ${activeRightTab === 'media' ? 'active' : ''}`}
-                    onClick={() => setActiveRightTab('media')}
-                  >
-                    MEDIA PREVIEWS
-                  </button>
-                  {session && (
-                    <button
                       className={`sidebar-tab ${activeRightTab === 'tasks' ? 'active' : ''}`}
                       onClick={() => setActiveRightTab('tasks')}
                     >
                       BACKGROUND TASKS
                     </button>
+                  
+                  {session && (
+                    <button
+                    className={`sidebar-tab ${activeRightTab === 'media' ? 'active' : ''}`}
+                    onClick={() => setActiveRightTab('media')}
+                  >
+                    MEDIA PREVIEWS
+                  </button>
                   )}
                 </div>
 
