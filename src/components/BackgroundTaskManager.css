@@ -19,15 +19,7 @@ body.theme-light .background-task-manager {
 }
 
 
-.background-task-manager h4 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    font-size: 0.9em;
-    font-weight: 600;
-    flex-shrink: 0; 
-}
+/* Removed - now handled by .background-agent-header h4 */
 
 .task-form {
     display: flex;
@@ -109,16 +101,32 @@ body.theme-light .background-task-manager {
     color: var(--text-secondary);
 }
 
-/* Gmail Auth Section Styles */
-.gmail-auth-section {
+/* Background Agent Header */
+.background-agent-header {
     margin-bottom: 1.5rem;
-    padding: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.background-agent-header h4 {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    text-align: center;
+}
+
+/* Gmail Auth Section Styles - Redesigned */
+.gmail-auth-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
     background-color: rgba(124, 58, 237, 0.05);
     border: 1px solid rgba(124, 58, 237, 0.1);
     border-radius: var(--border-radius);
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 0.5rem;
     flex-shrink: 0;
 }
 body.theme-light .gmail-auth-section {
@@ -126,45 +134,179 @@ body.theme-light .gmail-auth-section {
     border: 1px solid rgba(124, 58, 237, 0.15);
 }
 
-.gmail-auth-section h5 {
-    margin-top: 0;
-    margin-bottom: 0.75rem;
+/* Auth Header */
+.auth-header {
+    text-align: center;
+    margin-bottom: 0.25rem;
+}
+
+.auth-header h5 {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
     color: var(--accent-primary);
+}
+
+/* Auth Status Container */
+.auth-status-container {
+    display: flex;
+    justify-content: center;
+    margin: 0.5rem 0;
 }
 
 .auth-status {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
-    font-weight: 500;
-    margin-bottom: 0.5rem; 
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    min-width: 200px;
+    justify-content: flex-start;
 }
-.auth-status.success { color: var(--success-color); }
-.auth-status.error { color: var(--error-color); }
-.auth-status.info { color: var(--info-color); }
-.auth-status svg { font-size: 1.1em; }
 
-.gmail-auth-button { 
-    background-color: var(--accent-primary) !important; 
-    color: #fff !important;
-    padding: 0.6rem 1rem !important;
-    font-size: 0.9em !important;
-    display: inline-flex; 
+/* Auth Icon Wrapper */
+.auth-icon-wrapper {
+    display: flex;
     align-items: center;
-    gap: 0.5rem;
-    align-self: flex-start; 
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
+
+.auth-icon-wrapper.success {
+    background-color: var(--success-color);
+}
+
+.auth-icon-wrapper.error {
+    background-color: var(--error-color);
+}
+
+.auth-icon {
+    font-size: 14px;
+    color: white;
+}
+
+.auth-status.info .auth-icon {
+    color: var(--info-color);
+    font-size: 16px;
+}
+
+.auth-message {
+    flex: 1;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.auth-status.success .auth-message {
+    color: var(--success-color);
+}
+
+.auth-status.error .auth-message {
+    color: var(--error-color);
+}
+
+.auth-status.info .auth-message {
+    color: var(--info-color);
+}
+
+/* Auth Button Container */
+.auth-button-container {
+    display: flex;
+    justify-content: center;
+    margin: 0.25rem 0;
+}
+
+.gmail-auth-button {
+    background-color: var(--accent-primary) !important;
+    color: #fff !important;
+    padding: 0.75rem 1.5rem !important;
+    font-size: var(--font-size-sm) !important;
+    font-weight: var(--font-weight-medium) !important;
+    font-family: 'Roboto Mono', monospace !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+    min-width: 200px;
+    justify-content: center;
+}
+
 .gmail-auth-button:hover:not(:disabled) {
     background-color: var(--accent-secondary) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 
-.gmail-auth-section p small { 
-    display: block;
-    margin-top: 0.75rem; 
-    font-size: 0.8em;
+.gmail-auth-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+}
+
+.gmail-auth-button .button-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.gmail-auth-button .button-text {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+/* Auth Info Section */
+.auth-info-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background-color: rgba(124, 58, 237, 0.03);
+    border: 1px solid rgba(124, 58, 237, 0.08);
+    border-radius: 8px;
+    margin-top: 0.25rem;
+}
+
+body.theme-light .auth-info-section {
+    background-color: rgba(124, 58, 237, 0.02);
+    border: 1px solid rgba(124, 58, 237, 0.12);
+}
+
+.info-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.info-icon {
+    font-size: 16px;
+    color: var(--accent-primary);
+}
+
+.info-note {
+    flex: 1;
+}
+
+.info-note p {
+    margin: 0;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
-    line-height: 1.3;
+    line-height: var(--line-height-normal);
+    font-weight: var(--font-weight-normal);
 }
 
 

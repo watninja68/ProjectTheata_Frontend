@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './BackgroundTaskManager.css';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
-import { FaGoogle, FaExclamationTriangle, FaInfoCircle, FaRobot, FaCog, FaTerminal } from 'react-icons/fa';
+import { FaGoogle, FaInfoCircle, FaRobot, FaCog, FaTerminal, FaCheckCircle, FaTimes } from 'react-icons/fa';
 
 const BackgroundTaskManager = () => {
     const [taskQuery, setTaskQuery] = useState('');
@@ -167,31 +167,59 @@ const BackgroundTaskManager = () => {
 
     return (
         <div className="background-task-manager">
-            <h4>Background Agent</h4>
-
+            <div className="background-agent-header">
+                <h4>Background Agent</h4>
+            </div>
 
             <div className="gmail-auth-section">
-                <h5>Authenticate with Google</h5>
-                {gmailConnectionStatus.loading ? (
-                    <p className="auth-status info"><FaInfoCircle /> Verifying status...</p>
-                ) : (
-                    <p className={`auth-status ${gmailConnectionStatus.connected ? 'success' : 'error'}`}>
-                        {gmailConnectionStatus.connected ? <FaInfoCircle /> : <FaExclamationTriangle />}
-                        {gmailConnectionStatus.message}
-                    </p>
-                )}
-                <button
-                    onClick={handleInitiateGoogleAuthViaGo}
-                    className="gmail-auth-button"
-                    disabled={!user || !settings.backendBaseUrl || gmailConnectionStatus.loading}
-                    title={!user ? "Log in first" : !settings.backendBaseUrl ? "Backend URL not set" : "Connect or Refresh Google Account"}
-                >
-                    <FaGoogle style={{ marginRight: '8px' }} />
-                    {gmailConnectionStatus.connected ? "Refresh Google Connection" : "Connect Google Account"}
-                </button>
-                 <p><small>
-                    For tasks involving Gmail or Google Drive, your Google account needs to be connected.
-                 </small></p>
+                <div className="auth-header">
+                    <h5>Authenticate with Google</h5>
+                </div>
+
+                <div className="auth-status-container">
+                    {gmailConnectionStatus.loading ? (
+                        <div className="auth-status info">
+                            <FaInfoCircle className="auth-icon" />
+                            <span className="auth-message">Verifying status...</span>
+                        </div>
+                    ) : (
+                        <div className={`auth-status ${gmailConnectionStatus.connected ? 'success' : 'error'}`}>
+                            {gmailConnectionStatus.connected ? (
+                                <div className="auth-icon-wrapper success">
+                                    <FaCheckCircle className="auth-icon" />
+                                </div>
+                            ) : (
+                                <div className="auth-icon-wrapper error">
+                                    <FaTimes className="auth-icon" />
+                                </div>
+                            )}
+                            <span className="auth-message">{gmailConnectionStatus.message}</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="auth-button-container">
+                    <button
+                        onClick={handleInitiateGoogleAuthViaGo}
+                        className="gmail-auth-button"
+                        disabled={!user || !settings.backendBaseUrl || gmailConnectionStatus.loading}
+                        title={!user ? "Log in first" : !settings.backendBaseUrl ? "Backend URL not set" : "Connect or Refresh Google Account"}
+                    >
+                        <FaGoogle className="button-icon" />
+                        <span className="button-text">
+                            {gmailConnectionStatus.connected ? "Refresh Google Connection" : "Connect Google Account"}
+                        </span>
+                    </button>
+                </div>
+
+                <div className="auth-info-section">
+                    <div className="info-icon-container">
+                        <FaInfoCircle className="info-icon" />
+                    </div>
+                    <div className="info-note">
+                        <p>For tasks involving Gmail or Google Drive, your Google account needs to be connected.</p>
+                    </div>
+                </div>
             </div>
 
             <div className="task-form">
