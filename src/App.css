@@ -1100,9 +1100,6 @@ body.theme-light .new-conversation-btn:hover {
   position: relative;
   min-height: 0; /* Added: Allow flex shrinking */
   max-height: 100%; /* Added: Prevent overflow beyond container */
-  /* Center content when there are no messages */
-  justify-content: center;
-  align-items: center;
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .chat-message {
@@ -1450,7 +1447,26 @@ body.theme-light .user-message { color: white; }
 .system-message { align-self: center; background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 1rem 1.5rem; border-radius: 12px; margin: 1.5rem 0; font-style: normal; max-width: 60%; text-align: center; font-size: var(--font-size-sm); }
 
 /* --- Connect Prompt Button Styling --- */
-.connect-prompt-container { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2rem; margin: auto; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--border-radius); max-width: 400px; box-shadow: var(--shadow-sm); color: var(--text-primary); }
+.connect-prompt-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  max-width: 400px;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  /* Center in the chat area */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
 .connect-prompt-container p { margin-bottom: 1rem; line-height: 1.5; font-size: 1.05rem; color: var(--text-secondary); }
 .connect-prompt-container p:first-of-type { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); margin-bottom: 0.5rem; }
 .connect-prompt-button { 
