@@ -1210,18 +1210,18 @@ body.theme-light .user-message { color: white; }
 .chat-bubble-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 6px;
 }
 
 .chat-bubble-icon {
-  width: 32px;
-  height: 32px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 10px;
   color: white;
   position: relative;
   flex-shrink: 0;
@@ -1248,10 +1248,11 @@ body.theme-light .user-message { color: white; }
 }
 
 .chat-bubble-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   font-family: 'Inter', sans-serif;
+  line-height: 1.2;
 }
 
 .chat-bubble-content {
@@ -1326,13 +1327,13 @@ body.theme-light .user-message { color: white; }
   }
 
   .chat-bubble-icon {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
   }
 
   .chat-bubble-name {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .chat-bubble-content {
