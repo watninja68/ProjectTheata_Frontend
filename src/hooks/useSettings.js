@@ -60,16 +60,58 @@ export const useSettings = () => {
     return "dark";
   });
 
-  // Ensure theme is applied immediately on mount
+  // Load settings and apply theme from localStorage on initial mount
   useEffect(() => {
-    // Apply theme class immediately
+    const loadedSettings = {};
+    Object.keys(defaults).forEach((key) => {
+      const storedValue = localStorage.getItem(key);
+      if (storedValue !== null) {
+        // Handle booleans from localStorage (stored as strings)
+        if (
+          key === "transcribeModelsSpeech" ||
+          key === "transcribeUsersSpeech"
+        ) {
+          loadedSettings[key] = storedValue === "true";
+        } else if (
+          key === "deepgramApiKey" ||
+          key === "voiceName" ||
+          key === "systemInstructions"
+        ) {
+          loadedSettings[key] = storedValue;
+        } else if (
+          key === "temperature" ||
+          key === "top_p" ||
+          key === "quality"
+        ) {
+          loadedSettings[key] = parseFloat(storedValue);
+        } else {
+          // Ensure keys like 'harassmentThreshold' are parsed correctly
+          const parsedInt = parseInt(storedValue, 10);
+          loadedSettings[key] = isNaN(parsedInt) ? defaults[key] : parsedInt;
+        }
+      } else {
+        loadedSettings[key] = defaults[key]; // Fallback to default if not in localStorage
+      }
+    });
+    setSettings(loadedSettings);
+
+    // Add a console warning if the key isn't set
+    if (!HARDCODED_API_KEY) {
+      console.warn(
+        "WARNING: Gemini API Key is not hardcoded in src/hooks/useSettings.js. Connection will fail.",
+      );
+    }
+
+    // Apply initial theme class
     document.documentElement.setAttribute("data-theme", theme);
     document.body.className = theme === "light" ? "theme-light" : "";
     
     // Also set a class on html element for extra safety
     if (theme === "light") {
+      document.body.classList.add("theme-light");
       document.documentElement.classList.add("theme-light");
     } else {
+      document.body.classList.remove("theme-light");
       document.documentElement.classList.remove("theme-light");
     }
   }, []); // Empty dependency array runs only on mount
