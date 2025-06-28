@@ -1100,6 +1100,9 @@ body.theme-light .new-conversation-btn:hover {
   position: relative;
   min-height: 0; /* Added: Allow flex shrinking */
   max-height: 100%; /* Added: Prevent overflow beyond container */
+  /* Center content when there are no messages */
+  justify-content: center;
+  align-items: center;
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .chat-message {
