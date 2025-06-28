@@ -675,19 +675,19 @@ const ChatView = ({
     <div className="chat-area">
       <div id="chatHistory" ref={chatHistoryRef} className="chat-history">
         {renderChatContent()}
-      </div>
 
-      {/* Prompts for NEW or NEVER-CONNECTED chats */}
-      {!hasBeenConnectedBefore && session && !isConnected && !isInitializing && !agentError && (
-        <div className="connect-prompt-container">
-          <p>Ready to start?</p>
-          <p>Connect to the live agent to begin this conversation.</p>
-          <button onClick={handleConnect} className="connect-prompt-button" disabled={isInitializing}>
-            {isInitializing ? <FaSpinner className="fa-spin" /> : <FaLink />}
-            {isInitializing ? " Connecting..." : " Connect Agent"}
-          </button>
-        </div>
-      )}
+        {/* Prompts for NEW or NEVER-CONNECTED chats - positioned within chat-history for proper centering */}
+        {!hasBeenConnectedBefore && session && !isConnected && !isInitializing && !agentError && messages.length === 0 && (
+          <div className="connect-prompt-container">
+            <p>Ready to start?</p>
+            <p>Connect to the live agent to begin this conversation.</p>
+            <button onClick={handleConnect} className="connect-prompt-button" disabled={isInitializing}>
+              {isInitializing ? <FaSpinner className="fa-spin" /> : <FaLink />}
+              {isInitializing ? " Connecting..." : " Connect Agent"}
+            </button>
+          </div>
+        )}
+      </div>
 
       {!hasBeenConnectedBefore && session && agentError && !isConnected && !isInitializing && (
         <div className="chat-message system-message error-message">
@@ -710,7 +710,7 @@ const ChatView = ({
       {session && (
         <div className="footer-controls-stacked">
 
-          {!isConnected ? (
+          {!isConnected && hasBeenConnectedBefore ? (
             <div className="reconnect-section">
               <button
                 onClick={handleConnect}
@@ -722,7 +722,9 @@ const ChatView = ({
                 {isInitializing ? "Connecting..." : "Reconnect"}
               </button>
             </div>
-          ) : (
+          ) : null}
+
+          {isConnected && (
             <div className="floating-media-controls">
               <button onClick={handleDisconnect} className="control-btn error" title="Disconnect Agent Session">
                 <FaUnlink />
