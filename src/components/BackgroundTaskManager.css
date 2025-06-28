@@ -365,8 +365,27 @@ body.theme-light .response-step {
     vertical-align: middle;
 }
 
-.text-response strong {
+.text-response {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.response-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.response-header strong {
     color: var(--accent-primary);
+}
+
+.response-content {
+    padding-left: 1.5rem; /* Align with the text after the icon */
+    line-height: 1.6;
+    white-space: pre-wrap; /* Preserve line breaks and spacing */
+    word-wrap: break-word;
 }
 
 .function-call-details code {

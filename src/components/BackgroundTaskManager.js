@@ -252,7 +252,12 @@ const BackgroundTaskManager = () => {
                             <div key={index} className={`response-step step-type-${item.type}`}>
                                 {item.type === 'text' && (
                                     <div className="text-response">
-                                        <FaRobot className="step-icon" /> <strong>{item.author || 'Agent'}:</strong> {item.content}
+                                        <div className="response-header">
+                                            <FaRobot className="step-icon" /> <strong>{item.author || 'Agent'}:</strong>
+                                        </div>
+                                        <div className="response-content">
+                                            {item.content}
+                                        </div>
                                     </div>
                                 )}
                                 {item.type === 'functionCall' && (
