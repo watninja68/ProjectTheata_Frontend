@@ -4,16 +4,18 @@
     padding: 1rem;
     border-top: 1px solid var(--border-color);
     margin-top: 1rem;
-    background-color: rgba(var(--bg-secondary-rgb, 20, 10, 35), 0.3);
+    background-color: var(--bg-tertiary);
     border-radius: var(--border-radius);
     color: var(--text-primary);
-    display: flex; 
+    display: flex;
     flex-direction: column;
-    overflow: hidden; 
+    overflow-y: auto;
+    max-height: 400px;
     /* REMOVED height: 100%; Let content define its height within the collapsible parent */
 }
 body.theme-light .background-task-manager {
-    background-color: rgba(var(--bg-secondary-rgb-light, 255, 255, 255), 0.7);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
 }
 
 
@@ -111,17 +113,17 @@ body.theme-light .background-task-manager {
 .gmail-auth-section {
     margin-bottom: 1.5rem;
     padding: 1rem;
-    background-color: rgba(var(--accent-primary-rgb, 138, 43, 226), 0.05);
-    border: 1px solid rgba(var(--accent-primary-rgb, 138, 43, 226), 0.1);
+    background-color: rgba(124, 58, 237, 0.05);
+    border: 1px solid rgba(124, 58, 237, 0.1);
     border-radius: var(--border-radius);
-    display: flex; 
-    flex-direction: column; 
-    align-items: flex-start; 
-    flex-shrink: 0; 
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-shrink: 0;
 }
 body.theme-light .gmail-auth-section {
-    background-color: rgba(var(--accent-primary-light-rgb-val, 168, 133, 229), 0.05);
-    border: 1px solid rgba(var(--accent-primary-light-rgb-val, 168, 133, 229), 0.1);
+    background-color: rgba(124, 58, 237, 0.03);
+    border: 1px solid rgba(124, 58, 237, 0.15);
 }
 
 .gmail-auth-section h5 {

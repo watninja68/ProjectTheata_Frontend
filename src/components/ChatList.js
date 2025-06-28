@@ -5,10 +5,9 @@ import {
   FaEdit,
   FaSpinner,
   FaCommentDots, // Added for collapse button
-  FaBars,    
-  FaAngleDoubleLeft    // Added for collapse button
+  FaBars
 } from "react-icons/fa";
-import { TbArrowBarToLeft } from "react-icons/tb";
+import { MdChevronLeft } from "react-icons/md";
 import { IoIosAdd } from "react-icons/io";
 import ChatService from "../services/chatService";
 import { useAuth } from "../hooks/useAuth";
@@ -225,7 +224,7 @@ const ChatList = ({ onChatSelect, selectedChatId, onCreateChat, isCollapsed, tog
             className="sidebar-toggle-btn" 
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            {isCollapsed ? <FaBars size={20} /> : <TbArrowBarToLeft size={24} />}
+            {isCollapsed ? <FaBars size={20} /> : <MdChevronLeft size={24} />}
           </button>
         </div>
 

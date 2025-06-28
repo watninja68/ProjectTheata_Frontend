@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { TfiReload } from "react-icons/tfi";
 import {
   FaLink,
   FaUnlink,
@@ -509,73 +510,54 @@ const ChatView = ({
 
       {session && (
         <div className="footer-controls-stacked">
-          {/* Reconnect UI for PREVIOUSLY CONNECTED chats */}
-          {hasBeenConnectedBefore && session && !isConnected && !isInitializing && (
-            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-              {agentError ? (
-                <div className="reconnect-error-container">
-                  <p style={{ color: 'var(--error-color, #ff4d4d)', fontSize: '0.9em', marginBottom: '5px' }}>
-                    <FaExclamationTriangle style={{ marginRight: '5px' }} />
-                    Connection failed: {agentError}
-                  </p>
-                  <button 
-                    onClick={handleConnect} 
-                    className="reconnect-button-small" 
-                    title="Retry Connect" 
-                    disabled={isInitializing}
-                  >
-                    {isInitializing ? <FaSpinner className="fa-spin" style={{ marginRight: '5px' }} /> : <FaSyncAlt style={{ marginRight: '5px' }} />}
-                    {isInitializing ? " Connecting..." : " Retry"}
-                  </button>
-                </div>
-              ) : (
-                <button 
-                  onClick={handleConnect} 
-                  className="reconnect-button-small" 
-                  title="Reconnect to agent" 
-                  disabled={isInitializing}
-                >
-                  {isInitializing ? <FaSpinner className="fa-spin" style={{ marginRight: '5px' }} /> : <FaLink style={{ marginRight: '5px' }} />}
-                  {isInitializing ? " Connecting..." : " Reconnect"}
-                </button>
-              )}
+
+          {!isConnected ? (
+            <div className="reconnect-section">
+              <button
+                onClick={handleConnect}
+                className="reconnect-button"
+                title="Reconnect to agent"
+                disabled={isInitializing}
+              >
+                {isInitializing ? <FaSpinner className="fa-spin" style={{ marginRight: '8px' }} /> : <TfiReload style={{ marginRight: '8px' }} />}
+                {isInitializing ? "Connecting..." : "Reconnect"}
+              </button>
             </div>
-          )}
-          <div className="floating-media-controls">
-            {isConnected && (
+          ) : (
+            <div className="floating-media-controls">
               <button onClick={handleDisconnect} className="control-btn error" title="Disconnect Agent Session">
                 <FaUnlink />
                 <span className="button-text">Disconnect</span>
               </button>
-            )}
-            <button
-              onClick={handleToggleMic}
-              className={`control-btn mic-btn ${displayMicActive ? "active" : ""} ${isMicSuspended && isMicActive ? "suspended" : ""}`}
-              disabled={!canInteract}
-              title={(displayMicActive ? "Mute" : "Unmute") + (isMicSuspended ? " (Suspended)" : "")}
-            >
-              {displayMicActive ? <FaMicrophone /> : <FaMicrophoneSlash />}
-              <span className="button-text">Mic</span>
-            </button>
-            <button
-              onClick={handleToggleCamera}
-              className={`control-btn cam-btn ${isCameraActive ? "active" : ""} ${cameraError ? "error" : ""}`}
-              disabled={!canInteract}
-              title={cameraError ? `Camera Error: ${cameraError}` : isCameraActive ? "Stop Camera" : "Start Camera"}
-            >
-              {isCameraActive ? <FaVideo /> : <FaVideoSlash />}
-              <span className="button-text">Cam</span>
-            </button>
-            <button
-              onClick={handleToggleScreenShare}
-              className={`control-btn screen-btn ${isScreenShareActive ? "active" : ""} ${screenError ? "error" : ""}`}
-              disabled={!canInteract}
-              title={screenError ? `Screen Error: ${screenError}` : isScreenShareActive ? "Stop Screen" : "Start Screen"}
-            >
-              <FaDesktop />
-              <span className="button-text">Screen</span>
-            </button>
-          </div>
+              <button
+                onClick={handleToggleMic}
+                className={`control-btn mic-btn ${displayMicActive ? "active" : ""} ${isMicSuspended && isMicActive ? "suspended" : ""}`}
+                disabled={!canInteract}
+                title={(displayMicActive ? "Mute" : "Unmute") + (isMicSuspended ? " (Suspended)" : "")}
+              >
+                {displayMicActive ? <FaMicrophone /> : <FaMicrophoneSlash />}
+                <span className="button-text">Mic</span>
+              </button>
+              <button
+                onClick={handleToggleCamera}
+                className={`control-btn cam-btn ${isCameraActive ? "active" : ""} ${cameraError ? "error" : ""}`}
+                disabled={!canInteract}
+                title={cameraError ? `Camera Error: ${cameraError}` : isCameraActive ? "Stop Camera" : "Start Camera"}
+              >
+                {isCameraActive ? <FaVideo /> : <FaVideoSlash />}
+                <span className="button-text">Camera</span>
+              </button>
+              <button
+                onClick={handleToggleScreenShare}
+                className={`control-btn screen-btn ${isScreenShareActive ? "active" : ""} ${screenError ? "error" : ""}`}
+                disabled={!canInteract}
+                title={screenError ? `Screen Error: ${screenError}` : isScreenShareActive ? "Stop Screen" : "Start Screen"}
+              >
+                <FaDesktop />
+                <span className="button-text">Screen Share</span>
+              </button>
+            </div>
+          )}
           <div className="text-input-container">
             <input
               id="imageInput"
