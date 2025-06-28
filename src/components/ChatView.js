@@ -16,6 +16,7 @@ import {
   FaCog,
   FaUser,
   FaRobot,
+  FaGoogle,
 } from "react-icons/fa";
 import { IoIosAddCircle } from "react-icons/io";
 import ScreenAnnotationWrapper from "./ScreenAnnotationWrapper";
@@ -263,20 +264,44 @@ const ChatView = ({
 
     let icon, title, message, bubbleClass;
 
+    // Check if this is a Google search tool call
+    const isGoogleSearch = messageData.toolName && (
+      messageData.toolName.toLowerCase().includes('google') ||
+      messageData.toolName.toLowerCase().includes('search')
+    );
+
     if (isStarted) {
-      icon = <FaSpinner className="tool-call-icon spinning" />;
-      title = "Tool Call Started";
-      message = `Executing ${messageData.toolName}...`;
+      if (isGoogleSearch) {
+        icon = <FaGoogle className="tool-call-icon google-search" />;
+        title = "Google Search";
+        message = `Searching Google...`;
+      } else {
+        icon = <FaSpinner className="tool-call-icon spinning" />;
+        title = "Tool Call Started";
+        message = `Executing ${messageData.toolName}...`;
+      }
       bubbleClass = "";
     } else if (isSuccess) {
-      icon = <FaCheckCircle className="tool-call-icon success" />;
-      title = "Tool Call Completed";
-      message = `${messageData.toolName} completed successfully`;
+      if (isGoogleSearch) {
+        icon = <FaGoogle className="tool-call-icon google-search success" />;
+        title = "Google Search Completed";
+        message = `Google search completed successfully`;
+      } else {
+        icon = <FaCheckCircle className="tool-call-icon success" />;
+        title = "Tool Call Completed";
+        message = `${messageData.toolName} completed successfully`;
+      }
       bubbleClass = "success";
     } else if (isError) {
-      icon = <FaExclamationTriangle className="tool-call-icon error" />;
-      title = "Tool Call Failed";
-      message = `${messageData.toolName} failed: ${messageData.error || 'Unknown error'}`;
+      if (isGoogleSearch) {
+        icon = <FaGoogle className="tool-call-icon google-search error" />;
+        title = "Google Search Failed";
+        message = `Google search failed: ${messageData.error || 'Unknown error'}`;
+      } else {
+        icon = <FaExclamationTriangle className="tool-call-icon error" />;
+        title = "Tool Call Failed";
+        message = `${messageData.toolName} failed: ${messageData.error || 'Unknown error'}`;
+      }
       bubbleClass = "error";
     }
 

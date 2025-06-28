@@ -1418,6 +1418,18 @@ body.theme-light .user-message { color: white; }
   color: #f87171; /* Red */
 }
 
+.tool-call-icon.google-search {
+  color: #4285f4; /* Google Blue */
+}
+
+.tool-call-icon.google-search.success {
+  color: #34a853; /* Google Green */
+}
+
+.tool-call-icon.google-search.error {
+  color: #ea4335; /* Google Red */
+}
+
 @keyframes slideInFromLeft {
   from {
     opacity: 0;
